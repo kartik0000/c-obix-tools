@@ -73,7 +73,7 @@ static void printXMLContents(IXML_Node* node, const char* title)
 
 int xmldb_loadFile(const char* filename)
 {
-    char* xmlFile = getResFullPath(filename);
+    char* xmlFile = config_getResFullPath(filename);
 
     // open the file
     FILE* file = fopen(xmlFile, "rb");

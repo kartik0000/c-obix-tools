@@ -824,7 +824,7 @@ int testSignUp()
 
 int test_server(char* resFolder)
 {
-    setResourceDir(resFolder);
+    config_setResourceDir(resFolder);
 
     int result = 0;
 

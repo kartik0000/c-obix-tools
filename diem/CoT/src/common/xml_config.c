@@ -14,7 +14,7 @@ const char* CT_CONFIG = "config";
 const char* CTA_VALUE = "val";
 /*@}*/
 
-char* resourceFolder = "";
+static char* resourceFolder;
 
 static IXML_Document* xmlConfigDoc;
 
@@ -81,7 +81,7 @@ int config_getTagIntAttrValue(IXML_Element* tag, const char* attrName, BOOL obli
     long val = config_getTagLongAttrValue(tag, attrName, obligatory, defaultValue);
     if (val < 0)
     {	// error is already logged
-    	return val;
+        return val;
     }
 
     if (val > INT_MAX)
@@ -210,7 +210,7 @@ int config_getTagBoolAttrValue(IXML_Element* tag, const char* attrName, BOOL obl
 
 IXML_Element* config_loadFile(const char* filename)
 {
-    char* path = getResFullPath(filename);
+    char* path = config_getResFullPath(filename);
 
     //Trying to load the configuration file
     int error = ixmlLoadDocumentEx(path, &xmlConfigDoc);
@@ -256,8 +256,14 @@ void config_dispose()
     log_dispose();
 }
 
-char* getResFullPath(const char* filename)
+char* config_getResFullPath(const char* filename)
 {
+    if (resourceFolder == NULL)
+    {	// resource folder is not set, so we consider that it is a current one
+        return strdup(filename);
+    }
+
+    // concatenate filename with resource folder
     char* output = (char*) malloc(strlen(filename) + strlen(resourceFolder) + 1);
     strcpy(output, resourceFolder);
     strcat(output, filename);
@@ -265,8 +271,36 @@ char* getResFullPath(const char* filename)
     return output;
 }
 
-void setResourceDir(char* path)
+void config_setResourceDir(char* path)
 {
-    resourceFolder = path;
+    if (resourceFolder != NULL)
+    {
+        free(resourceFolder);
+    }
+
+    int length = strlen(path);
+    if (path[length - 1] == '/')
+    {
+        resourceFolder = strdup(path);
+    }
+    else
+    {
+        // add trailing slash to the address
+        resourceFolder = (char*) malloc(length + 2);
+        strcpy(resourceFolder, path);
+        resourceFolder[length] = '/';
+        resourceFolder[length + 1] = '\0';
+    }
+
+    if (resourceFolder == NULL)
+    {
+        log_error("Unable to set resource folder path. "
+                  "Input argument was: \"%s\".\n"
+                  "Using current folder instead.", path);
+    }
+    else
+    {
+    	log_debug("Resource folder path is set to \"%s\".", resourceFolder);
+    }
 }
 

@@ -65,8 +65,8 @@ void config_dispose();
  *
  * @return address to the resource file.
  */
-char* getResFullPath(const char* filename);
+char* config_getResFullPath(const char* filename);
 
-void setResourceDir(char* path);
+void config_setResourceDir(char* path);
 
 #endif /*XML_CONFIG_H_*/

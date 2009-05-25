@@ -69,7 +69,7 @@ static int loadConfigFile()
 
 int obix_server_init(char* resourceDir)
 {
-    setResourceDir(resourceDir);
+    config_setResourceDir(resourceDir);
 
     // load settings from file
     if (loadConfigFile() != 0)
