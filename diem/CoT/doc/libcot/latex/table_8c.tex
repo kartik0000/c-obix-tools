@@ -1,0 +1,57 @@
+\hypertarget{table_8c}{
+\section{table.c File Reference}
+\label{table_8c}\index{table.c@{table.c}}
+}
+{\tt \#include $<$string.h$>$}\par
+{\tt \#include $<$stdlib.h$>$}\par
+{\tt \#include $<$table.h$>$}\par
+\subsection*{Functions}
+\begin{CompactItemize}
+\item 
+\hypertarget{table_8c_c3bfcedcc08e6b471f55273935a7a2c9}{
+Table $\ast$ \textbf{table\_\-create} (int initialSize)}
+\label{table_8c_c3bfcedcc08e6b471f55273935a7a2c9}
+
+\item 
+\hypertarget{table_8c_5baa301a4e9dea04a61e53e7d79474bc}{
+int \textbf{table\_\-put} (Table $\ast$table, const char $\ast$key, void $\ast$value)}
+\label{table_8c_5baa301a4e9dea04a61e53e7d79474bc}
+
+\item 
+\hypertarget{table_8c_7b81c411938d7af368c272044635400b}{
+void $\ast$ \textbf{table\_\-get} (Table $\ast$table, const char $\ast$key)}
+\label{table_8c_7b81c411938d7af368c272044635400b}
+
+\item 
+\hypertarget{table_8c_6d2adad5de91baaa7dc7d0a11b5fc066}{
+int \textbf{table\_\-remove} (Table $\ast$table, const char $\ast$key)}
+\label{table_8c_6d2adad5de91baaa7dc7d0a11b5fc066}
+
+\item 
+\hypertarget{table_8c_43047d9c9278d89269d6938bb2847b5a}{
+void \textbf{table\_\-free} (Table $\ast$table)}
+\label{table_8c_43047d9c9278d89269d6938bb2847b5a}
+
+\item 
+\hypertarget{table_8c_d6026d2028379234390f42ecb63bb482}{
+int \textbf{table\_\-getKeys} (Table $\ast$table, const char $\ast$$\ast$$\ast$keys)}
+\label{table_8c_d6026d2028379234390f42ecb63bb482}
+
+\item 
+\hypertarget{table_8c_90df6b5da22f74e97e23199bcbce6c99}{
+int \textbf{table\_\-getValues} (Table $\ast$table, const void $\ast$$\ast$$\ast$values)}
+\label{table_8c_90df6b5da22f74e97e23199bcbce6c99}
+
+\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+\begin{Desc}
+\item[\hyperlink{todo__todo000009}{Todo}]It supposed to be a hashtable, but now it is quite slow.\end{Desc}
+\begin{Desc}
+\item[Author:]Andrey Litvinov \end{Desc}
+\begin{Desc}
+\item[Version:]1.0 \end{Desc}
+
+
+Definition in file \hyperlink{table_8c-source}{table.c}.

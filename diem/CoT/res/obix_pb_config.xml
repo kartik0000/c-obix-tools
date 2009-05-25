@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+  <!--
+    Client mode: Client can work either with remote server 
+    (using HTTP requests) or with the local one (using direct
+    server update).
+    
+    Possible values:
+      HTTP
+      direct
+  -->
+  <mode value="direct"/>
+
+  <!--
+    The address of the remote oBIX server. Not used in 
+    "direct" mode.
+  -->
+  <server-address value="http://localhost:80/"/>
+  
+  <!--
+    The address on the oBIX server where the device 
+    information will be written to. "/" means that data 
+    will be written to the server root.
+  -->
+  <prefix value="/"/>
+
+  <!--
+    Configuration of the logging system. The only 
+    obligatory tag is <level> which adjusts the amount 
+    of output messages.
+  -->
+  <log> 
+    <!--
+      Available values:
+      - debug: Write to log all possible messages;
+      - warning: Write to log only warnings and errors;
+      - error: Write to log only errors;
+      - no: Do not write any log.
+    -->
+    <level value="debug"/> 
+    <!--
+      The name of a log file. If this tag is omitted
+      than all messages are forwarded to the standard
+      output (stdout).
+    -->
+    <!--file value="./obix_pb.log"/-->
+    <!--
+      Format of the log messages. The tag itself and 
+      all its attributes are optional. In case if 
+      some attribute is missing, correspodning 
+      option is disabled by default.
+      Attributes:
+      - prefix:   Common prefix for each message.
+      - date:     Write date of the message 
+                  ("true" or "false")
+      - time:     Write time of the message 
+                  ("true" or "false")
+      - priority: Write priority of the message 
+                  ("true" or "false")
+      - locale:   Use local settings when printing
+                  date and time.    
+                  ("true" or "false")      
+    -->
+    <format 
+      prefix="oBIX_PB" 
+      date="true" 
+      time="true" 
+      priority="true" 
+      locale="true"/>  
+    <!--
+      If the tag presents, than the log file will 
+      not be flushed after each message.
+    -->  
+    <no-flush/>
+  </log>
+    	
+</config>
+
+

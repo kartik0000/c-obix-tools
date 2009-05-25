@@ -1,0 +1,8 @@
+The lwl library provides simple utils for advanced logging systems.
+Additional details (including license and warranty) can be found
+in the original package archive in this folder. 
+
+In order to update library with new version, just overwrite source 
+files in the current folder with new version of library source. Note
+that Makefile.am file can require some updates (check src/Makefile.am
+from the original package).  

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>  
+
+  <connection id="1" type="http">
+  	<server-address val="http://server2" lobby="/obix/"/>
+  </connection>
+  
+  <connection id="0" type="http">
+  	<server-address val="http://server1/" lobby="/obix/"/>
+  	<max-devices val="2"/>
+  	<max-listeners val="2"/>
+  </connection>  
+  
+  <log>    
+    <level val="debug"/>
+    <format        
+      date="true" 
+      time="true" 
+      priority="true" 
+      locale="true"/>
+  </log>
+    	
+</config>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Lobby object for the oBIX server-->
+<obj href="/obix/" is="obix:Lobby" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://obix.org/ns/schema/1.0" xmlns="http://obix.org/ns/schema/1.0">
+	<ref name="watchService" href="watchService/" is="obix:WatchService"/>
+	<ref name="about" href="about/" is="obix:About"/> 
+	<op name="batch" href="batch/" in="obix:BatchIn" out="obix:BatchOut"/>
+	<ref name="alarms" href="alarms/" is="/obix/def/alarm:AlarmService obix:AlarmSubject" display="Alarm Service" displayName="Alarm Service"/>
+	<ref name="devices" href="devices/" display="Device Info"/>
+	<op name="signUp" href="signUp/" in="obix:obj" out="obix:obj">
+		<meta op="7"/>
+	</op>	
+</obj>
+

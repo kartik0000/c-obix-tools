@@ -1,0 +1,160 @@
+
+  CoT - C oBIX Tools
+  
+ A set of tools for developing oBIX-based solutions.
+ 
+=====
+
+ Copyright (c) 2008-2009 Andrey Litvinov [litvinov.andrey@gmail.com]    
+ 
+ See COPYING for details.
+=====  
+    
+ This file contains description of the project in the following sections:
+ 
+ 1. Project description
+ 2. Package contents
+ 3. Building instructions
+ 4. Configuring oBIX server
+ 
+=====
+
+ --1-- Project description
+ 
+ TODO
+ 
+=====
+
+ --2-- Package contents
+ 
+ Below is a short description of each folder contents:
+ 
+ README				This file. Contains project description.
+ COPYING			Contains licensing terms for the project.
+ 
+ src/				Folder with project source files.
+ 
+ src/adapters/		Contains sources of oBIX device adapters which are 
+ 					implemented using libcot library. 
+ 
+ src/adapters/example_timer.c
+                    Source of example device adapter which shows how libcot can 
+                    be used for oBIX cliet implementation.
+ 
+ src/adapters/sensor_floor_driver.c
+ 					Source of sensor floor adapter.
+ 
+ src/client/		Sources of libcot library. 
+
+ src/common/		Common sources for client and server part of the project.
+ 
+ src/server/		Sources of oBIX server.
+ 
+ src/test/			Tests sources which are used only during development.
+ 
+ 3rd-party/  		Folder contains all 3rd party libraries which are included 
+ 					into distribution just to make compiling easier. Will be 
+ 					removed in later releases.
+ 					
+ 3rd-party/lwl/		Library which are used for advanced logging. Probably will 
+ 					be changed to syslog in later releases.
+ 					
+ doc/				Contains project documentation built with Doxygen.
+ 
+ res/				Various configuration files.
+ 
+ res/server_config.xml
+ 					Main configuration file of the oBIX server.
+ 					
+ res/server_*.xml	Rest of files with 'server_' prefix contain initial database
+ 					contents of the oBIX server.
+ 					
+ res/obix-lighttpd.conf	
+ 					Lighttpd configuration file template. Used for configuring 
+ 					oBIX server.
+ 					
+ res/sensor_floor_config.xml
+ 					Sensor floor adapter's configuration file.
+ 					
+ res/example_timer_config.xml
+ 					Example adapter's configuration file.
+ 					
+ res/test_*.xml		Files used by tests.
+ 
+ res/OpenWrt-SDK/	Folder contains Makefile and instructions for building 
+ 					project for OpenWrt platform.            
+ 
+=====
+
+ --3-- Building instructions
+ 
+ Please refer res/OpenWrt-SDK/README if you want to compile the project for 
+ OpenWrt platform.
+  
+ Simple compilation can be done by executing following commands in the project 
+ root folder:
+ 
+ Before the first compilation:
+ 
+ ./configure		That will configure building system according to your system 
+ 					configuration.
+ 					
+ You would probably like to use also following flags:
+   
+  CFLAGS="-O0 -g"	Forces to produce binaries which are easier to debug.
+  
+  --prefix="<path>" Sets the installation root folder. By default, package is
+  					installed to /usr/{bin,lib,include}.
+  					
+ After that execute:
+ 
+ make all			That would compile the project. All binaries will be placed 
+ 					in the same folders with source files. 
+ 
+ make install		Will put copy binaries to the installation directories. 
+ 
+=====
+
+ --4-- Configuring oBIX server
+ 
+ oBIX server is implemented as FastCGI script which can be executed by any HTTP
+ server with FCGI support. This section describes how to configure lighttpd to 
+ run oBIX server. For other HTTP server most of steps would be probably the 
+ same.
+ 
+ 1. Install lighttpd at your target system.
+ 2. Open res/server_config.xml with your favorite XML editor.
+ 3. All configuration tags are well described there: Read description carefully,
+    modify and save options according to your needs.    
+ 4. Open res/obix-lighttpd.conf file with your favorite editor.
+ 5. Modify paths in the following variables:
+ 	- "socket"  	Defines socket name which will be used for communication 
+ 					between lighttpd and oBIX server.
+ 	- "bin-path"	Command which starts up the oBIX server, which is 
+ 					"<path-to-obix.fcgi> <path-to-folder-with-obix-conf-files>" 		 
+ 6. Locate your lighttpd configuration file. Usually it is at /etc/lighttpd/
+ 7. In case if you have etc/lighttpd/conf-available/ folder than you are lucky
+ 	and should should proceed with steps a. otherwise, go to steps b.
+ 	
+ 	a. Go to conf-available/ folder and create symlink '10-obix-fcgi.conf' to
+ 	   the updated res/obix-lighttpd.conf file. 
+ 	   Execute command '/usr/sbin/lighty-enable-mod obix-fcgi' and restart 
+ 	   lighttpd.
+ 	   (Read conf-available/README in order to get more details about what you
+ 	   have done.)
+ 	   
+ 	b. In case you do not have described folder for lighttpd in your target 
+ 	   platform, than open main lighttpd configuration file (usually 
+ 	   /etc/lighttpd/lighttpd.conf) and paste to the end the contents of updated 
+ 	   res/obix-lighttpd.conf file.
+ 	   Note that "server.modules" are usually defined in the beginning of the
+ 	   conf file, so check that pasted string is not conflicting with the 
+ 	   original definition.
+ 	   Save configuration and restart lighttpd.
+ 8. If everything is OK, than you will be able to access oBIX server from your
+    browser under the following link: http://<you server address>/obix/
+    In case of any problems try to check lighttpd and oBIX server error log 
+    files. If it doesn't help than contact me, and I'll try to make better
+    version of these instructions.
+ 
+=====     

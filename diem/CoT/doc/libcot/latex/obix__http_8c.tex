@@ -1,0 +1,216 @@
+\hypertarget{obix__http_8c}{
+\section{obix\_\-http.c File Reference}
+\label{obix__http_8c}\index{obix\_\-http.c@{obix\_\-http.c}}
+}
+{\tt \#include $<$stdlib.h$>$}\par
+{\tt \#include $<$string.h$>$}\par
+{\tt \#include $<$ixml\_\-ext.h$>$}\par
+{\tt \#include $<$xml\_\-config.h$>$}\par
+{\tt \#include $<$lwl\_\-ext.h$>$}\par
+{\tt \#include $<$curl\_\-ext.h$>$}\par
+{\tt \#include $<$ptask.h$>$}\par
+{\tt \#include $<$obix\_\-utils.h$>$}\par
+{\tt \#include $<$obix\_\-client.h$>$}\par
+{\tt \#include \char`\"{}obix\_\-http.h\char`\"{}}\par
+\subsection*{Defines}
+\begin{CompactItemize}
+\item 
+\hypertarget{obix__http_8c_3180eebdd34e39357d1fc13e34fa0298}{
+\#define \textbf{DEFAULT\_\-POLLING\_\-INTERVAL}~500}
+\label{obix__http_8c_3180eebdd34e39357d1fc13e34fa0298}
+
+\item 
+\hypertarget{obix__http_8c_b97581861d1fe0c60c0580e756aed0ef}{
+\#define \textbf{DEFAULT\_\-WATCH\_\-LEASE\_\-PADDING}~10000}
+\label{obix__http_8c_b97581861d1fe0c60c0580e756aed0ef}
+
+\item 
+\#define \textbf{OBIX\_\-WATCH\_\-IN\_\-TEMPLATE\_\-HEADER}
+\item 
+\hypertarget{obix__http_8c_0774bcc7f1f2de64b8cd5b1a168a6236}{
+\#define \textbf{OBIX\_\-WATCH\_\-IN\_\-TEMPLATE\_\-HEADER\_\-LENGTH}~62}
+\label{obix__http_8c_0774bcc7f1f2de64b8cd5b1a168a6236}
+
+\item 
+\hypertarget{obix__http_8c_eef18f508bb15a5464ae5019b31bb6cf}{
+\#define \textbf{OBIX\_\-WATCH\_\-IN\_\-TEMPLATE\_\-URI}~\char`\"{}    $<$uri val=$\backslash$\char`\"{}\%s$\backslash$\char`\"{}/$>$$\backslash$r$\backslash$n\char`\"{}}
+\label{obix__http_8c_eef18f508bb15a5464ae5019b31bb6cf}
+
+\item 
+\hypertarget{obix__http_8c_7a371fd6c176df89ed4c39ec8e746cb5}{
+\#define \textbf{OBIX\_\-WATCH\_\-IN\_\-TEMPLATE\_\-URI\_\-LENGTH}~19}
+\label{obix__http_8c_7a371fd6c176df89ed4c39ec8e746cb5}
+
+\item 
+\#define \textbf{OBIX\_\-WATCH\_\-IN\_\-TEMPLATE\_\-FOOTER}
+\item 
+\hypertarget{obix__http_8c_707dd41f1ac9a002315cb1764d82f58c}{
+\#define \textbf{OBIX\_\-WATCH\_\-IN\_\-TEMPLATE\_\-FOOTER\_\-LENGTH}~17}
+\label{obix__http_8c_707dd41f1ac9a002315cb1764d82f58c}
+
+\item 
+\hypertarget{obix__http_8c_2dad7bd01a6cbb45d746c561a10ad909}{
+\#define \textbf{OBIX\_\-WRITE\_\-REQUEST\_\-TEMPLATE}~\char`\"{}$<$\%s href=$\backslash$\char`\"{}\%s$\backslash$\char`\"{} val=$\backslash$\char`\"{}\%s$\backslash$\char`\"{}/$>$\char`\"{}}
+\label{obix__http_8c_2dad7bd01a6cbb45d746c561a10ad909}
+
+\item 
+\hypertarget{obix__http_8c_17d6d96ed463418593e2ceb32358ed10}{
+\#define \textbf{OBIX\_\-WRITE\_\-REQUEST\_\-TEMPLATE\_\-LENGTH}~18}
+\label{obix__http_8c_17d6d96ed463418593e2ceb32358ed10}
+
+\end{CompactItemize}
+\subsection*{Functions}
+\begin{CompactItemize}
+\item 
+int \hyperlink{obix__http_8c_a45126dfbb6db45174f8157ef9c3950f}{http\_\-init} ()
+\item 
+void \hyperlink{obix__http_8c_2bba21a112d5b4ea69b2fe298f7cb20f}{http\_\-dispose} ()
+\item 
+\hypertarget{obix__http_8c_30de369f239b96db26023ceef3e19d3f}{
+int \textbf{http\_\-initConnection} (IXML\_\-Element $\ast$connItem, Connection $\ast$$\ast$connection)}
+\label{obix__http_8c_30de369f239b96db26023ceef3e19d3f}
+
+\item 
+\hypertarget{obix__http_8c_53c67b46cb170cc0aa994873882a7cf6}{
+void \textbf{http\_\-freeConnection} (Connection $\ast$connection)}
+\label{obix__http_8c_53c67b46cb170cc0aa994873882a7cf6}
+
+\item 
+\hypertarget{obix__http_8c_ff528c4621a547bb61547427f3e65b2b}{
+int \textbf{http\_\-openConnection} (Connection $\ast$connection)}
+\label{obix__http_8c_ff528c4621a547bb61547427f3e65b2b}
+
+\item 
+\hypertarget{obix__http_8c_125ecd7b98cde48362c4618c5d5a677f}{
+int \textbf{http\_\-closeConnection} (Connection $\ast$connection)}
+\label{obix__http_8c_125ecd7b98cde48362c4618c5d5a677f}
+
+\item 
+\hypertarget{obix__http_8c_b71a93d261287b540e6e0770ac3fad8b}{
+int \textbf{http\_\-registerDevice} (Connection $\ast$connection, Device $\ast$$\ast$device, const char $\ast$data)}
+\label{obix__http_8c_b71a93d261287b540e6e0770ac3fad8b}
+
+\item 
+\hypertarget{obix__http_8c_f57ca32ffd7eabc5f1d2a937b8e1dd9c}{
+int \textbf{http\_\-unregisterDevice} (Connection $\ast$connection, Device $\ast$device)}
+\label{obix__http_8c_f57ca32ffd7eabc5f1d2a937b8e1dd9c}
+
+\item 
+\hypertarget{obix__http_8c_d967b2f2ade621b46725d5618b0d1543}{
+int \textbf{http\_\-registerListener} (Connection $\ast$connection, Device $\ast$device, Listener $\ast$$\ast$listener)}
+\label{obix__http_8c_d967b2f2ade621b46725d5618b0d1543}
+
+\item 
+\hypertarget{obix__http_8c_3da24c171a646cb0b1550bd990a52dbe}{
+int \textbf{http\_\-unregisterListener} (Connection $\ast$connection, Device $\ast$device, Listener $\ast$listener)}
+\label{obix__http_8c_3da24c171a646cb0b1550bd990a52dbe}
+
+\item 
+\hypertarget{obix__http_8c_a3fd7cdd548f8c8cd1307ceb83e696ef}{
+int \textbf{http\_\-writeValue} (Connection $\ast$connection, Device $\ast$device, const char $\ast$paramUri, const char $\ast$newValue, OBIX\_\-DATA\_\-TYPE dataType)}
+\label{obix__http_8c_a3fd7cdd548f8c8cd1307ceb83e696ef}
+
+\end{CompactItemize}
+\subsection*{Variables}
+\begin{CompactItemize}
+\item 
+const Comm\_\-Stack \textbf{OBIX\_\-HTTP\_\-COMM\_\-STACK}
+\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+\begin{Desc}
+\item[\hyperlink{todo__todo000007}{Todo}]add description here\end{Desc}
+\begin{Desc}
+\item[Author:]Andrey Litvinov \end{Desc}
+\begin{Desc}
+\item[Version:]1.0 \end{Desc}
+
+
+Definition in file \hyperlink{obix__http_8c-source}{obix\_\-http.c}.
+
+\subsection{Define Documentation}
+\hypertarget{obix__http_8c_5191d4ce71594bd2c8934ce10265ed7d}{
+\index{obix\_\-http.c@{obix\_\-http.c}!OBIX\_\-WATCH\_\-IN\_\-TEMPLATE\_\-FOOTER@{OBIX\_\-WATCH\_\-IN\_\-TEMPLATE\_\-FOOTER}}
+\index{OBIX\_\-WATCH\_\-IN\_\-TEMPLATE\_\-FOOTER@{OBIX\_\-WATCH\_\-IN\_\-TEMPLATE\_\-FOOTER}!obix_http.c@{obix\_\-http.c}}
+\subsubsection[OBIX\_\-WATCH\_\-IN\_\-TEMPLATE\_\-FOOTER]{\setlength{\rightskip}{0pt plus 5cm}\#define OBIX\_\-WATCH\_\-IN\_\-TEMPLATE\_\-FOOTER}}
+\label{obix__http_8c_5191d4ce71594bd2c8934ce10265ed7d}
+
+
+\textbf{Value:}
+
+\begin{Code}\begin{verbatim}("  </list>\r\n" \
+                                                                   "</obj>")
+\end{verbatim}
+\end{Code}
+
+
+Definition at line 30 of file obix\_\-http.c.\hypertarget{obix__http_8c_7765b7ed9c4ec0087c5b8cce0b072423}{
+\index{obix\_\-http.c@{obix\_\-http.c}!OBIX\_\-WATCH\_\-IN\_\-TEMPLATE\_\-HEADER@{OBIX\_\-WATCH\_\-IN\_\-TEMPLATE\_\-HEADER}}
+\index{OBIX\_\-WATCH\_\-IN\_\-TEMPLATE\_\-HEADER@{OBIX\_\-WATCH\_\-IN\_\-TEMPLATE\_\-HEADER}!obix_http.c@{obix\_\-http.c}}
+\subsubsection[OBIX\_\-WATCH\_\-IN\_\-TEMPLATE\_\-HEADER]{\setlength{\rightskip}{0pt plus 5cm}\#define OBIX\_\-WATCH\_\-IN\_\-TEMPLATE\_\-HEADER}}
+\label{obix__http_8c_7765b7ed9c4ec0087c5b8cce0b072423}
+
+
+\textbf{Value:}
+
+\begin{Code}\begin{verbatim}("<obj is=\"obix:WatchIn\">\r\n" \
+                                                                   "  <list name=\"hrefs\" of=\"obix:Uri\">\r\n")
+\end{verbatim}
+\end{Code}
+
+
+Definition at line 23 of file obix\_\-http.c.
+
+\subsection{Function Documentation}
+\hypertarget{obix__http_8c_2bba21a112d5b4ea69b2fe298f7cb20f}{
+\index{obix\_\-http.c@{obix\_\-http.c}!http\_\-dispose@{http\_\-dispose}}
+\index{http\_\-dispose@{http\_\-dispose}!obix_http.c@{obix\_\-http.c}}
+\subsubsection[http\_\-dispose]{\setlength{\rightskip}{0pt plus 5cm}void http\_\-dispose ()}}
+\label{obix__http_8c_2bba21a112d5b4ea69b2fe298f7cb20f}
+
+
+Calls when HTTP stack is not initialized have no effect. 
+
+Definition at line 911 of file obix\_\-http.c.
+
+Referenced by obix\_\-dispose().\hypertarget{obix__http_8c_a45126dfbb6db45174f8157ef9c3950f}{
+\index{obix\_\-http.c@{obix\_\-http.c}!http\_\-init@{http\_\-init}}
+\index{http\_\-init@{http\_\-init}!obix_http.c@{obix\_\-http.c}}
+\subsubsection[http\_\-init]{\setlength{\rightskip}{0pt plus 5cm}int http\_\-init ()}}
+\label{obix__http_8c_a45126dfbb6db45174f8157ef9c3950f}
+
+
+Subsequent calls have no effect 
+
+Definition at line 859 of file obix\_\-http.c.
+
+References OBIX\_\-ERR\_\-HTTP\_\-LIB, OBIX\_\-ERR\_\-NO\_\-MEMORY, and OBIX\_\-SUCCESS.
+
+\subsection{Variable Documentation}
+\hypertarget{obix__http_8c_11eef6a0b5c721184a41157e71c5ee23}{
+\index{obix\_\-http.c@{obix\_\-http.c}!OBIX\_\-HTTP\_\-COMM\_\-STACK@{OBIX\_\-HTTP\_\-COMM\_\-STACK}}
+\index{OBIX\_\-HTTP\_\-COMM\_\-STACK@{OBIX\_\-HTTP\_\-COMM\_\-STACK}!obix_http.c@{obix\_\-http.c}}
+\subsubsection[OBIX\_\-HTTP\_\-COMM\_\-STACK]{\setlength{\rightskip}{0pt plus 5cm}const Comm\_\-Stack OBIX\_\-HTTP\_\-COMM\_\-STACK}}
+\label{obix__http_8c_11eef6a0b5c721184a41157e71c5ee23}
+
+
+\textbf{Initial value:}
+
+\begin{Code}\begin{verbatim}
+    {
+        &http_initConnection,
+        &http_openConnection,
+        &http_closeConnection,
+        &http_freeConnection,
+        &http_registerDevice,
+        &http_unregisterDevice,
+        &http_registerListener,
+        &http_unregisterListener,
+        &http_writeValue
+    }
+\end{verbatim}
+\end{Code}
+
+
+Definition at line 51 of file obix\_\-http.c.

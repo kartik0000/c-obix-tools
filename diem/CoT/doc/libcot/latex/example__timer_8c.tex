@@ -1,0 +1,204 @@
+\hypertarget{example__timer_8c}{
+\section{example\_\-timer.c File Reference}
+\label{example__timer_8c}\index{example\_\-timer.c@{example\_\-timer.c}}
+}
+{\tt \#include $<$stdio.h$>$}\par
+{\tt \#include $<$stdlib.h$>$}\par
+{\tt \#include $<$pthread.h$>$}\par
+{\tt \#include $<$ptask.h$>$}\par
+{\tt \#include $<$obix\_\-client.h$>$}\par
+\subsection*{Defines}
+\begin{CompactItemize}
+\item 
+\#define \hyperlink{example__timer_8c_404414e6ec2b2d9ed18f9cadb25ea09f}{CONNECTION\_\-ID}~0
+\end{CompactItemize}
+\subsection*{Functions}
+\begin{CompactItemize}
+\item 
+int \hyperlink{example__timer_8c_7b65e3051fe5ca35550e8d7760173953}{resetListener} (int connectionId, int deviceId, int listenerId, const char $\ast$newValue)
+\item 
+void \hyperlink{example__timer_8c_398c08e8e037f8a35334e2b7d2093312}{generateTimeString} ()
+\item 
+void \hyperlink{example__timer_8c_7d24e3eaa1f6ebfa87bd58a2ac9a254d}{timerTask} (void $\ast$arg)
+\item 
+\hypertarget{example__timer_8c_bf469fd82511b065b75ddb85f4d38066}{
+char $\ast$ \textbf{getDeviceData} (char $\ast$deviceUri)}
+\label{example__timer_8c_bf469fd82511b065b75ddb85f4d38066}
+
+\item 
+int \hyperlink{example__timer_8c_3c04138a5bfe5d72780bb7e82a18e627}{main} (int argc, char $\ast$$\ast$argv)
+\end{CompactItemize}
+\subsection*{Variables}
+\begin{CompactItemize}
+\item 
+const char $\ast$ \hyperlink{example__timer_8c_9c4545e53444d246701d1051c17cf6f8}{DEVICE\_\-DATA}
+\item 
+unsigned long \hyperlink{example__timer_8c_d34745f2e7e68a9694ec9a12c648bd75}{\_\-time}
+\item 
+char \hyperlink{example__timer_8c_ef8634b59ae35cce508a6ce03b4d0564}{\_\-time\_\-str} \mbox{[}32\mbox{]}
+\item 
+pthread\_\-mutex\_\-t \hyperlink{example__timer_8c_a3666ba0befbc998cc4bc96d3d3ed96d}{\_\-time\_\-mutex} = PTHREAD\_\-MUTEX\_\-INITIALIZER
+\item 
+Task\_\-Thread $\ast$ \hyperlink{example__timer_8c_8c0ec52cbb654e552557839aca0317a8}{taskThread}
+\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+This is simple oBIX Timer device implementation, which demonstrates usage of oBIX client library. It shows the time elapsed after timer was started or reset by user. Device registers itself at oBIX Server, regularly updates elapsed time on it and listens to updates of \char`\"{}reset\char`\"{} parameter. If someone changes \char`\"{}reset\char`\"{} to true, that elapsed time is set to 0.
+
+\begin{Desc}
+\item[Author:]Andrey Litvinov \end{Desc}
+\begin{Desc}
+\item[Version:]1.0 \end{Desc}
+
+
+Definition in file \hyperlink{example__timer_8c-source}{example\_\-timer.c}.
+
+\subsection{Define Documentation}
+\hypertarget{example__timer_8c_404414e6ec2b2d9ed18f9cadb25ea09f}{
+\index{example\_\-timer.c@{example\_\-timer.c}!CONNECTION\_\-ID@{CONNECTION\_\-ID}}
+\index{CONNECTION\_\-ID@{CONNECTION\_\-ID}!example_timer.c@{example\_\-timer.c}}
+\subsubsection[CONNECTION\_\-ID]{\setlength{\rightskip}{0pt plus 5cm}\#define CONNECTION\_\-ID~0}}
+\label{example__timer_8c_404414e6ec2b2d9ed18f9cadb25ea09f}
+
+
+ID of the connection which is described in configuration file. 
+
+Definition at line 21 of file example\_\-timer.c.
+
+Referenced by main(), and timerTask().
+
+\subsection{Function Documentation}
+\hypertarget{example__timer_8c_398c08e8e037f8a35334e2b7d2093312}{
+\index{example\_\-timer.c@{example\_\-timer.c}!generateTimeString@{generateTimeString}}
+\index{generateTimeString@{generateTimeString}!example_timer.c@{example\_\-timer.c}}
+\subsubsection[generateTimeString]{\setlength{\rightskip}{0pt plus 5cm}void generateTimeString ()}}
+\label{example__timer_8c_398c08e8e037f8a35334e2b7d2093312}
+
+
+Generates string representation of elapsed time according to {\em xs:duration\/} XML data type. 
+
+Definition at line 83 of file example\_\-timer.c.
+
+References \_\-time, and \_\-time\_\-str.
+
+Referenced by timerTask().\hypertarget{example__timer_8c_3c04138a5bfe5d72780bb7e82a18e627}{
+\index{example\_\-timer.c@{example\_\-timer.c}!main@{main}}
+\index{main@{main}!example_timer.c@{example\_\-timer.c}}
+\subsubsection[main]{\setlength{\rightskip}{0pt plus 5cm}int main (int {\em argc}, \/  char $\ast$$\ast$ {\em argv})}}
+\label{example__timer_8c_3c04138a5bfe5d72780bb7e82a18e627}
+
+
+Entry point of the Timer application. It takes the name of the configuration file (use {\em example\_\-timer\_\-config.xml\/}).
+
+\begin{Desc}
+\item[See also:]example\_\-timer\_\-config.xml \end{Desc}
+
+
+Definition at line 149 of file example\_\-timer.c.
+
+References CONNECTION\_\-ID, obix\_\-dispose(), obix\_\-loadConfigFile(), obix\_\-openConnection(), obix\_\-registerDevice(), obix\_\-registerListener(), OBIX\_\-SUCCESS, resetListener(), taskThread, and timerTask().\hypertarget{example__timer_8c_7b65e3051fe5ca35550e8d7760173953}{
+\index{example\_\-timer.c@{example\_\-timer.c}!resetListener@{resetListener}}
+\index{resetListener@{resetListener}!example_timer.c@{example\_\-timer.c}}
+\subsubsection[resetListener]{\setlength{\rightskip}{0pt plus 5cm}int resetListener (int {\em connectionId}, \/  int {\em deviceId}, \/  int {\em listenerId}, \/  const char $\ast$ {\em newValue})}}
+\label{example__timer_8c_7b65e3051fe5ca35550e8d7760173953}
+
+
+Handles changes of {\em \char`\"{}reset\char`\"{}\/} value. The function implements \hyperlink{obix__client_8h_0197aa45d0471b2708a5bd01c30d7786}{obix\_\-update\_\-listener()} prototype and is registered as a listener of {\em \char`\"{}reset\char`\"{}\/} param using \hyperlink{obix__client_8c_6d554298664e9ad93b62e83d1606d02e}{obix\_\-registerListener()}. If {\em \char`\"{}reset\char`\"{}\/} value is changed at oBIX server to {\em \char`\"{}true\char`\"{}\/} it will set it back to \char`\"{}false\char`\"{} and reset timer.
+
+\begin{Desc}
+\item[See also:]\hyperlink{obix__client_8h_0197aa45d0471b2708a5bd01c30d7786}{obix\_\-update\_\-listener()}, \hyperlink{obix__client_8c_6d554298664e9ad93b62e83d1606d02e}{obix\_\-registerListener()}. \end{Desc}
+
+
+Definition at line 50 of file example\_\-timer.c.
+
+References \_\-time, \_\-time\_\-mutex, OBIX\_\-SUCCESS, and obix\_\-writeValue().
+
+Referenced by main().\hypertarget{example__timer_8c_7d24e3eaa1f6ebfa87bd58a2ac9a254d}{
+\index{example\_\-timer.c@{example\_\-timer.c}!timerTask@{timerTask}}
+\index{timerTask@{timerTask}!example_timer.c@{example\_\-timer.c}}
+\subsubsection[timerTask]{\setlength{\rightskip}{0pt plus 5cm}void timerTask (void $\ast$ {\em arg})}}
+\label{example__timer_8c_7d24e3eaa1f6ebfa87bd58a2ac9a254d}
+
+
+Updates timer value and writes it to oBIX server. Implements periodic\_\-task() prototype and is scheduled using ptask\_\-schedule(). This method is executed in a separate thread that is why it uses \hyperlink{example__timer_8c_a3666ba0befbc998cc4bc96d3d3ed96d}{\_\-time\_\-mutex} for synchronization with \hyperlink{example__timer_8c_7b65e3051fe5ca35550e8d7760173953}{resetListener()} which sets timer to 0.
+
+\begin{Desc}
+\item[See also:]periodic\_\-task(), ptask\_\-schedule(). \end{Desc}
+\begin{Desc}
+\item[Parameters:]
+\begin{description}
+\item[{\em arg}]Assumes that a pointer to the device ID is passed here. Device ID is used for updating time value at the server. \end{description}
+\end{Desc}
+
+
+Definition at line 113 of file example\_\-timer.c.
+
+References \_\-time, \_\-time\_\-mutex, \_\-time\_\-str, CONNECTION\_\-ID, generateTimeString(), OBIX\_\-SUCCESS, and obix\_\-writeValue().
+
+Referenced by main().
+
+\subsection{Variable Documentation}
+\hypertarget{example__timer_8c_d34745f2e7e68a9694ec9a12c648bd75}{
+\index{example\_\-timer.c@{example\_\-timer.c}!\_\-time@{\_\-time}}
+\index{\_\-time@{\_\-time}!example_timer.c@{example\_\-timer.c}}
+\subsubsection[\_\-time]{\setlength{\rightskip}{0pt plus 5cm}unsigned long {\bf \_\-time}}}
+\label{example__timer_8c_d34745f2e7e68a9694ec9a12c648bd75}
+
+
+Elapsed time is stored here. 
+
+Definition at line 30 of file example\_\-timer.c.
+
+Referenced by generateTimeString(), resetListener(), and timerTask().\hypertarget{example__timer_8c_a3666ba0befbc998cc4bc96d3d3ed96d}{
+\index{example\_\-timer.c@{example\_\-timer.c}!\_\-time\_\-mutex@{\_\-time\_\-mutex}}
+\index{\_\-time\_\-mutex@{\_\-time\_\-mutex}!example_timer.c@{example\_\-timer.c}}
+\subsubsection[\_\-time\_\-mutex]{\setlength{\rightskip}{0pt plus 5cm}pthread\_\-mutex\_\-t {\bf \_\-time\_\-mutex} = PTHREAD\_\-MUTEX\_\-INITIALIZER}}
+\label{example__timer_8c_a3666ba0befbc998cc4bc96d3d3ed96d}
+
+
+Need mutex for synchronization, because \_\-time variable is accessed from two threads. 
+
+Definition at line 37 of file example\_\-timer.c.
+
+Referenced by resetListener(), and timerTask().\hypertarget{example__timer_8c_ef8634b59ae35cce508a6ce03b4d0564}{
+\index{example\_\-timer.c@{example\_\-timer.c}!\_\-time\_\-str@{\_\-time\_\-str}}
+\index{\_\-time\_\-str@{\_\-time\_\-str}!example_timer.c@{example\_\-timer.c}}
+\subsubsection[\_\-time\_\-str]{\setlength{\rightskip}{0pt plus 5cm}char {\bf \_\-time\_\-str}\mbox{[}32\mbox{]}}}
+\label{example__timer_8c_ef8634b59ae35cce508a6ce03b4d0564}
+
+
+Used for string representation of the timer value. 
+
+Definition at line 32 of file example\_\-timer.c.
+
+Referenced by generateTimeString(), and timerTask().\hypertarget{example__timer_8c_9c4545e53444d246701d1051c17cf6f8}{
+\index{example\_\-timer.c@{example\_\-timer.c}!DEVICE\_\-DATA@{DEVICE\_\-DATA}}
+\index{DEVICE\_\-DATA@{DEVICE\_\-DATA}!example_timer.c@{example\_\-timer.c}}
+\subsubsection[DEVICE\_\-DATA]{\setlength{\rightskip}{0pt plus 5cm}const char$\ast$ {\bf DEVICE\_\-DATA}}}
+\label{example__timer_8c_9c4545e53444d246701d1051c17cf6f8}
+
+
+\textbf{Initial value:}
+
+\begin{Code}\begin{verbatim}
+    "<obj name=\"ExampleTimer\" displayName=\"Example Timer\" href=\"%s\">\r\n"
+    "  <reltime name=\"time\" displayName=\"Elapsed Time\" href=\"%stime\" val=\"PT0S\" writable=\"true\"/>\r\n"
+    "  <bool name=\"reset\" displayName=\"Reset Timer\" href=\"%sreset\" val=\"false\" writable=\"true\"/>\r\n"
+    "</obj>"
+\end{verbatim}
+\end{Code}
+Data which is posted to oBIX server. 
+
+Definition at line 23 of file example\_\-timer.c.\hypertarget{example__timer_8c_8c0ec52cbb654e552557839aca0317a8}{
+\index{example\_\-timer.c@{example\_\-timer.c}!taskThread@{taskThread}}
+\index{taskThread@{taskThread}!example_timer.c@{example\_\-timer.c}}
+\subsubsection[taskThread]{\setlength{\rightskip}{0pt plus 5cm}Task\_\-Thread$\ast$ {\bf taskThread}}}
+\label{example__timer_8c_8c0ec52cbb654e552557839aca0317a8}
+
+
+Separate thread for timer value updating. 
+
+Definition at line 39 of file example\_\-timer.c.
+
+Referenced by main().

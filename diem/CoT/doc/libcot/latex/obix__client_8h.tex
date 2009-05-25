@@ -1,0 +1,385 @@
+\hypertarget{obix__client_8h}{
+\section{obix\_\-client.h File Reference}
+\label{obix__client_8h}\index{obix\_\-client.h@{obix\_\-client.h}}
+}
+{\tt \#include $<$ixml\_\-ext.h$>$}\par
+\subsection*{Typedefs}
+\begin{CompactItemize}
+\item 
+typedef int($\ast$ \hyperlink{obix__client_8h_0197aa45d0471b2708a5bd01c30d7786}{obix\_\-update\_\-listener} )(int connectionId, int deviceId, int listenerId, const char $\ast$newValue)
+\end{CompactItemize}
+\subsection*{Enumerations}
+\begin{CompactItemize}
+\item 
+enum \hyperlink{obix__client_8h_79a73481c0495d24e290870c6d793828}{OBIX\_\-ERRORCODE} \{ \par
+\hyperlink{obix__client_8h_79a73481c0495d24e290870c6d793828c8ea6c4e868c265ae99fc48ea57a3628}{OBIX\_\-SUCCESS} =  0, 
+\hyperlink{obix__client_8h_79a73481c0495d24e290870c6d793828c1c2c76cb62586f8900a60ff05106343}{OBIX\_\-ERR\_\-INVALID\_\-ARGUMENT} =  -1, 
+\hyperlink{obix__client_8h_79a73481c0495d24e290870c6d79382817b46ba016798f6c4f2300f8fa0b104a}{OBIX\_\-ERR\_\-NO\_\-MEMORY} =  -2, 
+\hyperlink{obix__client_8h_79a73481c0495d24e290870c6d7938284547ce0fe5585489b3217dd49d07a5f0}{OBIX\_\-ERR\_\-INVALID\_\-STATE} =  -3, 
+\par
+\hyperlink{obix__client_8h_79a73481c0495d24e290870c6d7938289c1ccf413203a3c729060a8ce6a9c438}{OBIX\_\-ERR\_\-LIMIT\_\-REACHED} =  -4, 
+\hyperlink{obix__client_8h_79a73481c0495d24e290870c6d7938282dc3a47baeefd958b9fc95029a07a0c7}{OBIX\_\-ERR\_\-BAD\_\-CONNECTION} =  -5, 
+\hyperlink{obix__client_8h_79a73481c0495d24e290870c6d79382868ab664c04e68ef022f8247c20cf8d62}{OBIX\_\-ERR\_\-UNKNOWN\_\-BUG} =  -100, 
+\hyperlink{obix__client_8h_79a73481c0495d24e290870c6d793828419578be489b19682df329e24be9e33f}{OBIX\_\-ERR\_\-HTTP\_\-LIB} =  -6
+ \}
+\item 
+enum \textbf{OBIX\_\-DATA\_\-TYPE} \{ \par
+\textbf{OBIX\_\-T\_\-BOOL}, 
+\textbf{OBIX\_\-T\_\-INT}, 
+\textbf{OBIX\_\-T\_\-REAL}, 
+\textbf{OBIX\_\-T\_\-STR}, 
+\par
+\textbf{OBIX\_\-T\_\-ENUM}, 
+\textbf{OBIX\_\-T\_\-ABSTIME}, 
+\textbf{OBIX\_\-T\_\-RELTIME}, 
+\textbf{OBIX\_\-T\_\-URI}
+ \}
+\end{CompactItemize}
+\subsection*{Functions}
+\begin{CompactItemize}
+\item 
+int \hyperlink{obix__client_8h_227b9d2362a744a4d3af43c31eec92bb}{obix\_\-loadConfigFile} (const char $\ast$fileName)
+\item 
+int \hyperlink{obix__client_8h_bea2db6474251887a883016e86a02198}{obix\_\-loadConfig} (IXML\_\-Element $\ast$config)
+\item 
+int \hyperlink{obix__client_8h_af779e0cf88cabf1986b7f519d427f41}{obix\_\-dispose} ()
+\item 
+int \hyperlink{obix__client_8h_79a8743c9b012df3af7a06483fb7d7cc}{obix\_\-openConnection} (int connectionId)
+\item 
+int \hyperlink{obix__client_8h_7b106f351f5d74dbdce3dad225fd0e4b}{obix\_\-closeConnection} (int connectionId)
+\item 
+int \hyperlink{obix__client_8h_dd3c667748a3796f3b3945f96a86095b}{obix\_\-registerDevice} (int connectionId, const char $\ast$obixData)
+\item 
+int \hyperlink{obix__client_8h_9d339fe0e2d3c3daf42975e95747e703}{obix\_\-unregisterDevice} (int connectionId, int deviceId)
+\item 
+int \hyperlink{obix__client_8h_345851205b8c47f22eb6c95242842db6}{obix\_\-writeValue} (int connectionId, int deviceId, const char $\ast$paramUri, const char $\ast$newValue, OBIX\_\-DATA\_\-TYPE dataType)
+\item 
+int \hyperlink{obix__client_8h_6d554298664e9ad93b62e83d1606d02e}{obix\_\-registerListener} (int connectionId, int deviceId, const char $\ast$paramUri, \hyperlink{obix__client_8h_0197aa45d0471b2708a5bd01c30d7786}{obix\_\-update\_\-listener} listener)
+\item 
+int \hyperlink{obix__client_8h_b1ba49dc3f3e69d1798df1661ccbf368}{obix\_\-unregisterListener} (int connectionId, int deviceId, int listenerId)
+\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+Contains definitions for oBIX client library.
+
+\begin{Desc}
+\item[Author:]Andrey Litvinov \end{Desc}
+\begin{Desc}
+\item[Version:]0.1 \end{Desc}
+
+
+Definition in file \hyperlink{obix__client_8h-source}{obix\_\-client.h}.
+
+\subsection{Typedef Documentation}
+\hypertarget{obix__client_8h_0197aa45d0471b2708a5bd01c30d7786}{
+\index{obix\_\-client.h@{obix\_\-client.h}!obix\_\-update\_\-listener@{obix\_\-update\_\-listener}}
+\index{obix\_\-update\_\-listener@{obix\_\-update\_\-listener}!obix_client.h@{obix\_\-client.h}}
+\subsubsection[obix\_\-update\_\-listener]{\setlength{\rightskip}{0pt plus 5cm}typedef int($\ast$ {\bf obix\_\-update\_\-listener})(int connectionId, int deviceId, int listenerId, const char $\ast$newValue)}}
+\label{obix__client_8h_0197aa45d0471b2708a5bd01c30d7786}
+
+
+Callback function, which is invoked when subscribed value is changed at the oBIX server.
+
+ID arguments of the listener can be used to define which parameter was updated in case when one function is registered to handle updates of several parameters.
+
+\begin{Desc}
+\item[See also:]\hyperlink{obix__client_8c_6d554298664e9ad93b62e83d1606d02e}{obix\_\-registerListener()}\end{Desc}
+\begin{Desc}
+\item[Parameters:]
+\begin{description}
+\item[{\em connectionId}]ID of the connection from which the update is received. \item[{\em deviceId}]ID of the device whose parameter was changed. If the parameter doesn't belong to any device which was registered by current client, than {\em 0\/} will be passed. \item[{\em listenerId}]ID of the listener which receives the event. \item[{\em newValue}]New value of the parameter. \end{description}
+\end{Desc}
+\begin{Desc}
+\item[Returns:]The listener should return \hyperlink{obix__client_8h_79a73481c0495d24e290870c6d793828c8ea6c4e868c265ae99fc48ea57a3628}{OBIX\_\-SUCCESS} if the event was handled properly. Any other returned value will be considered by library as an error. \end{Desc}
+
+
+Definition at line 108 of file obix\_\-client.h.
+
+\subsection{Enumeration Type Documentation}
+\hypertarget{obix__client_8h_79a73481c0495d24e290870c6d793828}{
+\index{obix\_\-client.h@{obix\_\-client.h}!OBIX\_\-ERRORCODE@{OBIX\_\-ERRORCODE}}
+\index{OBIX\_\-ERRORCODE@{OBIX\_\-ERRORCODE}!obix_client.h@{obix\_\-client.h}}
+\subsubsection[OBIX\_\-ERRORCODE]{\setlength{\rightskip}{0pt plus 5cm}enum {\bf OBIX\_\-ERRORCODE}}}
+\label{obix__client_8h_79a73481c0495d24e290870c6d793828}
+
+
+Error codes which are returned by library functions \begin{Desc}
+\item[Enumerator: ]\par
+\begin{description}
+\index{OBIX\_\-SUCCESS@{OBIX\_\-SUCCESS}!obix\_\-client.h@{obix\_\-client.h}}\index{obix\_\-client.h@{obix\_\-client.h}!OBIX\_\-SUCCESS@{OBIX\_\-SUCCESS}}\item[{\em 
+\hypertarget{obix__client_8h_79a73481c0495d24e290870c6d793828c8ea6c4e868c265ae99fc48ea57a3628}{
+OBIX\_\-SUCCESS}
+\label{obix__client_8h_79a73481c0495d24e290870c6d793828c8ea6c4e868c265ae99fc48ea57a3628}
+}]Operation is completed successfully. \index{OBIX\_\-ERR\_\-INVALID\_\-ARGUMENT@{OBIX\_\-ERR\_\-INVALID\_\-ARGUMENT}!obix\_\-client.h@{obix\_\-client.h}}\index{obix\_\-client.h@{obix\_\-client.h}!OBIX\_\-ERR\_\-INVALID\_\-ARGUMENT@{OBIX\_\-ERR\_\-INVALID\_\-ARGUMENT}}\item[{\em 
+\hypertarget{obix__client_8h_79a73481c0495d24e290870c6d793828c1c2c76cb62586f8900a60ff05106343}{
+OBIX\_\-ERR\_\-INVALID\_\-ARGUMENT}
+\label{obix__client_8h_79a73481c0495d24e290870c6d793828c1c2c76cb62586f8900a60ff05106343}
+}]Function received wrong input argument. \index{OBIX\_\-ERR\_\-NO\_\-MEMORY@{OBIX\_\-ERR\_\-NO\_\-MEMORY}!obix\_\-client.h@{obix\_\-client.h}}\index{obix\_\-client.h@{obix\_\-client.h}!OBIX\_\-ERR\_\-NO\_\-MEMORY@{OBIX\_\-ERR\_\-NO\_\-MEMORY}}\item[{\em 
+\hypertarget{obix__client_8h_79a73481c0495d24e290870c6d79382817b46ba016798f6c4f2300f8fa0b104a}{
+OBIX\_\-ERR\_\-NO\_\-MEMORY}
+\label{obix__client_8h_79a73481c0495d24e290870c6d79382817b46ba016798f6c4f2300f8fa0b104a}
+}]Not enough memory to complete the operation. \index{OBIX\_\-ERR\_\-INVALID\_\-STATE@{OBIX\_\-ERR\_\-INVALID\_\-STATE}!obix\_\-client.h@{obix\_\-client.h}}\index{obix\_\-client.h@{obix\_\-client.h}!OBIX\_\-ERR\_\-INVALID\_\-STATE@{OBIX\_\-ERR\_\-INVALID\_\-STATE}}\item[{\em 
+\hypertarget{obix__client_8h_79a73481c0495d24e290870c6d7938284547ce0fe5585489b3217dd49d07a5f0}{
+OBIX\_\-ERR\_\-INVALID\_\-STATE}
+\label{obix__client_8h_79a73481c0495d24e290870c6d7938284547ce0fe5585489b3217dd49d07a5f0}
+}]Library has invalid state. \index{OBIX\_\-ERR\_\-LIMIT\_\-REACHED@{OBIX\_\-ERR\_\-LIMIT\_\-REACHED}!obix\_\-client.h@{obix\_\-client.h}}\index{obix\_\-client.h@{obix\_\-client.h}!OBIX\_\-ERR\_\-LIMIT\_\-REACHED@{OBIX\_\-ERR\_\-LIMIT\_\-REACHED}}\item[{\em 
+\hypertarget{obix__client_8h_79a73481c0495d24e290870c6d7938289c1ccf413203a3c729060a8ce6a9c438}{
+OBIX\_\-ERR\_\-LIMIT\_\-REACHED}
+\label{obix__client_8h_79a73481c0495d24e290870c6d7938289c1ccf413203a3c729060a8ce6a9c438}
+}]Allocated buffer for devices or listeners is full. \begin{Desc}
+\item[\hyperlink{todo__todo000005}{Todo}]Remove this error and enlarge arrays when needed. \end{Desc}
+\index{OBIX\_\-ERR\_\-BAD\_\-CONNECTION@{OBIX\_\-ERR\_\-BAD\_\-CONNECTION}!obix\_\-client.h@{obix\_\-client.h}}\index{obix\_\-client.h@{obix\_\-client.h}!OBIX\_\-ERR\_\-BAD\_\-CONNECTION@{OBIX\_\-ERR\_\-BAD\_\-CONNECTION}}\item[{\em 
+\hypertarget{obix__client_8h_79a73481c0495d24e290870c6d7938282dc3a47baeefd958b9fc95029a07a0c7}{
+OBIX\_\-ERR\_\-BAD\_\-CONNECTION}
+\label{obix__client_8h_79a73481c0495d24e290870c6d7938282dc3a47baeefd958b9fc95029a07a0c7}
+}]Error in communication with server. \index{OBIX\_\-ERR\_\-UNKNOWN\_\-BUG@{OBIX\_\-ERR\_\-UNKNOWN\_\-BUG}!obix\_\-client.h@{obix\_\-client.h}}\index{obix\_\-client.h@{obix\_\-client.h}!OBIX\_\-ERR\_\-UNKNOWN\_\-BUG@{OBIX\_\-ERR\_\-UNKNOWN\_\-BUG}}\item[{\em 
+\hypertarget{obix__client_8h_79a73481c0495d24e290870c6d79382868ab664c04e68ef022f8247c20cf8d62}{
+OBIX\_\-ERR\_\-UNKNOWN\_\-BUG}
+\label{obix__client_8h_79a73481c0495d24e290870c6d79382868ab664c04e68ef022f8247c20cf8d62}
+}]Reserved for uncaught errors. If such error occurs, this is a bug. \index{OBIX\_\-ERR\_\-HTTP\_\-LIB@{OBIX\_\-ERR\_\-HTTP\_\-LIB}!obix\_\-client.h@{obix\_\-client.h}}\index{obix\_\-client.h@{obix\_\-client.h}!OBIX\_\-ERR\_\-HTTP\_\-LIB@{OBIX\_\-ERR\_\-HTTP\_\-LIB}}\item[{\em 
+\hypertarget{obix__client_8h_79a73481c0495d24e290870c6d793828419578be489b19682df329e24be9e33f}{
+OBIX\_\-ERR\_\-HTTP\_\-LIB}
+\label{obix__client_8h_79a73481c0495d24e290870c6d793828419578be489b19682df329e24be9e33f}
+}]Error inside HTTP communication module. \end{description}
+\end{Desc}
+
+
+
+Definition at line 55 of file obix\_\-client.h.
+
+\subsection{Function Documentation}
+\hypertarget{obix__client_8h_7b106f351f5d74dbdce3dad225fd0e4b}{
+\index{obix\_\-client.h@{obix\_\-client.h}!obix\_\-closeConnection@{obix\_\-closeConnection}}
+\index{obix\_\-closeConnection@{obix\_\-closeConnection}!obix_client.h@{obix\_\-client.h}}
+\subsubsection[obix\_\-closeConnection]{\setlength{\rightskip}{0pt plus 5cm}int obix\_\-closeConnection (int {\em connectionId})}}
+\label{obix__client_8h_7b106f351f5d74dbdce3dad225fd0e4b}
+
+
+Closes specified connection releasing all used resources. Also unregisters all devices and listeners which were registered using this connection.
+
+\begin{Desc}
+\item[Parameters:]
+\begin{description}
+\item[{\em connectionId}]ID of the connection which should be closed. \end{description}
+\end{Desc}
+\begin{Desc}
+\item[Returns:]\hyperlink{obix__client_8h_79a73481c0495d24e290870c6d793828c8ea6c4e868c265ae99fc48ea57a3628}{OBIX\_\-SUCCESS} on success, error code otherwise. \end{Desc}
+
+
+Definition at line 508 of file obix\_\-client.c.
+
+References OBIX\_\-SUCCESS.
+
+Referenced by obix\_\-dispose().\hypertarget{obix__client_8h_af779e0cf88cabf1986b7f519d427f41}{
+\index{obix\_\-client.h@{obix\_\-client.h}!obix\_\-dispose@{obix\_\-dispose}}
+\index{obix\_\-dispose@{obix\_\-dispose}!obix_client.h@{obix\_\-client.h}}
+\subsubsection[obix\_\-dispose]{\setlength{\rightskip}{0pt plus 5cm}int obix\_\-dispose ()}}
+\label{obix__client_8h_af779e0cf88cabf1986b7f519d427f41}
+
+
+Releases all resources allocated by library. All registered listeners and devices are unregistered, all open connections are closed.
+
+\begin{Desc}
+\item[Returns:]\hyperlink{obix__client_8h_79a73481c0495d24e290870c6d793828c8ea6c4e868c265ae99fc48ea57a3628}{OBIX\_\-SUCCESS} if operation is completed successfully, error code otherwise. \end{Desc}
+
+
+Definition at line 704 of file obix\_\-client.c.
+
+References http\_\-dispose(), obix\_\-closeConnection(), and OBIX\_\-SUCCESS.
+
+Referenced by obix\_\-loadConfig().\hypertarget{obix__client_8h_bea2db6474251887a883016e86a02198}{
+\index{obix\_\-client.h@{obix\_\-client.h}!obix\_\-loadConfig@{obix\_\-loadConfig}}
+\index{obix\_\-loadConfig@{obix\_\-loadConfig}!obix_client.h@{obix\_\-client.h}}
+\subsubsection[obix\_\-loadConfig]{\setlength{\rightskip}{0pt plus 5cm}int obix\_\-loadConfig (IXML\_\-Element $\ast$ {\em config})}}
+\label{obix__client_8h_bea2db6474251887a883016e86a02198}
+
+
+Initializes library and loads connection setting from provided DOM structure. Unlike \hyperlink{obix__client_8c_227b9d2362a744a4d3af43c31eec92bb}{obix\_\-loadConfigFile()} it doesn't configure log system of the library. Unconfigured log writes all messages to {\em stdout\/}.
+
+\begin{Desc}
+\item[\hyperlink{todo__todo000004}{Todo}]Update description of \hyperlink{obix__client_8c_bea2db6474251887a883016e86a02198}{obix\_\-loadConfig()} after adding log header to the library.\end{Desc}
+\begin{Desc}
+\item[Parameters:]
+\begin{description}
+\item[{\em config}]DOM structure representing a configuration XML. \end{description}
+\end{Desc}
+\begin{Desc}
+\item[Returns:]\hyperlink{obix__client_8h_79a73481c0495d24e290870c6d793828c8ea6c4e868c265ae99fc48ea57a3628}{OBIX\_\-SUCCESS} if the library initialized successfully, error code otherwise. \end{Desc}
+
+
+Definition at line 431 of file obix\_\-client.c.
+
+References obix\_\-dispose(), OBIX\_\-ERR\_\-INVALID\_\-ARGUMENT, OBIX\_\-ERR\_\-NO\_\-MEMORY, and OBIX\_\-SUCCESS.
+
+Referenced by obix\_\-loadConfigFile().\hypertarget{obix__client_8h_227b9d2362a744a4d3af43c31eec92bb}{
+\index{obix\_\-client.h@{obix\_\-client.h}!obix\_\-loadConfigFile@{obix\_\-loadConfigFile}}
+\index{obix\_\-loadConfigFile@{obix\_\-loadConfigFile}!obix_client.h@{obix\_\-client.h}}
+\subsubsection[obix\_\-loadConfigFile]{\setlength{\rightskip}{0pt plus 5cm}int obix\_\-loadConfigFile (const char $\ast$ {\em fileName})}}
+\label{obix__client_8h_227b9d2362a744a4d3af43c31eec92bb}
+
+
+Initializes library and loads connection setting from XML file. Also sets up the logging system of the library.
+
+\begin{Desc}
+\item[Parameters:]
+\begin{description}
+\item[{\em fileName}]Name of the configuration file. \end{description}
+\end{Desc}
+\begin{Desc}
+\item[Returns:]\hyperlink{obix__client_8h_79a73481c0495d24e290870c6d793828c8ea6c4e868c265ae99fc48ea57a3628}{OBIX\_\-SUCCESS} if the library initialized successfully, error code otherwise. \end{Desc}
+
+
+Definition at line 407 of file obix\_\-client.c.
+
+References OBIX\_\-ERR\_\-INVALID\_\-ARGUMENT, obix\_\-loadConfig(), and OBIX\_\-SUCCESS.\hypertarget{obix__client_8h_79a8743c9b012df3af7a06483fb7d7cc}{
+\index{obix\_\-client.h@{obix\_\-client.h}!obix\_\-openConnection@{obix\_\-openConnection}}
+\index{obix\_\-openConnection@{obix\_\-openConnection}!obix_client.h@{obix\_\-client.h}}
+\subsubsection[obix\_\-openConnection]{\setlength{\rightskip}{0pt plus 5cm}int obix\_\-openConnection (int {\em connectionId})}}
+\label{obix__client_8h_79a8743c9b012df3af7a06483fb7d7cc}
+
+
+Opens connection with oBIX server.
+
+\begin{Desc}
+\item[Parameters:]
+\begin{description}
+\item[{\em connectionId}]Connection ID which was specified in the loaded configuration file. \end{description}
+\end{Desc}
+\begin{Desc}
+\item[Returns:]\hyperlink{obix__client_8h_79a73481c0495d24e290870c6d793828c8ea6c4e868c265ae99fc48ea57a3628}{OBIX\_\-SUCCESS} if connection is opened successfully, error code otherwise. \end{Desc}
+
+
+Definition at line 489 of file obix\_\-client.c.
+
+References OBIX\_\-SUCCESS.\hypertarget{obix__client_8h_dd3c667748a3796f3b3945f96a86095b}{
+\index{obix\_\-client.h@{obix\_\-client.h}!obix\_\-registerDevice@{obix\_\-registerDevice}}
+\index{obix\_\-registerDevice@{obix\_\-registerDevice}!obix_client.h@{obix\_\-client.h}}
+\subsubsection[obix\_\-registerDevice]{\setlength{\rightskip}{0pt plus 5cm}int obix\_\-registerDevice (int {\em connectionId}, \/  const char $\ast$ {\em obixData})}}
+\label{obix__client_8h_dd3c667748a3796f3b3945f96a86095b}
+
+
+Posts the provided device information to the oBIX server.
+
+\begin{Desc}
+\item[Note:]Input data is not tested to conform with oBIX specification. Is is strongly recommended to provide {\em displayName\/} attribute to every object. Also attributes {\em href\/} and {\em writable\/} are obligatory for all device parameters which are going to be changed by the device driver or external oBIX server users. {\em writable\/} attribute should be set to {\em true\/}; {\em href\/} attribute should have a valid URI, relative to the parent object.\end{Desc}
+\par
+ Example: 
+
+\begin{Code}\begin{verbatim} <obj name="light" href="/kitchen/light/" displayName="Kitchen lights">
+     <bool name="switch"
+         href="switch/"
+         displayName="Switch"
+         is="obix:bool"
+         val="true"
+         writable="true"/>
+ </obj>
+\end{verbatim}
+\end{Code}
+
+
+
+\begin{Desc}
+\item[Note:]Parent object can specify {\em href\/} attribute but the oBIX server can modify it (for instance, add prefix of the device storage), thus URI can't be used to refer to the device record. Use device ID instead.\end{Desc}
+\begin{Desc}
+\item[Parameters:]
+\begin{description}
+\item[{\em connectionId}]ID of the connection which should be used. \item[{\em obixData}]oBIX object representing the new device. \end{description}
+\end{Desc}
+\begin{Desc}
+\item[Returns:]\begin{itemize}
+\item $>$0 ID of the created device record; \item $<$0 error code. \end{itemize}
+\end{Desc}
+
+
+Definition at line 550 of file obix\_\-client.c.
+
+References OBIX\_\-ERR\_\-LIMIT\_\-REACHED, OBIX\_\-ERR\_\-UNKNOWN\_\-BUG, and OBIX\_\-SUCCESS.\hypertarget{obix__client_8h_6d554298664e9ad93b62e83d1606d02e}{
+\index{obix\_\-client.h@{obix\_\-client.h}!obix\_\-registerListener@{obix\_\-registerListener}}
+\index{obix\_\-registerListener@{obix\_\-registerListener}!obix_client.h@{obix\_\-client.h}}
+\subsubsection[obix\_\-registerListener]{\setlength{\rightskip}{0pt plus 5cm}int obix\_\-registerListener (int {\em connectionId}, \/  int {\em deviceId}, \/  const char $\ast$ {\em paramUri}, \/  {\bf obix\_\-update\_\-listener} {\em listener})}}
+\label{obix__client_8h_6d554298664e9ad93b62e83d1606d02e}
+
+
+Registers listener for device parameter updates.
+
+Overwrites existing listener if is called twice.
+
+This method can be also used to subscribe for the updates of any objects stored at the oBIX server. In that case {\em 0\/} should be provided as {\em deviceId\/} and {\em paramUri\/} should be relative to the server root.
+
+\begin{Desc}
+\item[Parameters:]
+\begin{description}
+\item[{\em connectionId}]ID of the connection which should be used. \item[{\em deviceId}]ID of the device whose parameter should be monitored or {\em 0\/} if the parameter doesn't belong to devices registered by this client. \item[{\em paramUri}]URI of the parameter which should be monitored. It should be either relative to the device record like it was provided during device registration, or relative to the server root if changing parameter doesn't belong to devices registered by this client. \item[{\em listener}]Pointer to the listener function which would be invoked every time when the subscribed parameter is changed. \end{description}
+\end{Desc}
+\begin{Desc}
+\item[Returns:]\begin{itemize}
+\item $>$=0 ID of the created listener; \item $<$0 error code. \end{itemize}
+\end{Desc}
+
+
+Definition at line 601 of file obix\_\-client.c.
+
+References OBIX\_\-ERR\_\-LIMIT\_\-REACHED, OBIX\_\-ERR\_\-UNKNOWN\_\-BUG, and OBIX\_\-SUCCESS.\hypertarget{obix__client_8h_9d339fe0e2d3c3daf42975e95747e703}{
+\index{obix\_\-client.h@{obix\_\-client.h}!obix\_\-unregisterDevice@{obix\_\-unregisterDevice}}
+\index{obix\_\-unregisterDevice@{obix\_\-unregisterDevice}!obix_client.h@{obix\_\-client.h}}
+\subsubsection[obix\_\-unregisterDevice]{\setlength{\rightskip}{0pt plus 5cm}int obix\_\-unregisterDevice (int {\em connectionId}, \/  int {\em deviceId})}}
+\label{obix__client_8h_9d339fe0e2d3c3daf42975e95747e703}
+
+
+Removes device record from the oBIX server. Also removes all listeners which were registered for this device.
+
+\begin{Desc}
+\item[Parameters:]
+\begin{description}
+\item[{\em connectionId}]ID of the connection which should be used. \item[{\em deviceId}]ID of the device which should be removed. \end{description}
+\end{Desc}
+\begin{Desc}
+\item[Returns:]\hyperlink{obix__client_8h_79a73481c0495d24e290870c6d793828c8ea6c4e868c265ae99fc48ea57a3628}{OBIX\_\-SUCCESS} if the device record is removed successfully, error code otherwise. \end{Desc}
+
+
+Definition at line 583 of file obix\_\-client.c.
+
+References OBIX\_\-SUCCESS.\hypertarget{obix__client_8h_b1ba49dc3f3e69d1798df1661ccbf368}{
+\index{obix\_\-client.h@{obix\_\-client.h}!obix\_\-unregisterListener@{obix\_\-unregisterListener}}
+\index{obix\_\-unregisterListener@{obix\_\-unregisterListener}!obix_client.h@{obix\_\-client.h}}
+\subsubsection[obix\_\-unregisterListener]{\setlength{\rightskip}{0pt plus 5cm}int obix\_\-unregisterListener (int {\em connectionId}, \/  int {\em deviceId}, \/  int {\em listenerId})}}
+\label{obix__client_8h_b1ba49dc3f3e69d1798df1661ccbf368}
+
+
+Unregisters listener of device parameter updates.
+
+\begin{Desc}
+\item[Parameters:]
+\begin{description}
+\item[{\em connectionId}]ID of the connection which should be used. \item[{\em deviceId}]ID of the device whose parameter is now monitored or {\em 0\/} if the parameter doesn't belong to devices registered by this client. \item[{\em listenerId}]ID of listener to be removed. \end{description}
+\end{Desc}
+\begin{Desc}
+\item[Returns:]\hyperlink{obix__client_8h_79a73481c0495d24e290870c6d793828c8ea6c4e868c265ae99fc48ea57a3628}{OBIX\_\-SUCCESS} if the listener is removed successfully, error code otherwise. \end{Desc}
+
+
+Definition at line 645 of file obix\_\-client.c.
+
+References OBIX\_\-ERR\_\-INVALID\_\-ARGUMENT, and OBIX\_\-SUCCESS.\hypertarget{obix__client_8h_345851205b8c47f22eb6c95242842db6}{
+\index{obix\_\-client.h@{obix\_\-client.h}!obix\_\-writeValue@{obix\_\-writeValue}}
+\index{obix\_\-writeValue@{obix\_\-writeValue}!obix_client.h@{obix\_\-client.h}}
+\subsubsection[obix\_\-writeValue]{\setlength{\rightskip}{0pt plus 5cm}int obix\_\-writeValue (int {\em connectionId}, \/  int {\em deviceId}, \/  const char $\ast$ {\em paramUri}, \/  const char $\ast$ {\em newValue}, \/  OBIX\_\-DATA\_\-TYPE {\em dataType})}}
+\label{obix__client_8h_345851205b8c47f22eb6c95242842db6}
+
+
+Overwrites value of the specified device parameter at the oBIX server.
+
+This function can be also used to change a value of any {\em writable\/} object at the oBIX server. In that case {\em 0\/} should be provided as {\em deviceId\/} and {\em paramUri\/} should be relative to the server root.
+
+\begin{Desc}
+\item[Parameters:]
+\begin{description}
+\item[{\em connectionId}]ID of the connection which should be used. \item[{\em deviceId}]ID of the device whose parameter should be changed or {\em 0\/} if the parameter doesn't belong to devices registered by this client. \item[{\em paramUri}]URI of the parameter. It should be either relative to the device record like it was provided during device registration, or relative to the server root if changing parameter doesn't belong to devices registered by this client. \item[{\em newValue}]Text representation of the new value to be written. \item[{\em dataType}]Type of data which is written to the server. \end{description}
+\end{Desc}
+\begin{Desc}
+\item[Returns:]{\em \hyperlink{obix__client_8h_79a73481c0495d24e290870c6d793828c8ea6c4e868c265ae99fc48ea57a3628}{OBIX\_\-SUCCESS}\/} on success, negative error code otherwise. \end{Desc}
+
+
+Definition at line 676 of file obix\_\-client.c.
+
+References OBIX\_\-SUCCESS.

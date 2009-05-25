@@ -1,0 +1,100 @@
+Makefile from this folder can be used to compile CoT project using OpenWrt SDK.
+(http://openwrt.org)
+Tested with the following OpenWrt releases:
+ - kamikaze 7.09
+ - kamikaze 8.09
+
+NOTE:
+
+ I'm not a member of OpenWrt team and most probably know about this platform 
+ even less than you. Thus I do not guarantee any quality of the following 
+ advises. Use them on your own risk. Still they can be useful, so if you know 
+ any better solution, please send it to me. Thanks. 
+
+USAGE:
+
+1. Obtain a working version of OpenWrt SDK
+
+   You can use ready builds from Downloads section of OpenWrt website 
+   (e.g. http://downloads.openwrt.org/kamikaze/7.09/brcm47xx-2.6/OpenWrt-SDK-br
+   cm47xx-2.6-for-Linux-i686.tar.bz2) or compile it from sources:
+   
+   - Get sources of required OpenWRT release either from svn or from Downloads
+     section of http://openwrt.org.
+   - Go to the root source folder and execute 'make menuconfig'
+   - If everything is OK configuration menu will appear:
+      - Choose required target platform in 'Target System' submenu;
+      - In 'Target Images' submenu uncheck all options;
+      - Check the 'Build the OpenWrt Image Builder' option;
+      - Save and exit menu.
+   - Execute 'make V=99' and have some coffee (or lunch) while OpenWrt SDK is
+     being built for you.
+   - After compilation is completed you will find archive with SDK in ./bin/
+     folder.
+   - If any problems occur refer to OpenWrt documentation.  
+   
+2. Prepare Makefile
+
+   - Copy (or create a symlink of) Makefile from this folder to 
+     <OpenWrt SDK>/package/cot/
+   - Open it in your favorite editor and find definition of Build/Prepare step.
+     At this step source of the CoT project is copied to the SDK build folder. 
+   - Modify path where CoT sources should be copied from. 
+   - ! Check that you don't have any compiled binaries in the folder from which
+     sources will be copied (run 'make clean' in the CoT root folder to make 
+     sure that nothing is left). 
+      
+3. Get makefiles for dependency libraries
+
+   CoT depends on the following libraries which are not included to the Open Wrt
+   SDK by default: 
+   - fcgi
+   - libupnp
+   - libcurl
+   These also require following libraries to be compiled with no problems:
+   - openssl
+   - uclibc++
+   - zlib
+   
+   One way to include these libs to Open Wrt SDK is to compile them as a 
+   separate packages. In order to do so, you'll need to get ready makefiles 
+   which will make all magic for you (of course, you are free to compile them by 
+   yourself instead). These can be downloaded from openwrt svn:
+   
+   - If you use old Open Wrt SDK release (<= 8.09) than checkout fcgi, lipupnp, 
+     curl and uclibc++ folders from 
+     svn://svn.openwrt.org/openwrt/branches/packages_8.09/libs/
+     Otherwise use svn://svn.openwrt.org/openwrt/packages/libs/ for latest 
+     version of makefiles.
+   - Makefiles for two remaining libraries (zlib and openssl) can be found at
+     build root in ./package/ folder: 
+      svn://svn.openwrt.org/openwrt/tags/<release tag>/package - for old 
+                                                                 releases
+      svn://svn.openwrt.org/openwrt/package                    - for latest
+                                                                 version
+   - Save downloaded libraries to <OpenWrt SDK>/package/ folder.
+ 
+4. Time to build
+
+   Now everything should be ready for compilation. Go to <OpenWrt SDK> root 
+   folder and execute following command: 'make package/cot-compile V=99'
+   Ideally SDK should start from compiling dependency libraries, by downloading
+   required sources from Internet and making other intelligent stuff.
+   If you are lucky and everything is compiled successfully, than output
+   packages will found at <OpenWrt SDK>/bin folder. There will be also packages
+   for all dependency libraries but I don't recommend using those. Tt is better
+   to download ready packages from OpenWrt website, because I can't guarantee
+   that described steps produce truly correct packages.   
+   
+   In order to recompile CoT use 'make package/cot-clean V=99' first. 
+   
+5. Compiling own oBIX client applications     
+
+   After successful compilation of CoT packages in OpenWrt SDK it will be 
+   possible to compile packages for your own applications which use libcot 
+   library. During compilation libcot binaries and headers are installed to 
+   <OpenWrt SDK>/staging_dir/<target platform>/usr/lib and
+   <OpenWrt SDK>/staging_dir/<target platform>/usr/include/cot respectively. 
+   They can be also automatically located by configure script 
+   (e.g. using AC_SEARCH_LIBS).
+                                                                

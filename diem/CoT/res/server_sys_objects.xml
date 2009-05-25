@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+	<!--
+		System objects for oBIX server. They are invisible for server users,
+		that is why the URI is not in the oBIX root (/obix/).
+	-->
+<obj href="/sys/">
+	<!-- Template for the WatchOut object. -->
+	<obj href="watch-out-stub/" is="obix:WatchOut">
+		<list name="values" of="obix:obj" />
+	</obj>
+	<!-- Template for the Watch object. -->
+	<obj href="watch-stub/" is="obix:Watch">
+		<reltime name="lease" href="lease" min="PT0S" max="PT1H" val="PT30S" writable="true" />
+		<op name="add" href="add" in="obix:WatchIn" out="obix:WatchOut">
+			<meta op="2" />
+		</op>
+		<op name="remove" href="remove" in="obix:WatchIn">
+			<meta op="3" />
+		</op>
+		<op name="pollChanges" href="pollChanges" out="obix:WatchOut">
+			<meta op="4" />
+		</op>
+		<op name="pollRefresh" href="pollRefresh" out="obix:WatchOut">
+			<meta op="5" />
+		</op>
+		<op name="delete" href="delete">
+			<meta op="6" />
+		</op>
+	</obj>
+	<!-- Template for the Error object. -->
+	<!-- TODO: do we need to store normalized object fields? -->
+	<err href="error-stub/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		xsi:schemaLocation="http://obix.org/ns/schema/1.0" xmlns="http://obix.org/ns/schema/1.0" />
+</obj>

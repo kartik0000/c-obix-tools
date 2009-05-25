@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Temp storage for device information-->
+<obj href="/obix/kitchen/" displayName="List of devices" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://obix.org/ns/schema/1.0 /obix/xsd" xmlns="http://obix.org/ns/schema/1.0">
+	<obj name="test-no-end-slash" href="device1"></obj>
+	<obj name="1" href="1/">
+		<obj name="2" href="2/">
+			<obj name="3" href="3/">
+				<str name="test-long" href="long/" val="hello" writable="true"/>
+			</obj>
+		</obj>
+	</obj>
+	<obj name="1" href="1/2/3/4/5">
+		<obj name="2" href="6/long">
+			<str name="test-no-slash-long" href="7/veryLong" val="hello once again" writable="false"/>			
+		</obj>
+	</obj>
+	<obj name="testPartialLink" href="corner/lamp" />	
+	<obj name="testNormalize" href="normalize" />
+	<op name="testNormalizeOp" href="normalizeOp">
+		<meta op="10"/>
+	</op>	
+	<int name="testWatch1" href="temperature/" writable="true" val="24"/>
+	<int name="testWatch2" href="temperature2/" writable="true" val="24"/>
+	<obj name="testWatch3" href="parent/">
+		<int name="child" href="child/" writable="true" val="24"/>
+	</obj>
+</obj>

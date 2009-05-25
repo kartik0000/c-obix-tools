@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>  
+
+  <!--
+    The address of the oBIX server. 
+  -->
+  <server-address val="http://localhost"/>
+
+  <!--
+    Configuration of the logging system. The only 
+    obligatory tag is <level> which adjusts the amount 
+    of output messages.
+  -->
+  <log> 
+    <!--
+      Available values:
+      - debug: Write to log all possible messages;
+      - warning: Write to log only warnings and errors;
+      - error: Write to log only errors;
+      - no: Do not write any log.
+    -->
+    <level val="debug"/> 
+    <!--
+      The name of a log file. If this tag is omitted
+      than all messages are forwarded to the standard
+      output (stdout).
+    -->
+    <file val="/home/andrey/workspace/CoT/obix_server.log"/>
+    <!--
+      Format of the log messages. The tag itself and 
+      all its attributes are optional. In case if 
+      some attribute is missing, corresponding 
+      option is disabled by default.
+      Attributes:
+      - prefix:   Common prefix for each message.
+      - date:     Write date of the message 
+                  ("true" or "false")
+      - time:     Write time of the message 
+                  ("true" or "false")
+      - priority: Write priority of the message 
+                  ("true" or "false")
+      - locale:   Use local settings when printing
+                  date and time.    
+                  ("true" or "false")      
+    -->
+    <format        
+      date="true" 
+      time="true" 
+      priority="true" 
+      locale="true"/>
+<!--  prefix="oBIX SERVER"/> -->  
+    <!--
+      If the tag presents, than the log file will 
+      not be flushed after each message.
+    -->  
+    <!--no-flush/-->
+  </log>
+    	
+</config>
+
+

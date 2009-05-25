@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Place where the list of devices is stored. 
+    TODO: may be make a list? of references-->
+<obj href="/obix/devices/"      
+     displayName="Device List"     
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+     xsi:schemaLocation="http://obix.org/ns/schema/1.0" 
+     xmlns="http://obix.org/ns/schema/1.0">     
+     <obj name="FakeDevice" displayName="Device for tests" href="fakeDevice/">     	     	
+     	<str name="strValue" href="str/" displayName="Custom String" val="test string" writable="true"/>
+     	<bool name="boolSwitch" href="bool/" displayName="Power Switch" val="true" writable="true"/>
+     	<int name="temperature" href="int/" displayName="Temperature" val="25" writable="true"/>
+     	<enum name="conditionMode" href="enum/" displayName="Air Condition Mode" val="homeDay" writable="true">
+     		<list href="range/" is="obix:Range">
+     			<obj name="homeDay" displayName="At home: Day mode"/>
+     			<obj name="homeNight" displayName="At home: Night mode"/>
+     			<obj name="away" displayName="Away: Short leave"/>
+     			<obj name="awayLong" displayName="Away: Vacation"/>
+     		</list>
+     	</enum>
+     </obj>
+</obj>
+
+

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+	<!--oBIX watch service-->
+<obj href="/obix/watchService/" 
+	is="obix:WatchService"
+	displayName="Watch Service" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://obix.org/ns/schema/1.0" 
+	xmlns="http://obix.org/ns/schema/1.0">
+	<op name="make" href="make" displayName="Make new watch" in="obix:Nil" out="obix:Watch">
+		<meta op="1"/>
+	</op>
+</obj>

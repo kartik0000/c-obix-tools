@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+	<!-- Connection with the Sensor Floor -->
+	<connection id="0" type="http">
+		<server-address val="http://195.156.198.23:80" lobby="/obix/" />
+		<poll-interval val="1000" />
+		<max-devices val="0" />
+		<max-listeners val="2" />
+	</connection>
+
+	<!--
+		2nd Connection with the Sensor Floor. This is workaround for watching
+		event feed: Sensor Floor is build on oX which requires separate watch
+		object for polling feed, but the library creates only one Watch per
+		connection.
+	-->
+	<connection id="1" type="http">
+		<server-address val="http://195.156.198.23:80" lobby="/obix/" />
+		<poll-interval val="3000" />
+		<max-devices val="0" />
+		<max-listeners val="1" />
+	</connection>
+
+	<!-- Connection with oBIX Server -->
+	<connection id="2" type="http">
+		<server-address val="http://localhost" lobby="/obix/" />
+		<!--server-address val="http://195.156.198.29:8085" lobby="/obix/" /-->
+		<poll-interval val="1000" />
+		<max-devices val="1" />
+		<max-listeners val="1" />
+	</connection>
+
+	<!-- Driver specific settings -->
+	<device-info>
+		<!-- Info which will be posted to the server -->
+		<obj name="SensorFloor" displayName="Sensor Floor" href="/obix/SensorFloor/">
+			<bool name="fall" displayName="Fallen Event" href="fall" val="false"
+				writable="true" />
+		</obj>
+
+		<!-- Targets show current position of people on the floor -->
+		<target count="4">
+			<!-- Object stub which will represent one target at the server -->
+			<obj>
+				<bool name="available" displayName="Available" href="available"
+					val="false" writable="true" />
+				<real name="x" displayName="X coordinate" href="x" val="0"
+					writable="true" />
+				<real name="y" displayName="Y coordinate" href="y" val="0"
+					writable="true" />
+			</obj>
+		</target>
+	</device-info>
+
+	<test-data>
+		<list href="http://195.156.198.23:80/obix/elsi/Stok/targets/" of="/def/elsi#target">
+			<obj is="/def/elsi#target">
+				<str name="id" val="1"></str>
+				<str name="name" val=""></str>
+				<real name="x" val="4.57"></real>
+				<real name="y" val="11.64"></real>
+				<real name="size" val="0.0"></real>
+				<real name="magnitude" val="39.0"></real>
+			</obj>
+		</list>
+
+		<list href="http://195.156.198.23:80/obix/elsi/Stok/targets/" of="/def/elsi#target">
+			<obj is="/def/elsi#target">
+				<str name="id" val="3"></str>
+				<str name="name" val=""></str>
+				<real name="x" val="5.25"></real>
+				<real name="y" val="3.05"></real>
+				<real name="size" val="-1.0"></real>
+				<real name="magnitude" val="0.0"></real>
+			</obj>
+		</list>
+
+		<list href="http://195.156.198.23:80/obix/elsi/Stok/targets/" of="/def/elsi#target">
+			<obj is="/def/elsi#target">
+				<str name="id" val="2"></str>
+				<str name="name" val=""></str>
+				<real name="x" val="4.57"></real>
+				<real name="y" val="11.64"></real>
+				<real name="size" val="-1.0"></real>
+				<real name="magnitude" val="0.0"></real>
+			</obj>
+			<obj is="/def/elsi#target">
+				<str name="id" val="4"></str>
+				<str name="name" val=""></str>
+				<real name="x" val="4.21"></real>
+				<real name="y" val="3.15"></real>
+				<real name="size" val="-1.0"></real>
+				<real name="magnitude" val="0.0"></real>
+			</obj>
+		</list>
+
+		<list href="http://195.156.198.23:80/obix/elsi/Stok/targets/" of="/def/elsi#target">
+			<obj is="/def/elsi#target">
+				<str name="id" val="6"></str>
+				<str name="name" val=""></str>
+				<real name="x" val="4.57"></real>
+				<real name="y" val="11.64"></real>
+				<real name="size" val="-1.0"></real>
+				<real name="magnitude" val="0.0"></real>
+			</obj>
+			<obj is="/def/elsi#target">
+				<str name="id" val="5"></str>
+				<str name="name" val=""></str>
+				<real name="x" val="2.26"></real>
+				<real name="y" val="3.15"></real>
+				<real name="size" val="-1.0"></real>
+				<real name="magnitude" val="0.0"></real>
+			</obj>
+		</list>
+
+		<list href="http://195.156.198.23:80/obix/elsi/Stok/targets/" of="/def/elsi#target"></list>
+
+	</test-data>
+
+
+	<!-- Log settings -->
+	<log>
+		<level val="warning" />
+		<!--<file val="obix_client.log" />-->
+		<format date="true" time="true" priority="true" locale="true" />
+		<!--no-flush/-->
+	</log>
+
+</config>

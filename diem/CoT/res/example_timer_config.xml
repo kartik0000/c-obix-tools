@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+
+	<!--
+		There can be several <connection/> tags, which specify parameters of
+		different connections used by oBIX client. Each tag should have
+		following obligatory attributes: 
+		- 'id':   Unique ID, by which this	connection will be referenced 
+		          inside the client. IDs should be consecutive numbers within 
+		          range [0 ... (num_of_connections - 1)].
+		- 'type': The type of connection. Currently only "http" is supported.
+		          It means that client will communicate with server using oBIX 
+		          over HTTP requests. Later one more type will be added for 
+		          direct communication with oBIX server running on the same 
+		          machine.
+	-->
+	<connection id="0" type="http">
+		<!--
+			Specifies the address of oBIX server and relative address of the
+			Lobby object at this server. Obligatory tag for HTTP connections.
+		-->
+		<server-address val="http://localhost" lobby="/obix/" />
+		<!--server-address val="http://andrey-desktop:1234" lobby="/obix" /-->
+		<!--
+			Optional tag, specifying period of polling changes from server in
+			milliseconds. When using HTTP connection library creates Watch object
+			on the oBIX server and polls changes from it in order to monitor
+			subscribed values. Default value is 500 ms.
+		-->
+		<poll-interval val="5000" />
+		<!--
+			Optional tag, specifying Watch.lease time in milliseconds. It defines
+			for how long a Watch object will be kept on the server if nobody
+			accesses it. If presents than the library tries to set Watch.lease
+			value after creating Watch object on the oBIX server, but it is not
+			guaranteed that this will make any effect (oBIX servers can prevent
+			lease time from changing or it can be not implemented at all). If the
+			tag is not provided than the lease time will be calculated as 
+			(polling interval + 10 seconds). Obviously, Watch.lease should be 
+			longer than <poll-interval/>.
+		-->
+		<!--watch-lease val="10000" /-->
+		<!--
+			Optional tag, specifying number of devices which will be registered
+			at the oBIX server using this connection. Can be used for better
+			memory utilization. Default value is 10.
+		-->
+		<max-devices val="1" />
+		<!--
+			Optional tag, specifying maximum number of listener which will be
+			registered for each device at the oBIX server using this connection.
+			Can be used for better memory utilization. Default value is 10.
+		-->
+		<max-listeners val="1" />
+	</connection>
+
+	<!--
+		Configuration of the logging system. The only obligatory tag is
+		<level> which adjusts the amount of output messages.
+	-->
+	<log>
+		<!--
+			Available values: 
+			- debug:   Write to log all possible messages; 
+			- warning: Write to log only warnings and errors; 
+			- error:   Write to log	only errors; 
+			- no:      Do not write any log.
+		-->
+		<level val="warning" />
+		<!--
+			The name of the log file. If this tag is omitted than all messages 
+			are	forwarded to the standard output (stdout).
+		-->
+		<!--<file val="obix_client.log" />-->
+		<!--
+			Format of the log messages. The tag itself and all its attributes are
+			optional. In case if some attribute is missing, corresponding option
+			is disabled by default. 
+			Attributes: 
+			- prefix:   Common prefix for each message;
+			- date:     Write date of the message ("true" or "false"); 
+			- time:     Write time of the message ("true" or "false"); 
+			- priority: Write priority of the message ("true" or "false"); 
+			- locale:   Use local settings when printing date and time ("true" 
+			            or "false").
+		-->
+		<format date="true" time="true" priority="true" locale="true" />		
+		<!--
+			If the tag presents, than the log file will not be flushed after each
+			message.
+		-->
+		<!--no-flush/-->
+	</log>	
+	
+</config>
