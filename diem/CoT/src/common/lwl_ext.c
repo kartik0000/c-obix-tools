@@ -9,6 +9,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
+//#include <syslog.h>
 #include <xml_config.h>
 #include <lwl.h>
 #include "lwl_ext.h"
@@ -28,12 +29,18 @@ const char* CTA_LOG_LOCALE = "locale";
 const char* CTA_LOG_PRIORITY = "priority";
 const char* CT_LOG_NO_FLUSH = "no-flush";
 
-typedef void (*log_function)(lwl_priority_t priority, char* fmt, va_list args);
+// logging to stdout
+static void log_debugPrintf(char* fmt, ...);
+static void log_warningPrintf(char* fmt, ...);
+static void log_errorPrintf(char* fmt, ...);
+// logging using lwl
+static void log_debugLwl(char* fmt, ...);
+static void log_warningLwl(char* fmt, ...);
+static void log_errorLwl(char* fmt, ...);
 
-static void logWithPrintf(lwl_priority_t priority, char* fmt, va_list args);
-static void logWithLwl(lwl_priority_t priority, char* fmt, va_list args);
-
-static log_function logFunction = &logWithPrintf;
+log_function log_debugHandler = &log_debugPrintf;
+log_function log_warningHandler = &log_warningPrintf;
+log_function log_errorHandler = &log_errorPrintf;
 
 static lwlh_t logHandle = NULL;
 
@@ -72,7 +79,7 @@ int log_config(IXML_Element* configTag)
     else
     {
         log_error("Wrong log level value provided. Available values: "
-                 "\"debug\", \"warning\", \"error\" and \"no\".");
+                  "\"debug\", \"warning\", \"error\" and \"no\".");
         return -1;
     }
 
@@ -157,39 +164,27 @@ int log_config(IXML_Element* configTag)
                             LWL_TAG_DONE);
     }
 
+    // switch logging to lwl
     logHandle = tempHandle;
-    logFunction = &logWithLwl;
+    log_debugHandler = &log_debugLwl;
+    log_warningHandler = &log_warningLwl;
+    log_errorHandler = &log_errorLwl;
 
     log_debug("\n"
-             "--------------------------------------------------------------------------------\n"
-             "--------------                Starting new log ...                --------------\n"
-             "--------------------------------------------------------------------------------");
+              "--------------------------------------------------------------------------------\n"
+              "--------------                Starting new log ...                --------------\n"
+              "--------------------------------------------------------------------------------");
 
     return 0;
 }
 
 /**
- * Writes log to @a stdout.
- * It is used when log is not initialized.
+ * Writes log using syslog utility
  */
-static void logWithPrintf(lwl_priority_t priority, char* fmt, va_list args)
-{
-    switch(priority)
-    {
-    case LWL_PRI_DEBUG:
-        printf("DEBUG ");
-        break;
-    case LWL_PRI_WARNING:
-        printf("WARNING ");
-        break;
-    case LWL_PRI_ERR:
-    default:
-        printf("ERROR ");
-        break;
-    }
-    vprintf(fmt, args);
-    printf("\n");
-}
+//static void logWithSyslog(lwl_priority_t priority, char* fmt, va_list args)
+//{
+//    vsyslog(LOG_INFO, fmt, args);
+//}
 
 /**
  * Writes log using @a lwl log handler.
@@ -228,29 +223,60 @@ static void logWithLwl(lwl_priority_t priority, char* fmt, va_list args)
     free(buffer);
 }
 
-void log_debug(char* fmt, ...)
+static void log_debugPrintf(char* fmt, ...)
+{
+    printf("DEBUG ");
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
+    printf("\n");
+}
+
+static void log_warningPrintf(char* fmt, ...)
+{
+    printf("WARNING ");
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
+    printf("\n");
+}
+
+static void log_errorPrintf(char* fmt, ...)
+{
+    printf("ERROR ");
+    va_list args;
+    va_start(args, fmt);
+    vprintf(fmt, args);
+    va_end(args);
+    printf("\n");
+}
+
+static void log_debugLwl(char* fmt, ...)
 {
     va_list args;
     va_start(args,fmt);
-    (*logFunction)(LWL_PRI_DEBUG, fmt, args);
+    logWithLwl(LWL_PRI_DEBUG, fmt, args);
     va_end(args);
 }
 
-void log_warning(char* fmt, ...)
+static void log_warningLwl(char* fmt, ...)
 {
     va_list args;
     va_start(args,fmt);
-    (*logFunction)(LWL_PRI_WARNING, fmt, args);
+    logWithLwl(LWL_PRI_WARNING, fmt, args);
     va_end(args);
 }
 
-void log_error(char* fmt, ...)
+static void log_errorLwl(char* fmt, ...)
 {
     va_list args;
     va_start(args,fmt);
-    (*logFunction)(LWL_PRI_ERR, fmt, args);
+    logWithLwl(LWL_PRI_ERR, fmt, args);
     va_end(args);
 }
+
 
 void log_dispose()
 {
@@ -258,6 +284,9 @@ void log_dispose()
     {
         lwl_free(logHandle);
         logHandle = NULL;
-        logFunction = &logWithPrintf;
+        // switch back to logging to stdout
+        log_debugHandler = &log_debugPrintf;
+        log_warningHandler = &log_warningPrintf;
+        log_errorHandler = &log_errorPrintf;
     }
 }

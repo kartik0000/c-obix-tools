@@ -11,6 +11,5 @@ libcot_utils_la_SOURCES		= xml_config.h xml_config.c \
 							  ptask.h ptask.c \
 							  lwl_ext.h lwl_ext.c
 
-libcot_utils_la_CFLAGS		= $(DEPS_CFLAGS) -I$(top_srcdir)/3rd-party/lwl
+libcot_utils_la_CFLAGS		= $(DEPS_CFLAGS)
 
-libcot_utils_la_LIBADD 		= $(top_builddir)/3rd-party/lwl/liblwl.la 

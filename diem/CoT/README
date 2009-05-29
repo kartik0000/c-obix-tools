@@ -1,5 +1,5 @@
 
-  CoT - C oBIX Tools
+  CoT - C oBIX Tools v.1.0.0
   
  A set of tools for developing oBIX-based solutions.
  
@@ -21,7 +21,7 @@
 
  --1-- Project description
  
- TODO
+ #### T O D O ####
  
 =====
 
@@ -52,13 +52,6 @@
  
  src/test/			Tests sources which are used only during development.
  
- 3rd-party/  		Folder contains all 3rd party libraries which are included 
- 					into distribution just to make compiling easier. Will be 
- 					removed in later releases.
- 					
- 3rd-party/lwl/		Library which are used for advanced logging. Probably will 
- 					be changed to syslog in later releases.
- 					
  doc/				Contains project documentation built with Doxygen.
  
  res/				Various configuration files.
@@ -81,7 +74,7 @@
  					
  res/test_*.xml		Files used by tests.
  
- res/OpenWrt-SDK/	Folder contains Makefile and instructions for building 
+ res/OpenWrt-SDK/	Folder contains makefiles and instructions for building 
  					project for OpenWrt platform.            
  
 =====
@@ -92,12 +85,12 @@
  OpenWrt platform.
   
  Simple compilation can be done by executing following commands in the project 
- root folder:
+ root folder (for advanced instructions read /INSTALL):
  
  Before the first compilation:
  
  ./configure		That will configure building system according to your system 
- 					configuration.
+ 					configuration. 					  					
  					
  You would probably like to use also following flags:
    
@@ -105,8 +98,15 @@
   
   --prefix="<path>" Sets the installation root folder. By default, package is
   					installed to /usr/{bin,lib,include}.
+ 
+ You will need the following libraries to build CoT (configure script should 
+ tell you which are missing):
+ - lwl (Log Writer Library http://gna.org/projects/lwl/)
+ - fcgi
+ - libupnp
+ - libcurl  					
   					
- After that execute:
+ After ./configure is successfully completed execute:
  
  make all			That would compile the project. All binaries will be placed 
  					in the same folders with source files. 

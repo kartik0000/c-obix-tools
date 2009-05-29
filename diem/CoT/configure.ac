@@ -28,7 +28,15 @@ AC_PROG_LIBTOOL
 
 # Checks for libraries.
 PKG_CHECK_MODULES(DEPS, libupnp >= 1.4.3 libcurl)
-AC_SEARCH_LIBS([FCGX_Init], [fcgi],, AC_MSG_ERROR([Unable to link to fcgi library. Please install Fast CGI library first.]), [ -lm])
+AC_SEARCH_LIBS(
+	[FCGX_Init], 
+	[fcgi],, 
+	AC_MSG_ERROR([Unable to link to libfcgi. Please install Fast CGI library first.]), 
+	[ -lm])
+AC_SEARCH_LIBS(
+	[lwl_alloc], 
+	[lwl],, 
+	AC_MSG_ERROR([Unable to link to liblwl. Please install LWL library first.]))
 			
 AC_SUBST(DEPS_CFLAGS)
 AC_SUBST(DEPS_LIBS)
@@ -52,8 +60,7 @@ AC_FUNC_STRFTIME
 AC_FUNC_VPRINTF
 AC_CHECK_FUNCS([clock_gettime gethostbyname gethostname inet_ntoa localtime_r strchr strdup strstr strtol])
 
-AC_CONFIG_FILES([Makefile
-                 3rd-party/lwl/Makefile
+AC_CONFIG_FILES([Makefile                 
                  src/common/Makefile
                  src/client/Makefile
                  src/adapters/Makefile

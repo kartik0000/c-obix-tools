@@ -27,12 +27,23 @@ extern const char* CTA_LOG_LOCALE;
 extern const char* CTA_LOG_PRIORITY;
 extern const char* CT_LOG_NO_FLUSH;
 
+typedef void (*log_function)(char* fmt, ...);
+
+extern log_function log_debugHandler;
+extern log_function log_warningHandler;
+extern log_function log_errorHandler;
+
 /**@name Logging utilities@{*/
-void log_debug(char* fmt, ...);
+// A trick with define is done in order to auto-add filename and line number
+// into the log message.
+#define log_debug(fmt, ...) (*log_debugHandler)("%s(%d): " fmt, __FILE__, \
+												__LINE__, ## __VA_ARGS__)
 
-void log_warning(char* fmt, ...);
+#define log_warning(fmt, ...) (*log_warningHandler)("%s(%d): " fmt, __FILE__, \
+													__LINE__, ## __VA_ARGS__)
 
-void log_error(char* fmt, ...);
+#define log_error(fmt, ...) (*log_errorHandler)("%s(%d): " fmt, __FILE__, \
+												__LINE__, ## __VA_ARGS__)
 /**@}*/
 
 int log_config(IXML_Element* configTag);
