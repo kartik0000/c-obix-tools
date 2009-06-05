@@ -10,6 +10,20 @@
  * oBIX server and monitor value updates. In order to register new device,
  * server should support signUp feature which is not in the oBIX specification.
  * @n
+ * @n @b Usage:
+ * @n
+ * The following string will compile application which uses oBIX Client Library:
+ * @code
+ * gcc -I<cot_headers> -L<cot_lib> -lcot-client <sources>
+ * @endcode
+ * where
+ * - @a \<cot_headers> - Path to header files of libcot (usually it is
+ * 						\<installation_prefix>/include/cot/).
+ * - @a \<cot_lib>	  - Path to library binaries of libcot (usually it is
+ * 						\<installation_prefix>/lib).
+ * - @a \<sources>	  - Your source files to be compiled.
+ *
+ * @n
  * The typical usage of library (see example at example_timer.c):
  * @li Include obix_client.h header.
  *
@@ -41,7 +55,6 @@
  *     oBIX server(s).
  *
  * @author Andrey Litvinov
- * @version 0.1
  */
 
 #ifndef OBIX_CLIENT_H_

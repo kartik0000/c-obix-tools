@@ -2,7 +2,8 @@
 <config>  
 
   <!--
-    The address of the oBIX server. 
+    The address of the oBIX server. It will appear in all server's responses
+    so don't forget to change it to the real server address. 
   -->
   <server-address val="http://localhost"/>
 

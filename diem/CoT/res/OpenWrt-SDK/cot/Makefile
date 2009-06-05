@@ -52,7 +52,7 @@ define Build/InstallDev
 	$(INSTALL_DIR) $(1)/usr/include/cot
 	$(CP) $(PKG_INSTALL_DIR)/usr/include/cot/* $(1)/usr/include/cot	
 	$(INSTALL_DIR) $(1)/usr/lib
-	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libcot_{client,utils}.{a,so*} $(1)/usr/lib/
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libcot-{client,utils}.{a,so*} $(1)/usr/lib/
 endef
 
 define Package/cot-server/install
@@ -69,7 +69,7 @@ endef
 
 define Package/libcot/install
 	$(INSTALL_DIR) $(1)/usr/lib
-	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libcot_{client,utils}.so.* $(1)/usr/lib/
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libcot-{client,utils}.so.* $(1)/usr/lib/
 endef
 
 $(eval $(call BuildPackage,libcot))

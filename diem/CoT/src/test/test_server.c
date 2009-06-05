@@ -13,6 +13,25 @@
 #include <obix_fcgi.h>
 #include "test_main.h"
 
+BOOL _responseIsSent = FALSE;
+void dummyResponseListener(Response* response)
+{
+    _responseIsSent = TRUE;
+}
+
+static BOOL isResponseSent()
+{
+    // reset flag
+    if (_responseIsSent)
+    {
+        _responseIsSent = FALSE;
+        return TRUE;
+    }
+
+    printf("No response is sent...\n");
+    return FALSE;
+}
+
 int testSearch(const char* testName, const char* href, const char* checkStr, BOOL exists)
 {
     char* node = xmldb_get(href);
@@ -176,7 +195,9 @@ int testGenerateResponse(const char* testName, const char* uri, const char* newU
         return 1;
     }
 
-    Response* response = obix_server_generateResponse(oBIXdoc, newUrl, TRUE, FALSE, 0, TRUE, FALSE);
+    Response* response = obixResponse_create(NULL);
+    obix_server_generateResponse(response, oBIXdoc, newUrl, TRUE, FALSE, 0, TRUE, FALSE);
+
     if ((response == NULL) || (response->body == NULL))
     {
         printf("oBIX normalization without saving is failed.\n");
@@ -193,7 +214,8 @@ int testGenerateResponse(const char* testName, const char* uri, const char* newU
         return 1;
     }
 
-    response = obix_server_generateResponse(oBIXdoc, newUrl, TRUE, FALSE, 0, FALSE, TRUE);
+    response = obixResponse_create(NULL);
+    obix_server_generateResponse(response, oBIXdoc, newUrl, TRUE, FALSE, 0, FALSE, TRUE);
     if ((response == NULL) || (response->body == NULL))
     {
         printf("oBIX normalization with saving is failed.\n");
@@ -340,31 +362,37 @@ Response* testPostHandler(const char* uri, IXML_Document* input)
 //    return 0;
 //}
 
-int testDumpEnvironment()
-{
-    char* testName = "obix_fcgi_dumpEnvironment";
-
-    Response* response = obix_server_dumpEnvironment(NULL);
-    if ((response == NULL) || (response->body == NULL))
-    {
-        printf("Dump environment returned NULL.\n");
-        printTestResult(testName, FALSE);
-        return 1;
-    }
-
-    printf("Dump environment returned the following answer:\n");
-    Response* part = response;
-    int i;
-    for (i = 1; part != NULL; i++)
-    {
-        printf("Part #%d:\n%s\n", i, part->body);
-        part = part->next;
-    }
-    obixResponse_free(response);
-
-    printTestResult(testName, TRUE);
-    return 0;
-}
+// TODO in order to test dump_environment, obix_fcgi should be stated as on of
+// the sources for test application, but it already contains main function
+//int testDumpEnvironment()
+//{
+//    char* testName = "obix_fcgi_dumpEnvironment";
+//
+//    obix_server_setResponseListener(&dummyResponseListener);
+//    Response* response = obixResponse_create(NULL);
+//
+//    obix_fcgi_dumpEnvironment(response);
+//
+//    if ((response == NULL) || (response->body == NULL) || !isResponseSent())
+//    {
+//        printf("Dump environment returned NULL.\n");
+//        printTestResult(testName, FALSE);
+//        return 1;
+//    }
+//
+//    printf("Dump environment returned the following answer:\n");
+//    Response* part = response;
+//    int i;
+//    for (i = 1; part != NULL; i++)
+//    {
+//        printf("Part #%d:\n%s\n", i, part->body);
+//        part = part->next;
+//    }
+//    obixResponse_free(response);
+//
+//    printTestResult(testName, TRUE);
+//    return 0;
+//}
 
 int obix_client_testListener(int connectionId,
                              int deviceId,
@@ -505,6 +533,12 @@ int checkResponse(Response* response, BOOL containsError)
         return 1;
     }
 
+    if (!isResponseSent())
+    {
+        printf("No response is sent.\n");
+        return 1;
+    }
+
     printResponse(response);
     // try to find error object in all response parts
     char* error = NULL;
@@ -571,7 +605,9 @@ int testWatchPollChanges(const char* testName,
                          int checkSize,
                          BOOL exists)
 {
-    Response* response = obix_server_handlePOST(uri, NULL);
+    obix_server_setResponseListener(&dummyResponseListener);
+    Response* response = obixResponse_create(NULL);
+    obix_server_handlePOST(response, uri, NULL);
     if (checkResponse(response, FALSE) != 0)
     {
         printf("Poll Changes command failed.\n");
@@ -598,13 +634,17 @@ int testWatchPollChanges(const char* testName,
 int testWatchRemove()
 {
     const char* testName = "Watch.remove test";
-    Response* response = obix_server_handlePOST("/obix/watchService/watch1/remove",
-                         "<obj is=\"obix:WatchIn\">\r\n"
-                         " <list name=\"hrefs\" of=\"obix:WatchInItem\">\r\n"
-                         "  <uri is=\"obix:WatchInItem\" val=\"/obix/wrongURI\"/>\r\n"
-                         "  <uri is=\"obix:WatchInItem\" val=\"/obix/kitchen/parent/\"/>\r\n"
-                         " </list>\r\n"
-                         "</obj>");
+    obix_server_setResponseListener(&dummyResponseListener);
+    Response* response = obixResponse_create(NULL);
+    obix_server_handlePOST(
+        response,
+        "/obix/watchService/watch1/remove",
+        "<obj is=\"obix:WatchIn\">\r\n"
+        " <list name=\"hrefs\" of=\"obix:WatchInItem\">\r\n"
+        "  <uri is=\"obix:WatchInItem\" val=\"/obix/wrongURI\"/>\r\n"
+        "  <uri is=\"obix:WatchInItem\" val=\"/obix/kitchen/parent/\"/>\r\n"
+        " </list>\r\n"
+        "</obj>");
     // we should receive empty object
     if (checkResponse(response, FALSE) != 0)
     {
@@ -615,7 +655,10 @@ int testWatchRemove()
 
     // now try to poll refresh and check that we do not receive object which
     // we've just removed from the watch list
-    response = obix_server_handlePOST("/obix/watchService/watch1/pollChanges", NULL);
+    response = obixResponse_create(NULL);
+    obix_server_handlePOST(response,
+                           "/obix/watchService/watch1/pollChanges",
+                           NULL);
     if (checkResponse(response, FALSE) != 0)
     {
         printTestResult(testName, FALSE);
@@ -648,7 +691,9 @@ int testWatch()
 {
     const char* testName = "oBIX Watch test";
     // create new Watch object
-    Response* response = obix_server_handlePOST("/obix/watchService/make", NULL);
+    obix_server_setResponseListener(&dummyResponseListener);
+    Response* response = obixResponse_create(NULL);
+    obix_server_handlePOST(response, "/obix/watchService/make", NULL);
     if (checkResponse(response, FALSE) != 0)
     {
         printTestResult(testName, FALSE);
@@ -661,18 +706,21 @@ int testWatch()
     // + one with wrong trailing slash, one <op/> object,
     // one comment and one wrong object.
     // TODO check duplicate request for same object
-    response = obix_server_handlePOST("/obix/watchService/watch1/add",
-                                      "<obj is=\"obix:WatchIn\">\r\n"
-                                      " <list name=\"hrefs\" of=\"obix:WatchInItem\">\r\n"
-                                      "  <!-- Comment goes here -->\r\n"
-                                      "  and not only the comment\r\n"
-                                      "  <obj name=\"Wrong Object\"/>\r\n"
-                                      "  <uri is=\"obix:WatchInItem\" val=\"/obix/watchService/make\"/>\r\n"
-                                      "  <uri is=\"obix:WatchInItem\" val=\"/obix/kitchen/temperature/\"/>\r\n"
-                                      "  <uri is=\"obix:WatchInItem\" val=\"/obix/kitchen/temperature2\"/>\r\n"
-                                      "  <uri is=\"obix:WatchInItem\" val=\"/obix/kitchen/parent/\"/>\r\n"
-                                      " </list>\r\n"
-                                      "</obj>");
+    response = obixResponse_create(NULL);
+    obix_server_handlePOST(
+        response,
+        "/obix/watchService/watch1/add",
+        "<obj is=\"obix:WatchIn\">\r\n"
+        " <list name=\"hrefs\" of=\"obix:WatchInItem\">\r\n"
+        "  <!-- Comment goes here -->\r\n"
+        "  and not only the comment\r\n"
+        "  <obj name=\"Wrong Object\"/>\r\n"
+        "  <uri is=\"obix:WatchInItem\" val=\"/obix/watchService/make\"/>\r\n"
+        "  <uri is=\"obix:WatchInItem\" val=\"/obix/kitchen/temperature/\"/>\r\n"
+        "  <uri is=\"obix:WatchInItem\" val=\"/obix/kitchen/temperature2\"/>\r\n"
+        "  <uri is=\"obix:WatchInItem\" val=\"/obix/kitchen/parent/\"/>\r\n"
+        " </list>\r\n"
+        "</obj>");
     if (checkResponse(response, TRUE) != 0)
     {
         printTestResult(testName, FALSE);
@@ -701,16 +749,22 @@ int testWatch()
     }
 
     // let's change value of monitored objects and check for update
-    response = obix_server_handlePUT("/obix/kitchen/temperature/",
-                                     "<int href=\"/obix/kitchen/temperature/\" val=\"newValue\"/>");
+    response = obixResponse_create(NULL);
+    obix_server_handlePUT(
+        response,
+        "/obix/kitchen/temperature/",
+        "<int href=\"/obix/kitchen/temperature/\" val=\"newValue\"/>");
     if (checkResponse(response, FALSE) != 0)
     {
         printTestResult(testName, FALSE);
         return 1;
     }
     obixResponse_free(response);
-    response = obix_server_handlePUT("/obix/kitchen/parent/child/",
-                                     "<int href=\"/obix/kitchen/parent/child/\" val=\"newValue\"/>");
+    response = obixResponse_create(NULL);
+    obix_server_handlePUT(
+        response,
+        "/obix/kitchen/parent/child/",
+        "<int href=\"/obix/kitchen/parent/child/\" val=\"newValue\"/>");
     if (checkResponse(response, FALSE) != 0)
     {
         printTestResult(testName, FALSE);
@@ -773,7 +827,9 @@ int testSignUpHelper(const char* testName,
                      BOOL shouldPass)
 {
     // invoke signup operation
-    Response* response = obix_server_handlePOST("/obix/signUp/", inputData);
+    obix_server_setResponseListener(&dummyResponseListener);
+    Response* response = obixResponse_create(NULL);
+    obix_server_handlePOST(response, "/obix/signUp/", inputData);
     if (checkResponse(response, !shouldPass) != 0)
     {
         printTestResult(testName, FALSE);
@@ -996,7 +1052,8 @@ int test_server(char* resFolder)
     // testing dummy implementation of the client lib
     //    result += testObixClientLib();
 
-    result += testDumpEnvironment();
+    // TODO read todo of testDumpEnvironment
+//    result += testDumpEnvironment();
 
     result += testSignUp();
 

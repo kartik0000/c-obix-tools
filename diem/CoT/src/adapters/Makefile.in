@@ -50,17 +50,16 @@ binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
 am_example_timer_OBJECTS = example_timer-example_timer.$(OBJEXT)
 example_timer_OBJECTS = $(am_example_timer_OBJECTS)
-am__DEPENDENCIES_1 =
-example_timer_DEPENDENCIES = $(am__DEPENDENCIES_1) \
-	$(top_builddir)/src/client/libcot_client.la
+example_timer_DEPENDENCIES =  \
+	$(top_builddir)/src/client/libcot-client.la
 example_timer_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(example_timer_CFLAGS) \
 	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 am_sensor_floor_driver_OBJECTS =  \
 	sensor_floor_driver-sensor_floor_driver.$(OBJEXT)
 sensor_floor_driver_OBJECTS = $(am_sensor_floor_driver_OBJECTS)
-sensor_floor_driver_DEPENDENCIES = $(am__DEPENDENCIES_1) \
-	$(top_builddir)/src/client/libcot_client.la
+sensor_floor_driver_DEPENDENCIES =  \
+	$(top_builddir)/src/client/libcot-client.la
 sensor_floor_driver_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(sensor_floor_driver_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
@@ -96,6 +95,8 @@ CFLAGS = @CFLAGS@
 COT_CLIENT_VERSION = @COT_CLIENT_VERSION@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
+CURL_CFLAGS = @CURL_CFLAGS@
+CURL_LIBS = @CURL_LIBS@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 CXXDEPMODE = @CXXDEPMODE@
@@ -103,8 +104,6 @@ CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
-DEPS_CFLAGS = @DEPS_CFLAGS@
-DEPS_LIBS = @DEPS_LIBS@
 DSYMUTIL = @DSYMUTIL@
 DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
@@ -112,6 +111,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
+FCGI_LIB = @FCGI_LIB@
 FGREP = @FGREP@
 GREP = @GREP@
 INSTALL = @INSTALL@
@@ -127,7 +127,7 @@ LIBTOOL = @LIBTOOL@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
-LWL_LT_VERSION = @LWL_LT_VERSION@
+LWL_LIB = @LWL_LIB@
 MAKEINFO = @MAKEINFO@
 MKDIR_P = @MKDIR_P@
 NM = @NM@
@@ -144,10 +144,13 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PKG_CONFIG = @PKG_CONFIG@
 RANLIB = @RANLIB@
+RT_LIB = @RT_LIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
+UPNP_CFLAGS = @UPNP_CFLAGS@
+UPNP_LIBS = @UPNP_LIBS@
 VERSION = @VERSION@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
@@ -202,21 +205,15 @@ target_alias = @target_alias@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 example_timer_SOURCES = example_timer.c
-example_timer_CFLAGS = $(DEPS_CFLAGS) \
-								  -I$(top_srcdir)/src/client \
+example_timer_CFLAGS = -I$(top_srcdir)/src/client \
 								  -I$(top_srcdir)/src/common
 
-example_timer_LDADD = $(DEPS_LIBS) \
-								  $(top_builddir)/src/client/libcot_client.la
-
+example_timer_LDADD = $(top_builddir)/src/client/libcot-client.la
 sensor_floor_driver_SOURCES = sensor_floor_driver.c
-sensor_floor_driver_CFLAGS = $(DEPS_CFLAGS) \
-								  -I$(top_srcdir)/src/client \
+sensor_floor_driver_CFLAGS = -I$(top_srcdir)/src/client \
 								  -I$(top_srcdir)/src/common
 
-sensor_floor_driver_LDADD = $(DEPS_LIBS) \
-								  $(top_builddir)/src/client/libcot_client.la
-
+sensor_floor_driver_LDADD = $(top_builddir)/src/client/libcot-client.la
 all: all-am
 
 .SUFFIXES:

@@ -1,6 +1,5 @@
 // gcc -I/usr/include/fastcgi -lfcgi testfastcgi.c -o test.fastcgi
 #include <stdlib.h>
-#include <fcgiapp.h>
 
 #include <lwl_ext.h>
 #include <obix_utils.h>
@@ -33,16 +32,13 @@ static const char* ERROR_STATIC = "<err displayName=\"Internal Server Error\" "
                                   "This is a static error message which is "
                                   "returned when things go really bad./>\"";
 
-FCGX_Request* _request;
-
-// TODO remove me
-Task_Thread* _removeMe_Thread;
-
 /**
  * Entry point of FCGI script.
  */
 int main(int argc, char** argv)
 {
+    FCGX_Request* request;
+
     log_debug("Starting oBIX server...");
     char* resourceDir = NULL;
 
@@ -58,10 +54,10 @@ int main(int argc, char** argv)
     }
 
     // init server
-    if (obix_fcgi_init(resourceDir) != 0)
+    if (obix_fcgi_init(&request, resourceDir) != 0)
     {
         // initialization failed
-        obix_fcgi_shutdown();
+        obix_fcgi_shutdown(request);
         return -1;
     }
 
@@ -69,7 +65,7 @@ int main(int argc, char** argv)
     while (1)
     {
         log_debug("Waiting for the request..");
-        int error = FCGX_Accept_r(_request);
+        int error = FCGX_Accept_r(request);
         if (error)
         {
             log_warning("Stopping the server: FCGX_Accept_r returned %d", error);
@@ -77,24 +73,16 @@ int main(int argc, char** argv)
         }
 
         log_debug("Request accepted");
-        Response* response = obix_fcgi_handleRequest();
-        if (response == NULL)
-        {
-            obix_fcgi_sendStaticErrorMessage();
-        }
-        else
-        {
-            obix_fcgi_sendResponse(response);
-        }
+        obix_fcgi_handleRequest(request);
         log_debug("Request handled");
     }
 
     // shut down
-    obix_fcgi_shutdown();
+    obix_fcgi_shutdown(request);
     return 0;
 }
 
-int obix_fcgi_init(char* resourceDir)
+int obix_fcgi_init(FCGX_Request** request, char* resourceDir)
 {
     // call before Accept in multithreaded apps
     int error = FCGX_Init();
@@ -104,41 +92,41 @@ int obix_fcgi_init(char* resourceDir)
         return -1;
     }
 
-    // init request
-    _request = (FCGX_Request*) malloc(sizeof(FCGX_Request));
-    error = FCGX_InitRequest(_request, LISTENSOCK_FILENO, LISTENSOCK_FLAGS);
+    // init request object
+    *request = (FCGX_Request*) malloc(sizeof(FCGX_Request));
+    error = FCGX_InitRequest(*request, LISTENSOCK_FILENO, LISTENSOCK_FLAGS);
     if (error)
     {
         log_error("Unable to start the server. FCGX_InitRequest failed: %d", error);
         return -1;
     }
 
-    _removeMe_Thread = ptask_init();
+    // register callback for handling responses
+    obix_server_setResponseListener(&obix_fcgi_sendResponse);
 
     return obix_server_init(resourceDir);
 }
 
-void obix_fcgi_shutdown()
+void obix_fcgi_shutdown(FCGX_Request* request)
 {
     obix_server_shutdown();
-    ptask_dispose(_removeMe_Thread);
 
-    if (_request != NULL)
+    if (request != NULL)
     {
-        FCGX_Free(_request, TRUE);
+        FCGX_Free(request, TRUE);
     }
     FCGX_ShutdownPending();
 }
 
-Response* obix_fcgi_handleRequest()
+void obix_fcgi_handleRequest(FCGX_Request* request)
 {
     // get request URI
-    const char* uri = FCGX_GetParam("REQUEST_URI", _request->envp);
+    const char* uri = FCGX_GetParam("REQUEST_URI", request->envp);
     if (uri == NULL)
     {
-        //TODO: handle error by returning static error message.
-        log_error("Unable to retrieve URI from the request. Request is ignored.");
-        return NULL;
+        log_error("Unable to retrieve URI from the request.");
+        obix_fcgi_sendStaticErrorMessage(request);
+        return;
     }
     // truncate uri if it contains server address
     if (xmldb_compareServerAddr(uri) == 0)
@@ -148,18 +136,29 @@ Response* obix_fcgi_handleRequest()
     // check that uri is absolute
     if (*uri != '/')
     {
-        //TODO: handle error somehow
-        log_error("Request URI \"%s\" has wrong format: Should start with \'/\'.", uri);
-        return NULL;
+        log_error("Request URI \"%s\" has wrong format: "
+                  "Should start with \'/\'.", uri);
+        obix_fcgi_sendStaticErrorMessage(request);
+        return;
     }
 
     // check the type of request
-    const char* requestType = FCGX_GetParam("REQUEST_METHOD", _request->envp);
+    const char* requestType = FCGX_GetParam("REQUEST_METHOD", request->envp);
     if (requestType == NULL)
     {
-        //TODO: handle error somehow
-        log_error("Unable to get the request type. Request is ignored.");
-        return NULL;
+        log_error("Unable to get the request type.");
+        obix_fcgi_sendStaticErrorMessage(request);
+        return;
+    }
+
+    // prepare response object
+
+    Response* response = obixResponse_create(request);
+    if (response == NULL)
+    {
+        log_error("Unable to create response object: Not enough memory.");
+        obix_fcgi_sendStaticErrorMessage(request);
+        return;
     }
 
     // call corresponding request handler
@@ -168,34 +167,32 @@ Response* obix_fcgi_handleRequest()
         // handle GET request
         if (strcmp(uri, "/obix-dump/") == 0)
         {
-            return obix_server_dumpEnvironment(_request);
+            obix_fcgi_dumpEnvironment(response);
         }
         else
         {
-            return obix_server_handleGET(uri);
+            obix_server_handleGET(response, uri);
         }
     }
     else if (!strcmp(requestType, "PUT"))
     {
         // handle PUT request
-        char* input = obix_fcgi_readRequestInput();
-        Response* response = obix_server_handlePUT(uri, input);
+        char* input = obix_fcgi_readRequestInput(request);
+        obix_server_handlePUT(response, uri, input);
         if (input != NULL)
         {
             free(input);
         }
-        return response;
     }
     else if (!strcmp(requestType, "POST"))
     {
         // handle POST request
-        char* input = obix_fcgi_readRequestInput();
-        Response* response = obix_server_handlePOST(uri, input);
+        char* input = obix_fcgi_readRequestInput(request);
+        obix_server_handlePOST(response, uri, input);
         if (input != NULL)
         {
             free(input);
         }
-        return response;
     }
     else
     {
@@ -204,22 +201,23 @@ Response* obix_fcgi_handleRequest()
         log_error("Unknown request type: %s. Request is ignored.", requestType);
         char* message = (char*) malloc(strlen(requestType) + 42);
         sprintf(message, "%s request is not supported by oBIX server.", requestType);
-        Response* response = obix_server_getObixErrorMessage(uri,
-                             OBIX_HREF_ERR_UNSUPPORTED,
-                             "Unsupported Request",
-                             message);
+        obix_server_generateObixErrorMessage(response,
+                                        uri,
+                                        OBIX_HREF_ERR_UNSUPPORTED,
+                                        "Unsupported Request",
+                                        message);
         free(message);
-        return response;
+        obix_fcgi_sendResponse(response);
     }
 }
 
-void obix_fcgi_sendStaticErrorMessage()
+void obix_fcgi_sendStaticErrorMessage(FCGX_Request* request)
 {
     // send HTTP reply
-    FCGX_FPrintF(_request->out, HTTP_STATUS_OK);
-    FCGX_FPrintF(_request->out, XML_HEADER);
-    FCGX_FPrintF(_request->out, ERROR_STATIC);
-    FCGX_Finish_r(_request);
+    FCGX_FPrintF(request->out, HTTP_STATUS_OK);
+    FCGX_FPrintF(request->out, XML_HEADER);
+    FCGX_FPrintF(request->out, ERROR_STATIC);
+    FCGX_Finish_r(request);
 }
 
 void obix_fcgi_sendResponse(Response* response)
@@ -231,40 +229,44 @@ void obix_fcgi_sendResponse(Response* response)
     {
         if (iterator->body == NULL)
         {
-            obixResponse_setError(iterator, "Request handler returned empty response.");
+            log_error("Attempt to send empty response.");
+            obixResponse_setError(iterator,
+                                  "Request handler returned empty response.");
             // if even this operation fails
             if (iterator->body == NULL)
             {
-                obix_fcgi_sendStaticErrorMessage();
-                obixResponse_free(iterator);
+                obix_fcgi_sendStaticErrorMessage(response->request);
+                obixResponse_free(response);
                 return;
             }
         }
         iterator = iterator->next;
     }
 
+    FCGX_Request* request = response->request;
+
     // send HTTP header
-    FCGX_FPrintF(_request->out, HTTP_STATUS_OK);
+    FCGX_FPrintF(request->out, HTTP_STATUS_OK);
     // check whether we should specify the correct address of the object
     if (response->uri != NULL)
     {
-        FCGX_FPrintF(_request->out, HTTP_CONTENT_LOCATION, response->uri);
+        FCGX_FPrintF(request->out, HTTP_CONTENT_LOCATION, response->uri);
     }
-    FCGX_FPrintF(_request->out, XML_HEADER);
+    FCGX_FPrintF(request->out, XML_HEADER);
 
     // send all parts of the response
     iterator = response;
     while (iterator != NULL)
     {
-        FCGX_FPrintF(_request->out, iterator->body);
+        FCGX_FPrintF(request->out, iterator->body);
         iterator = iterator->next;
     }
 
-    FCGX_Finish_r(_request);
+    FCGX_Finish_r(request);
     obixResponse_free(response);
 }
 
-char* obix_fcgi_readRequestInput()
+char* obix_fcgi_readRequestInput(FCGX_Request* request)
 {
     char* buffer = NULL;
     int bufferSize = 1024;
@@ -284,16 +286,16 @@ char* obix_fcgi_readRequestInput()
             return NULL;
         }
 
-        bytesRead += FCGX_GetStr(buffer + bytesRead, bufferSize - bytesRead, _request->in);
+        bytesRead += FCGX_GetStr(buffer + bytesRead, bufferSize - bytesRead, request->in);
 
         if (bytesRead == 0)
         {
-        	//empty input
-        	free(buffer);
-        	return NULL;
+            //empty input
+            free(buffer);
+            return NULL;
         }
 
-        error = FCGX_GetError(_request->in);
+        error = FCGX_GetError(request->in);
         if (error != 0)
         {
             log_error("Error occurred while reading request input (code %d).", error);
@@ -310,3 +312,83 @@ char* obix_fcgi_readRequestInput()
 
     return buffer;
 }
+
+void obix_fcgi_dumpEnvironment(Response* response)
+{
+    log_debug("Starting dump environment...");
+
+    char** envp;
+    char* buffer;
+    int bufferSize = 256;
+
+    if (response->request != NULL)
+    {
+        for (envp = response->request->envp; *envp; ++envp)
+        {
+            bufferSize += strlen(*envp) + 32;
+        }
+    }
+
+    log_debug("Allocating %d bytes for debug.", bufferSize);
+    buffer = (char*) malloc(bufferSize);
+    if (buffer == NULL)
+    {
+        // can't dump environment - return empty response
+        (*_responseListener)(response);
+        return;
+    }
+
+    strcpy(buffer, "<obj name=\"dump\" displayName=\"Server Dump\">\r\n"
+           "  <obj name=\"env\" displayName=\"Request Environment\">\r\n");
+
+    if (response->request != NULL)
+    {
+        for (envp = response->request->envp; *envp; ++envp)
+        {
+            strcat(buffer, "    <str val=\"");
+            strcat(buffer, *envp);
+            strcat(buffer, "\"/>\r\n");
+        }
+    }
+    strcat(buffer, "</obj>\r\n");
+    strcat(buffer, "  <obj name=\"storage\" displayName=\"Storage Dump\">\r\n");
+
+    obixResponse_setText(response, buffer, FALSE);
+
+    Response* nextPart = obixResponse_add(response);
+    if (nextPart == NULL)
+    {
+        log_error("Unable to create multipart response. Answer is not complete.");
+        (*_responseListener)(response);
+        return;
+    }
+
+    // retreive server storage dump
+    char* storageDump = xmldb_getDump();
+    if (storageDump != NULL)
+    {
+        nextPart->body = storageDump;
+        obixResponse_add(nextPart);
+        if (nextPart->next == NULL)
+        {
+            log_error("Unable to create multipart response. Answer is not complete.");
+            (*_responseListener)(response);
+            return;
+        }
+        nextPart = nextPart->next;
+    }
+
+    // finalize output
+    if (obixResponse_setText(nextPart, "\r\n  </obj>\r\n</obj>", TRUE) != 0)
+    {
+        log_error("Unable to create multipart response. Answer is not complete.");
+        (*_responseListener)(response);
+        return;
+    }
+
+    log_debug("Dump request completed.");
+
+    // send response
+    (*_responseListener)(response);
+}
+

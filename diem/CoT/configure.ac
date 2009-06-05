@@ -8,9 +8,6 @@ AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADER([config.h])
 AC_CONFIG_MACRO_DIR([m4])
 
-# LWL version
-LWL_LT_VERSION="1:1:0"
-AC_SUBST(LWL_LT_VERSION)
 # oBIX Client API version
 COT_CLIENT_VERSION="0:0:0"
 AC_SUBST(COT_CLIENT_VERSION)
@@ -27,24 +24,53 @@ AM_PROG_CC_C_O
 AC_PROG_LIBTOOL
 
 # Checks for libraries.
-PKG_CHECK_MODULES(DEPS, libupnp >= 1.4.3 libcurl)
+PKG_CHECK_MODULES(UPNP, libupnp >= 1.4.3)
+PKG_CHECK_MODULES(CURL, libcurl)
+
+# AC_SEARCH_LIBS stores found linking flags to the LIBS variable which is added 
+# by default to all Makefiles. But we want to store that flags in separate
+# variables and also keep the original contents of LIBS. That's why we are doing
+# such a trick.
+LIBS_BACKUP=$LIBS
+LIBS=""
+AC_SEARCH_LIBS(
+	[clock_gettime], 
+	[rt posix4],,
+	AC_MSG_ERROR([Unable to find library with clock_gettime definition\
+	(normally it is rt). Sorry but the project will not compile.]),
+	$LIBS_BACKUP)
+RT_LIB=$LIBS
+LIBS=""	
 AC_SEARCH_LIBS(
 	[FCGX_Init], 
 	[fcgi],, 
-	AC_MSG_ERROR([Unable to link to libfcgi. Please install Fast CGI library first.]), 
-	[ -lm])
+	AC_MSG_ERROR([Unable to link to libfcgi. Please install Fast CGI library\
+	first (fastcgi.com).]), 
+	[ -lm $LIBS_BACKUP])
+FCGI_LIB=$LIBS
+LIBS=""
 AC_SEARCH_LIBS(
 	[lwl_alloc], 
 	[lwl],, 
-	AC_MSG_ERROR([Unable to link to liblwl. Please install LWL library first.]))
+	AC_MSG_ERROR([Unable to link to liblwl. Please install LWL library first\
+	(http://home.gna.org/lwl/).]),
+	$LIBS_BACKUP)
+LWL_LIB=$LIBS
+LIBS=$LIBS_BACKUP 	
 			
-AC_SUBST(DEPS_CFLAGS)
-AC_SUBST(DEPS_LIBS)
+AC_SUBST(UPNP_CFLAGS)
+AC_SUBST(UPNP_LIBS)
+AC_SUBST(CURL_CFLAGS)
+AC_SUBST(CURL_LIBS)
+AC_SUBST(RT_LIB)
+AC_SUBST(FCGI_LIB)
+AC_SUBST(LWL_LIB)
 
 # Checks for header files.
 AC_FUNC_ALLOCA
 AC_HEADER_STDC
-AC_CHECK_HEADERS([arpa/inet.h limits.h netdb.h netinet/in.h stdlib.h string.h sys/socket.h syslog.h unistd.h])
+AC_CHECK_HEADERS([arpa/inet.h limits.h netdb.h netinet/in.h stdlib.h string.h \
+				  sys/socket.h syslog.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -58,12 +84,14 @@ AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_FUNC_STRFTIME
 AC_FUNC_VPRINTF
-AC_CHECK_FUNCS([clock_gettime gethostbyname gethostname inet_ntoa localtime_r strchr strdup strstr strtol])
+AC_CHECK_FUNCS([clock_gettime gethostbyname gethostname inet_ntoa localtime_r \
+				strchr strdup strstr strtol])
 
 AC_CONFIG_FILES([Makefile                 
                  src/common/Makefile
                  src/client/Makefile
                  src/adapters/Makefile
                  src/server/Makefile
-                 src/test/Makefile])
+                 src/test/Makefile
+                 res/Makefile])
 AC_OUTPUT

@@ -2,6 +2,7 @@
  * @todo add description there
  */
 #include <stdlib.h>
+
 #include <obix_utils.h>
 #include <xml_config.h>
 #include <lwl_ext.h>
@@ -16,9 +17,12 @@
 
 static const char* CONFIG_FILE = "server_config.xml";
 
-const char* CT_SERVER_ADDRESS = "server-address";
+static const char* CT_SERVER_ADDRESS = "server-address";
 
 static const char* OBIX_META_ATTR_OP = "op";
+
+// method which handles server responses is stored here
+obix_server_response_listener _responseListener = NULL;
 
 static int loadConfigFile()
 {
@@ -143,54 +147,78 @@ int obix_server_init(char* resourceDir)
 //    free(text);
 //}
 
-Response* obix_server_getObixErrorMessage(const char* uri,
-        const char* type,
-        const char* name,
-        const char* desc)
+void obix_server_generateObixErrorMessage(
+    Response* response,
+    const char* uri,
+    const char* type,
+    const char* name,
+    const char* desc)
 {
     IXML_Element* errorDOM = xmldb_getObixSysObject(OBIX_SYS_ERROR_STUB);
     if (errorDOM == NULL)
     {
         log_error("Unable to get error object from the storage.");
-        return obixResponse_create();
+        // no changes to response
+        return;
     }
 
     int error = 0;
 
     if (type != NULL)
     {
-        error += ixmlElement_setAttributeWithLog(errorDOM, OBIX_ATTR_IS, type);
+        error += ixmlElement_setAttributeWithLog(
+                     errorDOM,
+                     OBIX_ATTR_IS,
+                     type);
     }
-    error += ixmlElement_setAttributeWithLog(errorDOM, OBIX_ATTR_DISPLAY_NAME, name);
-    error += ixmlElement_setAttributeWithLog(errorDOM, OBIX_ATTR_DISPLAY, desc);
+    error += ixmlElement_setAttributeWithLog(
+                 errorDOM,
+                 OBIX_ATTR_DISPLAY_NAME,
+                 name);
+    error += ixmlElement_setAttributeWithLog(
+                 errorDOM,
+                 OBIX_ATTR_DISPLAY,
+                 desc);
     if (error != 0)
     {
         ixmlElement_freeOwnerDocument(errorDOM);
-        log_error("Unable to generate oBIX error message: modifying attributes failed.");
-        return obixResponse_create();
+        log_error("Unable to generate oBIX error message: "
+                  "Attributes modifying failed.");
+        return;
     }
 
-    Response* response = obix_server_generateResponse(
-                             errorDOM,
-                             uri,
-                             TRUE, FALSE, 0,
-                             TRUE,
-                             TRUE);
+    obix_server_generateResponse(response,
+                                 errorDOM,
+                                 uri,
+                                 TRUE, FALSE, 0,
+                                 TRUE,
+                                 TRUE);
+    obixResponse_setErrorFlag(response, TRUE);
+
     ixmlElement_freeOwnerDocument(errorDOM);
-    return response;
 }
 
-Response* obix_server_handleGET(const char* uri)
+void obix_server_setResponseListener(obix_server_response_listener listener)
+{
+    _responseListener = listener;
+}
+
+void obix_server_handleGET(Response* response, const char* uri)
 {
     // try to get requested URI from the database
     IXML_Element* oBIXdoc = xmldb_getDOM(uri);
     int slashFlag = xmldb_getLastUriCompSlashFlag();
     if (oBIXdoc == NULL)
     {
-        log_debug("Requested URI \"%s\" is not found in the storage", uri);
-        return obix_server_getObixErrorMessage(uri, OBIX_HREF_ERR_BAD_URI,
-                                               "Bad URI Error",
-                                               "Requested URI is not found on the server.");
+        log_warning("Requested URI \"%s\" is not found in the storage", uri);
+        obix_server_generateObixErrorMessage(
+            response,
+            uri,
+            OBIX_HREF_ERR_BAD_URI,
+            "Bad URI Error",
+            "Requested URI is not found on the server.");
+        (*_responseListener)(response);
+        return;
     }
 
     // if it is a Watch object than we should reset it's lease timer
@@ -200,7 +228,15 @@ Response* obix_server_handleGET(const char* uri)
         obixWatch_resetLeaseTimer(watch, NULL);
     }
 
-    return obix_server_generateResponse(oBIXdoc, uri, TRUE, TRUE, slashFlag, TRUE, FALSE);
+    obix_server_generateResponse(response,
+                                 oBIXdoc,
+                                 uri,
+                                 TRUE,
+                                 TRUE,
+                                 slashFlag,
+                                 TRUE,
+                                 FALSE);
+    (*_responseListener)(response);
 }
 
 /**
@@ -258,16 +294,21 @@ static void updateMetaWatch(IXML_Node* node)
     }
 }
 
-Response* obix_server_handlePUT(const char* uri, const char* input)
+void obix_server_handlePUT(Response* response,
+                           const char* uri,
+                           const char* input)
 {
     // TODO add permission checking here
     if (input == NULL)
     {
         log_warning("Unable to process PUT request. Input is empty.");
-        return obix_server_getObixErrorMessage(uri,
-                                               NULL,
-                                               "Write Error",
-                                               "Unable to read request input.");
+        obix_server_generateObixErrorMessage(response,
+                                        uri,
+                                        NULL,
+                                        "Write Error",
+                                        "Unable to read request input.");
+        (*_responseListener)(response);
+        return;
     }
 
     // update node in the storage
@@ -278,10 +319,13 @@ Response* obix_server_handlePUT(const char* uri, const char* input)
     if ((error != 0) || (element == NULL))
     {
         // TODO return different error types according to the error occurred.
-        return obix_server_getObixErrorMessage(uri,
-                                               OBIX_HREF_ERR_PERMISSION,
-                                               "Write Error",
-                                               "Updating object value failed.");
+        obix_server_generateObixErrorMessage(response,
+                                        uri,
+                                        OBIX_HREF_ERR_PERMISSION,
+                                        "Write Error",
+                                        "Updating object value failed.");
+        (*_responseListener)(response);
+        return;
     }
 
     // update meta tags for the object and its parents
@@ -299,19 +343,31 @@ Response* obix_server_handlePUT(const char* uri, const char* input)
                     ixmlElement_getAttribute(element, OBIX_ATTR_VAL));
         if (error != 0)
         {
-            return obix_server_getObixErrorMessage(
-                       uri,
-                       NULL,
-                       "Write Error",
-                       "Unable to update Watch lease value. Lease value is "
-                       "updated, but the real timeout is left unchanged. That "
-                       "is known issue. Please check that you provided correct"
-                       " reltime value and try again.");
+            obix_server_generateObixErrorMessage(
+                response,
+                uri,
+                NULL,
+                "Write Error",
+                "Unable to update Watch lease value. Lease value is "
+                "updated, but the real timeout is left unchanged. That "
+                "is known issue. Please check that you provided correct "
+                "reltime value and try again.");
+            (*_responseListener)(response);
+            return;
         }
     }
 
     // reply with the updated object
-    return obix_server_generateResponse(element, uri, TRUE, TRUE, slashFlag, TRUE, FALSE);
+    obix_server_generateResponse(response,
+                                 element,
+                                 uri,
+                                 TRUE,
+                                 TRUE,
+                                 slashFlag,
+                                 TRUE,
+                                 FALSE);
+    (*_responseListener)(response);
+    return;
 }
 
 /**
@@ -340,20 +396,23 @@ static IXML_Document* parseRequestInput(const char* input)
     return doc;
 }
 
-/**
-* @todo describe me
-* @param uri
-*/
-Response* obix_server_handlePOST(const char* uri, const char* input)
+void obix_server_handlePOST(Response* response,
+                            const char* uri,
+                            const char* input)
 {
     // try to get requested URI from the database
     IXML_Element* oBIXdoc = xmldb_getDOM(uri);
     if (oBIXdoc == NULL)
     {
         log_debug("Requested URI \"%s\" is not found in the storage.", uri);
-        return obix_server_getObixErrorMessage(uri, OBIX_HREF_ERR_BAD_URI,
-                                               "Bad URI Error",
-                                               "Requested URI is not found on the server.");
+        obix_server_generateObixErrorMessage(
+            response,
+            uri,
+            OBIX_HREF_ERR_BAD_URI,
+            "Bad URI Error",
+            "Requested URI is not found on the server.");
+        (*_responseListener)(response);
+        return;
     }
     //TODO move it to the handler
     //    int slashFlag = xmldb_getLastUriCompSlashFlag();
@@ -362,9 +421,11 @@ Response* obix_server_handlePOST(const char* uri, const char* input)
     if (strcmp(ixmlElement_getTagName(oBIXdoc), OBIX_OBJ_OP) != 0)
     {
         log_debug("Requested URI doesn't contain <op/> object");
-        return obix_server_getObixErrorMessage(uri, OBIX_HREF_ERR_BAD_URI,
-                                               "Bad URI Error",
-                                               "Requested URI is not an operation.");
+        obix_server_generateObixErrorMessage(response, uri, OBIX_HREF_ERR_BAD_URI,
+                                        "Bad URI Error",
+                                        "Requested URI is not an operation.");
+        (*_responseListener)(response);
+        return;
     }
 
     // prepare input object for the operation
@@ -387,14 +448,12 @@ Response* obix_server_handlePOST(const char* uri, const char* input)
     obix_server_postHandler handler = obix_server_getPostHandler(handlerId);
 
     // execute corresponding request handler
-    Response* response = (*handler)(uri, opIn);
+    (*handler)(response, uri, opIn);
 
     if (opIn != NULL)
     {
         ixmlDocument_free(opIn);
     }
-
-    return response;
 }
 
 void obix_server_shutdown()
@@ -404,11 +463,6 @@ void obix_server_shutdown()
     xmldb_dispose();
     config_dispose();
     obixWatch_dispose();
-}
-
-static char* obix_server_getDump()
-{
-    return xmldb_getDump();
 }
 
 /**
@@ -534,25 +588,22 @@ static char* normalizeObixDocument(IXML_Element* oBIXdoc,
 }
 
 // TODO refactor me to reduce the number of parameters
-Response* obix_server_generateResponse(IXML_Element* doc,
-                                       const char* requestUri,
-                                       BOOL changeUri,
-                                       BOOL useObjectUri,
-                                       int slashFlag,
-                                       BOOL isMultipart,
-                                       BOOL saveChanges)
+void obix_server_generateResponse(Response* response,
+                                  IXML_Element* doc,
+                                  const char* requestUri,
+                                  BOOL changeUri,
+                                  BOOL useObjectUri,
+                                  int slashFlag,
+                                  BOOL isMultipart,
+                                  BOOL saveChanges)
 {
-    Response* response = obixResponse_create();
-    if (response == NULL)
-    {
-        return NULL;
-    }
-
     if (doc == NULL)
     {
         // some big error occurred on the previous step
-        obixResponse_setError(response, "Request handler did not return any oBIX object.");
-        return response;
+        obixResponse_setError(
+            response,
+            "Request handler did not return any oBIX object.");
+        return;
     }
 
 
@@ -578,11 +629,12 @@ Response* obix_server_generateResponse(IXML_Element* doc,
     if (text == NULL)
     {
         log_error("Unable to normalize the output oBIX document.");
-        obixResponse_setError(response, "Unable to normalize the output oBIX document.");
-        return response;
+        obixResponse_setError(response,
+                              "Unable to normalize the output oBIX document.");
+        return;
     }
 
-    response->body = text;
+    obixResponse_setText(response, text, FALSE);
 
     if (slashFlag != 0)
     {
@@ -598,86 +650,4 @@ Response* obix_server_generateResponse(IXML_Element* doc,
         }
     }
     free(fullUri);
-
-    return response;
 }
-
-Response* obix_server_dumpEnvironment(FCGX_Request* request)
-{
-    log_debug("Starting dump environment...");
-
-    char** envp;
-    char* buffer;
-    int bufferSize = 256;
-    Response* response = obixResponse_create();
-    if (response == NULL)
-    {
-        return NULL;
-    }
-
-    if (request != NULL)
-    {
-        for (envp = request->envp; *envp; ++envp)
-        {
-            bufferSize += strlen(*envp) + 32;
-        }
-    }
-
-    log_debug("Allocating %d bytes for debug.", bufferSize);
-    buffer = (char*) malloc(bufferSize);
-    if (buffer == NULL)
-    {
-        // can't dump environment - return empty response
-        return response;
-    }
-
-    strcpy(buffer, "<obj name=\"dump\" displayName=\"Server Dump\">\r\n"
-           "  <obj name=\"env\" displayName=\"Request Environment\">\r\n");
-
-    if (request != NULL)
-    {
-        for (envp = request->envp; *envp; ++envp)
-        {
-            strcat(buffer, "    <str val=\"");
-            strcat(buffer, *envp);
-            strcat(buffer, "\"/>\r\n");
-        }
-    }
-    strcat(buffer, "</obj>\r\n");
-    strcat(buffer, "  <obj name=\"storage\" displayName=\"Storage Dump\">\r\n");
-
-    response->body = buffer;
-
-    Response* nextPart = obixResponse_create();
-    if (nextPart == NULL)
-    {
-        log_error("Unable to create multipart response. Answer is not complete.");
-        return response;
-    }
-    response->next = nextPart;
-
-    // retreive server storage dump
-    char* storageDump = obix_server_getDump();
-    if (storageDump != NULL)
-    {
-        nextPart->body = storageDump;
-        nextPart->next = obixResponse_create();
-        if (nextPart->next == NULL)
-        {
-            log_error("Unable to create multipart response. Answer is not complete.");
-            return response;
-        }
-        nextPart = nextPart->next;
-    }
-
-    // finalize output
-    if (obixResponse_setText(nextPart, "\r\n  </obj>\r\n</obj>") != 0)
-    {
-        log_error("Unable to create multipart response. Answer is not complete.");
-        return response;
-    }
-
-    log_debug("Dump request completed.");
-    return response;
-}
-

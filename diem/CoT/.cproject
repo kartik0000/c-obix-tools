@@ -350,17 +350,25 @@
 
 
 
+
+
 <storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings">
+
 
 
 <doc-comment-owner id="org.eclipse.cdt.ui.doxygen">
 <path value=""/>
 </doc-comment-owner>
 </storageModule>
+
 <storageModule moduleId="org.eclipse.cdt.core.pathentry">
 <pathentry kind="src" path="src"/>
 <pathentry kind="out" path=""/>
 <pathentry kind="con" path="org.eclipse.cdt.make.core.DISCOVERED_SCANNER_INFO"/>
+<pathentry kind="lib" library="/home/andrey/workspace/CoT/src/client/.libs/libcot_client.so" path=""/>
+<pathentry kind="lib" library="/home/andrey/workspace/CoT/src/common/.libs/libcot_utils.so" path=""/>
+<pathentry kind="lib" library="/home/andrey/workspace/CoT/src/client/.libs/libcot_client.a" path=""/>
+<pathentry kind="lib" library="/home/andrey/workspace/CoT/src/common/.libs/libcot_utils.a" path=""/>
 </storageModule>
 </cconfiguration>
 </storageModule>

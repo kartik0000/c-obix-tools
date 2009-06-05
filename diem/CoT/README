@@ -128,10 +128,16 @@
     modify and save options according to your needs.    
  4. Open res/obix-lighttpd.conf file with your favorite editor.
  5. Modify paths in the following variables:
- 	- "socket"  	Defines socket name which will be used for communication 
- 					between lighttpd and oBIX server.
- 	- "bin-path"	Command which starts up the oBIX server, which is 
- 					"<path-to-obix.fcgi> <path-to-folder-with-obix-conf-files>" 		 
+ 	- "socket"  		Defines socket name which will be used for communication 
+ 						between lighttpd and oBIX server.
+ 	- "bin-path"		Command which starts up the oBIX server, which is 
+ 						"<path-to-obix.fcgi> <path-to-folder-with-conf-files>"
+ 	- "bin-environment"	This variable can be totally omitted, or used, for 
+ 						instance, for specifying the path to shared libraries.
+ 	In order to check whether the launch command is correct you can try to 
+ 	execute it from command line. If everything is fine, that oBIX server should
+ 	start up and then immediately shutdown gracefully because of no fcgi 
+ 	connection.								 		 
  6. Locate your lighttpd configuration file. Usually it is at /etc/lighttpd/
  7. In case if you have etc/lighttpd/conf-available/ folder than you are lucky
  	and should should proceed with steps a. otherwise, go to steps b.
