@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.61)
-AC_INIT(cot, 1.0.0, Litvinov.Andrey@gmail.com)
+AC_INIT(cot, 0.0.0, Litvinov.Andrey@gmail.com)
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADER([config.h])
@@ -22,6 +22,17 @@ AC_PROG_LN_S
 AC_PROG_MAKE_SET
 AM_PROG_CC_C_O
 AC_PROG_LIBTOOL
+
+AC_PROG_TRY_DOXYGEN
+
+# Check for doxygen program.
+if test -z "$DOXYGEN"; then
+  echo "-----------------------------------------"
+  echo " No Doxygen program found - continuing"
+  echo " without Doxygen documentation support."
+  echo "-----------------------------------------"
+fi
+AM_CONDITIONAL([HAVE_DOXYGEN], [test "x$DOXYGEN" != x])
 
 # Checks for libraries.
 PKG_CHECK_MODULES(UPNP, libupnp >= 1.4.3)
@@ -93,5 +104,14 @@ AC_CONFIG_FILES([Makefile
                  src/adapters/Makefile
                  src/server/Makefile
                  src/test/Makefile
-                 res/Makefile])
+                 res/Makefile
+                 doc/Makefile
+                 doc/doxygen/Makefile
+                 doc/doxygen/libcot.doxyfile])
 AC_OUTPUT
+
+echo "
+  C oBIX Tools ($PACKAGE_NAME) version $PACKAGE_VERSION
+  Prefix.........: $prefix    
+  Doxygen........: ${DOXYGEN:-NONE}
+"

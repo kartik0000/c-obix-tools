@@ -38,12 +38,11 @@ USAGE:
 
    - Copy (or create a symlink of) the ./cot folder (with Makefile in it) to 
      <OpenWrt SDK>/package/cot/
-   - Open it in your favorite editor and find definition of Build/Prepare step.
-     At this step source of the CoT project is copied to the SDK build folder. 
-   - Modify path where CoT sources should be copied from. 
-   - ! Check that you don't have any compiled binaries in the folder from which
-     sources will be copied (run 'make clean' in the CoT root folder to make 
-     sure that nothing is left). 
+   - The Makefile you've just copied says to Open Wrt SDK that it should 
+     download distribution of the project from the Internet. If you don't want
+     SDK to do it (or URL form Makefile is not available, which is quite 
+     possible) than just put the tarball (tar.gz archive of the project) to the
+     Open Wrt SDK download folder. Usually it is <OpenWrt SDK>/dl/.
       
 3. Get makefiles for dependency libraries
 

@@ -32,9 +32,9 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-subdir = res
-DIST_COMMON = $(dist_check_DATA) $(dist_pkgsysconf_DATA) \
-	$(srcdir)/Makefile.am $(srcdir)/Makefile.in
+subdir = doc/doxygen
+DIST_COMMON = $(nobase_dist_doc_DATA) $(srcdir)/Makefile.am \
+	$(srcdir)/Makefile.in $(srcdir)/libcot.doxyfile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ac_prog_try_doxygen.m4 \
 	$(top_srcdir)/m4/libtool.m4 $(top_srcdir)/m4/ltoptions.m4 \
@@ -44,7 +44,7 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
-CONFIG_CLEAN_FILES =
+CONFIG_CLEAN_FILES = libcot.doxyfile
 SOURCES =
 DIST_SOURCES =
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
@@ -53,9 +53,9 @@ am__vpath_adj = case $$p in \
     *) f=$$p;; \
   esac;
 am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
-am__installdirs = "$(DESTDIR)$(pkgsysconfdir)"
-dist_pkgsysconfDATA_INSTALL = $(INSTALL_DATA)
-DATA = $(dist_pkgsysconf_DATA)
+am__installdirs = "$(DESTDIR)$(docdir)"
+nobase_dist_docDATA_INSTALL = $(install_sh_DATA)
+DATA = $(nobase_dist_doc_DATA)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 ALLOCA = @ALLOCA@
@@ -181,17 +181,16 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-pkgsysconfdir = $(sysconfdir)/$(PACKAGE_NAME)
-dist_pkgsysconf_DATA = obix-lighttpd.conf server_about.xml \
-	server_config.xml server_devices.xml server_lobby.xml \
-	server_sys_objects.xml server_watch.xml \
-	sensor_floor_config.xml example_timer_config.xml
-dist_check_DATA = test_devices.xml \
-							test_obix_client_config.xml
 
-EXTRA_DIST = OpenWrt-SDK/README \
-							OpenWrt-SDK/cot/Makefile \
-							OpenWrt-SDK/lwl/Makefile							
+###########   libcot documentation   ###########
+libcothtml = libcot-html-$(PACKAGE_VERSION).tar.gz
+libcotpdf = libcot_manual.pdf
+nobase_dist_doc_DATA = $(top_builddir)/doc/$(libcothtml) \
+						$(top_builddir)/doc/$(libcotpdf)
+
+CLEANFILES = doxywarn.txt doxygen.stamp \
+			 $(top_builddir)/doc/$(libcothtml) \
+			 $(top_builddir)/doc/$(libcotpdf)
 
 all: all-am
 
@@ -205,9 +204,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu  res/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu  doc/doxygen/Makefile'; \
 	cd $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu  res/Makefile
+	  $(AUTOMAKE) --gnu  doc/doxygen/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -225,28 +224,32 @@ $(top_srcdir)/configure:  $(am__configure_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
+libcot.doxyfile: $(top_builddir)/config.status $(srcdir)/libcot.doxyfile.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 
 mostlyclean-libtool:
 	-rm -f *.lo
 
 clean-libtool:
 	-rm -rf .libs _libs
-install-dist_pkgsysconfDATA: $(dist_pkgsysconf_DATA)
+install-nobase_dist_docDATA: $(nobase_dist_doc_DATA)
 	@$(NORMAL_INSTALL)
-	test -z "$(pkgsysconfdir)" || $(MKDIR_P) "$(DESTDIR)$(pkgsysconfdir)"
-	@list='$(dist_pkgsysconf_DATA)'; for p in $$list; do \
+	test -z "$(docdir)" || $(MKDIR_P) "$(DESTDIR)$(docdir)"
+	@$(am__vpath_adj_setup) \
+	list='$(nobase_dist_doc_DATA)'; for p in $$list; do \
 	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  f=$(am__strip_dir) \
-	  echo " $(dist_pkgsysconfDATA_INSTALL) '$$d$$p' '$(DESTDIR)$(pkgsysconfdir)/$$f'"; \
-	  $(dist_pkgsysconfDATA_INSTALL) "$$d$$p" "$(DESTDIR)$(pkgsysconfdir)/$$f"; \
+	  $(am__vpath_adj) \
+	  echo " $(nobase_dist_docDATA_INSTALL) '$$d$$p' '$(DESTDIR)$(docdir)/$$f'"; \
+	  $(nobase_dist_docDATA_INSTALL) "$$d$$p" "$(DESTDIR)$(docdir)/$$f"; \
 	done
 
-uninstall-dist_pkgsysconfDATA:
+uninstall-nobase_dist_docDATA:
 	@$(NORMAL_UNINSTALL)
-	@list='$(dist_pkgsysconf_DATA)'; for p in $$list; do \
-	  f=$(am__strip_dir) \
-	  echo " rm -f '$(DESTDIR)$(pkgsysconfdir)/$$f'"; \
-	  rm -f "$(DESTDIR)$(pkgsysconfdir)/$$f"; \
+	@$(am__vpath_adj_setup) \
+	list='$(nobase_dist_doc_DATA)'; for p in $$list; do \
+	  $(am__vpath_adj) \
+	  echo " rm -f '$(DESTDIR)$(docdir)/$$f'"; \
+	  rm -f "$(DESTDIR)$(docdir)/$$f"; \
 	done
 tags: TAGS
 TAGS:
@@ -282,11 +285,10 @@ distdir: $(DISTFILES)
 	  fi; \
 	done
 check-am: all-am
-	$(MAKE) $(AM_MAKEFLAGS) $(dist_check_DATA)
 check: check-am
 all-am: Makefile $(DATA)
 installdirs:
-	for dir in "$(DESTDIR)$(pkgsysconfdir)"; do \
+	for dir in "$(DESTDIR)$(docdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -306,6 +308,7 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -315,7 +318,7 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-generic clean-libtool mostlyclean-am
+clean-am: clean-generic clean-libtool clean-local mostlyclean-am
 
 distclean: distclean-am
 	-rm -f Makefile
@@ -331,7 +334,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-dist_pkgsysconfDATA
+install-data-am: install-nobase_dist_docDATA
 
 install-dvi: install-dvi-am
 
@@ -365,22 +368,37 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-dist_pkgsysconfDATA
+uninstall-am: uninstall-nobase_dist_docDATA
 
 .MAKE: install-am install-strip
 
 .PHONY: all all-am check check-am clean clean-generic clean-libtool \
-	distclean distclean-generic distclean-libtool distdir dvi \
-	dvi-am html html-am info info-am install install-am \
-	install-data install-data-am install-dist_pkgsysconfDATA \
-	install-dvi install-dvi-am install-exec install-exec-am \
-	install-html install-html-am install-info install-info-am \
-	install-man install-pdf install-pdf-am install-ps \
-	install-ps-am install-strip installcheck installcheck-am \
-	installdirs maintainer-clean maintainer-clean-generic \
-	mostlyclean mostlyclean-generic mostlyclean-libtool pdf pdf-am \
-	ps ps-am uninstall uninstall-am uninstall-dist_pkgsysconfDATA
+	clean-local distclean distclean-generic distclean-libtool \
+	distdir dvi dvi-am html html-am info info-am install \
+	install-am install-data install-data-am install-dvi \
+	install-dvi-am install-exec install-exec-am install-html \
+	install-html-am install-info install-info-am install-man \
+	install-nobase_dist_docDATA install-pdf install-pdf-am \
+	install-ps install-ps-am install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-generic \
+	mostlyclean-libtool pdf pdf-am ps ps-am uninstall uninstall-am \
+	uninstall-nobase_dist_docDATA
 
+
+$(top_builddir)/doc/$(libcothtml): doxygen.stamp
+	tar chof - libcot/html | gzip -9 -c >$@		
+
+doxygen.stamp: libcot.doxyfile
+	$(DOXYGEN) $(DOXYFLAGS) $<
+	echo Timestamp > $@
+
+$(top_builddir)/doc/$(libcotpdf): doxygen.stamp
+	cd libcot/latex && $(MAKE) $(AM_MAKEFLAGS) all || exit 1
+	cp libcot/latex/refman.pdf $@
+
+clean-local:
+	-rm -rf libcot
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

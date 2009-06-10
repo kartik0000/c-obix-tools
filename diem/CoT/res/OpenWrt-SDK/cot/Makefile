@@ -6,8 +6,11 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=cot
-PKG_VERSION:=1.0.0
+PKG_VERSION:=0.0.0
 PKG_RELEASE:=1
+
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+PKG_SOURCE_URL:=http://www.tml.tkk.fi/~litvinov/
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -34,11 +37,6 @@ define Package/libcot
 	CATEGORY:=Libraries
 	TITLE:=C oBIX Tools
 	DEPENDS:=+libupnp +libcurl +lwl
-endef
-
-define Build/Prepare
-	mkdir -p $(PKG_BUILD_DIR)
-	$(CP) -r /home/andrey/workspace/CoT/* $(PKG_BUILD_DIR)/
 endef
 
 define Build/Compile
