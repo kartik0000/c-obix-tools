@@ -11,7 +11,8 @@ example_timer_LDADD				= $(top_builddir)/src/client/libcot-client.la
 
 sensor_floor_driver_SOURCES		= sensor_floor_driver.c
 
-sensor_floor_driver_CFLAGS		= -I$(top_srcdir)/src/client \
+sensor_floor_driver_CFLAGS		= $(WARN_FLAGS) \
+								  -I$(top_srcdir)/src/client \
 								  -I$(top_srcdir)/src/common
 
 sensor_floor_driver_LDADD		= $(top_builddir)/src/client/libcot-client.la

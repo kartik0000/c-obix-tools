@@ -353,6 +353,7 @@ static void* threadCycle(void* arg)
             break;
         }
     }
+    return NULL;
 }
 
 Task_Thread* ptask_init()

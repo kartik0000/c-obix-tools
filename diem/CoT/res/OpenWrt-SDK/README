@@ -41,8 +41,8 @@ USAGE:
    - The Makefile you've just copied says to Open Wrt SDK that it should 
      download distribution of the project from the Internet. If you don't want
      SDK to do it (or URL form Makefile is not available, which is quite 
-     possible) than just put the tarball (tar.gz archive of the project) to the
-     Open Wrt SDK download folder. Usually it is <OpenWrt SDK>/dl/.
+     possible) than just put the tarball (.tar.bz2 archive of the project) to 
+     the Open Wrt SDK download folder (usually it is <OpenWrt SDK>/dl/).
       
 3. Get makefiles for dependency libraries
 
@@ -61,9 +61,9 @@ USAGE:
    separate packages. In order to do so, you'll need to get ready makefiles 
    which will make all magic for you (of course, you are free to compile them by 
    yourself instead). Makefile for liblwl can be found in ./lwl folder. Copy (or 
-   create a symlink to) the whole ./lwl folder to <OpenWrt SDK>/package/ (no
-   modifications in ./lwl/Makefile required). Makefiles for other libraries (as 
-   well as some patches) can be downloaded from the OpenWrt SVN repository:
+   create a symlink to) the whole ./lwl folder to <OpenWrt SDK>/package/. 
+   Makefiles for other libraries (as well as some patch files) can be downloaded 
+   from the OpenWrt SVN repository:
    
    - If you use old Open Wrt SDK release (<= 8.09) than checkout fcgi, lipupnp, 
      curl and uclibc++ folders from 

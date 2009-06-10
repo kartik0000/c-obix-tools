@@ -11,7 +11,7 @@ libcot_utils_la_SOURCES		= xml_config.h xml_config.c \
 							  ptask.h ptask.c \
 							  lwl_ext.h lwl_ext.c
 
-libcot_utils_la_CFLAGS		= $(UPNP_CFLAGS)
+libcot_utils_la_CFLAGS		= $(WARN_FLAGS) $(UPNP_CFLAGS)
 
 libcot_utils_la_LIBADD		= $(UPNP_LIBS) $(LWL_LIB) $(RT_LIB) 
 

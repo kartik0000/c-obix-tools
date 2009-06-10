@@ -10,7 +10,8 @@ libcot_client_la_SOURCES	= obix_client.h obix_client.c \
 							  table.h table.c \
 							  curl_ext.h curl_ext.c
 
-libcot_client_la_CFLAGS		= $(CURL_CFLAGS) -I$(top_srcdir)/src/common
+libcot_client_la_CFLAGS		= $(WARN_FLAGS) \
+							  $(CURL_CFLAGS) -I$(top_srcdir)/src/common
 
 libcot_client_la_LIBADD		= $(CURL_LIBS) \
 							  $(top_builddir)/src/common/libcot-utils.la

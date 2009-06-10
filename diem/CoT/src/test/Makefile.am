@@ -19,7 +19,8 @@ obix_test_SOURCES 	= test_main.h test_main.c \
 					  $(top_srcdir)/src/server/post_handler.h \
 					  $(top_srcdir)/src/server/post_handler.c			   
                
-obix_test_CFLAGS 	= -I$(top_srcdir)/src/client \
+obix_test_CFLAGS 	= $(WARN_FLAGS) \
+					  -I$(top_srcdir)/src/client \
 					  -I$(top_srcdir)/src/server \
 					  -I$(top_srcdir)/src/common					  
 					  

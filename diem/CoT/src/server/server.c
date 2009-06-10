@@ -303,10 +303,10 @@ void obix_server_handlePUT(Response* response,
     {
         log_warning("Unable to process PUT request. Input is empty.");
         obix_server_generateObixErrorMessage(response,
-                                        uri,
-                                        NULL,
-                                        "Write Error",
-                                        "Unable to read request input.");
+                                             uri,
+                                             NULL,
+                                             "Write Error",
+                                             "Unable to read request input.");
         (*_responseListener)(response);
         return;
     }
@@ -316,56 +316,81 @@ void obix_server_handlePUT(Response* response,
     int error = xmldb_update(input, uri, &element);
     int slashFlag = xmldb_getLastUriCompSlashFlag();
 
-    if ((error != 0) || (element == NULL))
+    // parse error code
+    switch(error)
     {
-        // TODO return different error types according to the error occurred.
-        obix_server_generateObixErrorMessage(response,
-                                        uri,
-                                        OBIX_HREF_ERR_PERMISSION,
-                                        "Write Error",
-                                        "Updating object value failed.");
-        (*_responseListener)(response);
-        return;
-    }
-
-    // update meta tags for the object and its parents
-    updateMetaWatch(ixmlElement_getNode(element));
-
-    // check whether it is request for overwriting Watch.lease value.
-    oBIX_Watch* watch = obixWatch_getByUri(uri);
-    if (watch != NULL)
-    {
-        // TODO checking that input has correct format should be done
-        // for all input values. In that case it would be possible to
-        // set new watch lease time before storing to database
-        error = obixWatch_resetLeaseTimer(
-                    watch,
-                    ixmlElement_getAttribute(element, OBIX_ATTR_VAL));
-        if (error != 0)
+    case 0: //everything is ok
+        // update meta tags for the object and its parents
+        updateMetaWatch(ixmlElement_getNode(element));
+    case 1: //ok, but new value is the same as the old one
         {
-            obix_server_generateObixErrorMessage(
-                response,
-                uri,
-                NULL,
-                "Write Error",
-                "Unable to update Watch lease value. Lease value is "
-                "updated, but the real timeout is left unchanged. That "
-                "is known issue. Please check that you provided correct "
-                "reltime value and try again.");
-            (*_responseListener)(response);
-            return;
+            // check whether it is request for overwriting Watch.lease value.
+            oBIX_Watch* watch = obixWatch_getByUri(uri);
+            if (watch != NULL)
+            {
+                // TODO checking that input has correct format should be done
+                // for all input values. In that case it would be possible to
+                // set new watch lease time before storing to database
+                error = obixWatch_resetLeaseTimer(
+                            watch,
+                            ixmlElement_getAttribute(element, OBIX_ATTR_VAL));
+                if (error != 0)
+                {
+                    obix_server_generateObixErrorMessage(
+                        response,
+                        uri,
+                        NULL,
+                        "Write Error",
+                        "Unable to update Watch lease value. Lease value is "
+                        "updated, but the real timeout is left unchanged. That "
+                        "is known issue. Please check that you provided correct"
+                        " reltime value and try again.");
+                    (*_responseListener)(response);
+                    return;
+                }
+            }
+
+            // reply with the updated object
+            obix_server_generateResponse(response,
+                                         element,
+                                         uri,
+                                         TRUE,
+                                         TRUE,
+                                         slashFlag,
+                                         TRUE,
+                                         FALSE);
         }
+        break;
+    case -1: // wrong format of the request
+        obix_server_generateObixErrorMessage(response,
+                                             uri,
+                                             NULL,
+                                             "Write Error",
+                                             "Wrong format of the request.");
+        break;
+    case -2: // bad uri
+        obix_server_generateObixErrorMessage(response,
+                                             uri,
+                                             OBIX_HREF_ERR_BAD_URI,
+                                             "Write Error",
+                                             "URI is not found.");
+        break;
+    case -3: // object is not writable
+        obix_server_generateObixErrorMessage(response,
+                                             uri,
+                                             OBIX_HREF_ERR_PERMISSION,
+                                             "Write Error",
+                                             "Object is not writable.");
+        break;
+    case -4:
+        obix_server_generateObixErrorMessage(response,
+                                             uri,
+                                             NULL,
+                                             "Write Error",
+                                             "Internal server error.");
     }
 
-    // reply with the updated object
-    obix_server_generateResponse(response,
-                                 element,
-                                 uri,
-                                 TRUE,
-                                 TRUE,
-                                 slashFlag,
-                                 TRUE,
-                                 FALSE);
+    // send response
     (*_responseListener)(response);
     return;
 }
@@ -422,8 +447,8 @@ void obix_server_handlePOST(Response* response,
     {
         log_debug("Requested URI doesn't contain <op/> object");
         obix_server_generateObixErrorMessage(response, uri, OBIX_HREF_ERR_BAD_URI,
-                                        "Bad URI Error",
-                                        "Requested URI is not an operation.");
+                                             "Bad URI Error",
+                                             "Requested URI is not an operation.");
         (*_responseListener)(response);
         return;
     }

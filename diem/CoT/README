@@ -1,17 +1,17 @@
 
-  CoT - C oBIX Tools v.1.0.0
+  CoT - C oBIX Tools v.0.0.0
   
  A set of tools for developing oBIX-based solutions.
  
 =====
 
- Copyright (c) 2008-2009 Andrey Litvinov [litvinov.andrey@gmail.com]    
+ Copyright (c) 2009 Andrey Litvinov [litvinov.andrey@gmail.com]    
  
  See COPYING for details.
  
  License is not yet fully implemented in the project, but please, act with this
  distribution as if it was under GPL. If you have any concerns about GPL, 
- contact the author.
+ please, contact the author.
 =====  
     
  This file contains description of the project in the following sections:
@@ -127,28 +127,33 @@
  run oBIX server. For other HTTP server most of steps would be probably the 
  same.
  
+ 0. Compile and install cot.
  1. Install lighttpd at your target system.
- 2. Open res/server_config.xml with your favorite XML editor.
+ 2. Open <installation_prefix>/etc/cot/server_config.xml with your favorite XML 
+    editor.
  3. All configuration tags are well described there: Read description carefully,
     modify and save options according to your needs.    
- 4. Open res/obix-lighttpd.conf file with your favorite editor.
+ 4. Open <installation-prefix>/etc/cot/obix-lighttpd.conf file.
  5. Modify paths in the following variables:
  	- "socket"  		Defines socket name which will be used for communication 
  						between lighttpd and oBIX server.
  	- "bin-path"		Command which starts up the oBIX server, which is 
  						"<path-to-obix.fcgi> <path-to-folder-with-conf-files>"
+ 						If you installed cot to the <prefix> folder, than this
+ 						string should look like
+ 						"<prefix>/bin/obix.fcgi <prefix>/etc/cot/"
  	- "bin-environment"	This variable can be totally omitted, or used, for 
  						instance, for specifying the path to shared libraries.
- 	In order to check whether the launch command is correct you can try to 
- 	execute it from command line. If everything is fine, that oBIX server should
- 	start up and then immediately shutdown gracefully because of no fcgi 
- 	connection.								 		 
+ 	In order to check whether the launch command in "bin-path" is correct you 
+ 	can try to execute it from command line. If everything is fine, that oBIX 
+ 	server should start up and then immediately shutdown gracefully because of 
+ 	no fcgi	connection.								 		 
  6. Locate your lighttpd configuration file. Usually it is at /etc/lighttpd/
- 7. In case if you have etc/lighttpd/conf-available/ folder than you are lucky
- 	and should should proceed with steps a. otherwise, go to steps b.
+ 7. In case if you have /etc/lighttpd/conf-available/ folder than you are lucky
+ 	and should proceed with steps a. otherwise, go to steps b.
  	
  	a. Go to conf-available/ folder and create symlink '10-obix-fcgi.conf' to
- 	   the updated res/obix-lighttpd.conf file. 
+ 	   the updated <prefix>/etc/cot/obix-lighttpd.conf file. 
  	   Execute command '/usr/sbin/lighty-enable-mod obix-fcgi' and restart 
  	   lighttpd.
  	   (Read conf-available/README in order to get more details about what you

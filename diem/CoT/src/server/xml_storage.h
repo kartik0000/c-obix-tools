@@ -111,7 +111,12 @@ int xmldb_putChild(IXML_Element* parent, IXML_Element* child);
  * @param href URI of the object to be updated.
  * @param updatedNode If not @a NULL is provided and update is successful than
  *                    the address of the updated node will be written there.
- * @return error code or @a 0 on success.
+ * @return @li @b 0 if value is successfully overwritten;
+ * 		   @li @b 1 if request is processed but new value is the same;
+ * 		   @li @b -1 if request data is corrupted/wrong format;
+ * 		   @li @b -2 if object with specified href is not found;
+ * 		   @li @b -3 if object is not writable;
+ * 		   @li @b -4 if request failed because of internal server error.
  */
 int xmldb_update(const char* data, const char* href, IXML_Element** updatedNode);
 

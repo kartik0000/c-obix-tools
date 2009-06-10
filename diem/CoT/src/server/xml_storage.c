@@ -610,10 +610,13 @@ int xmldb_update(const char* data, const char* href, IXML_Element** updatedNode)
         return -1;
     }
 
-    const char* newValue = ixmlElement_getAttribute(ixmlNode_convertToElement(node), OBIX_ATTR_VAL);
+    const char* newValue = ixmlElement_getAttribute(
+                               ixmlNode_convertToElement(node), OBIX_ATTR_VAL);
     if (newValue == NULL)
     {
-        log_warning("Unable to update the storage: Input data doesn't contain \'%s\' attribute.", OBIX_ATTR_VAL);
+        log_warning("Unable to update the storage: "
+                    "Input data doesn't contain \'%s\' attribute.",
+                    OBIX_ATTR_VAL);
         ixmlDocument_free(ixmlNode_getOwnerDocument(node));
         return -1;
     }
@@ -622,25 +625,43 @@ int xmldb_update(const char* data, const char* href, IXML_Element** updatedNode)
     IXML_Element* nodeInStorage = xmldb_getDOM(href);
     if (nodeInStorage == NULL)
     {
-        log_warning("Unable to update the storage: No object with the URI \"%s\" is found.", href);
+        log_warning("Unable to update the storage: "
+                    "No object with the URI \"%s\" is found.", href);
         ixmlDocument_free(ixmlNode_getOwnerDocument(node));
-        return -1;
+        return -2;
     }
 
     // check that the object is writable
-    const char* writable = ixmlElement_getAttribute(nodeInStorage, OBIX_ATTR_WRITABLE);
+    const char* writable = ixmlElement_getAttribute(nodeInStorage,
+                           OBIX_ATTR_WRITABLE);
     if ((writable == NULL) || (strcmp(writable, XML_TRUE) != 0))
     {
-        log_warning("Unable to update the storage: The object with the URI \"%s\" is not writable.", href);
+        log_warning("Unable to update the storage: "
+                    "The object with the URI \"%s\" is not writable.", href);
         ixmlDocument_free(ixmlNode_getOwnerDocument(node));
-        return -1;
+        return -3;
+    }
+
+    // check the current value of the object in storage
+    const char* oldValue = ixmlElement_getAttribute(nodeInStorage,
+                           OBIX_ATTR_VAL);
+    if ((oldValue != NULL) && (strcmp(oldValue, newValue) == 0))
+    {
+        // new value is the same as was in storage.
+        // return address of the node in the storage
+        if (updatedNode != NULL)
+        {
+            *updatedNode = nodeInStorage;
+        }
+        ixmlDocument_free(ixmlNode_getOwnerDocument(node));
+        return 1;
     }
 
     // overwrite 'val' attribute
     if (ixmlElement_setAttributeWithLog(nodeInStorage, OBIX_ATTR_VAL, newValue) != 0)
     {
         ixmlDocument_free(ixmlNode_getOwnerDocument(node));
-        return -1;
+        return -4;
     }
 
     ixmlDocument_free(ixmlNode_getOwnerDocument(node));

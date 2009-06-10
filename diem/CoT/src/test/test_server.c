@@ -86,6 +86,15 @@ int testWriteToDatabase(const char* testName,
     {
         error = xmldb_update(newData, href, NULL);
     }
+    if (error == 1)
+    {
+        // special case: value which was written is the same with the value
+        // already in the database
+        printf("New value is the same as the old one.\n");
+        printTestResult(testName, shouldPass);
+        return shouldPass ? 0 : 1;
+    }
+
     if (error && shouldPass)
     {
         printf("Error occurred during data saving (%d)\n", error);
@@ -806,6 +815,32 @@ int testWatch()
         return 1;
     }
 
+    // let's try to write once again to the same object, but write the same
+    // value as it already has
+    response = obixResponse_create(NULL);
+    obix_server_handlePUT(
+        response,
+        "/obix/kitchen/temperature/",
+        "<int href=\"/obix/kitchen/temperature/\" val=\"newValue\"/>");
+    if (checkResponse(response, FALSE) != 0)
+    {
+        printTestResult(testName, FALSE);
+        return 1;
+    }
+    obixResponse_free(response);
+    // updated object should not have updated meta tags (because actual value
+    // did not change)
+    error = testSearch("oBIX Watch: check that meta is not updated",
+                       "/obix/kitchen/temperature/",
+                       "<wi-1 val=\"n\"",
+                       TRUE);
+    if (error != 0)
+    {
+        printf("Meta information is updated but it should not.\n");
+        printTestResult(testName, FALSE);
+        return error;
+    }
+
     // test removing watch item
     error = testWatchRemove();
     if (error != 0)
@@ -987,6 +1022,13 @@ int test_server(char* resFolder)
                                   "test string 1",
                                   TRUE);
 
+    result += testWriteToDatabase("xmldb_update: updating with the same value",
+                                  FALSE,
+                                  "<obj href=\"/obix/kitchen/1/2/3/long\" val=\"test string 1\"/>",
+                                  "/obix/kitchen/1/2/3/long",
+                                  "test string 1",
+                                  TRUE);
+
     result += testWriteToDatabase("xmldb_update: too much of data 1",
                                   FALSE,
                                   "<obj href=\"/obix/kitchen/1/2/3/long\" val=\"test string 2\" name=\"test string 3\"/>",
@@ -1053,7 +1095,7 @@ int test_server(char* resFolder)
     //    result += testObixClientLib();
 
     // TODO read todo of testDumpEnvironment
-//    result += testDumpEnvironment();
+    //    result += testDumpEnvironment();
 
     result += testSignUp();
 

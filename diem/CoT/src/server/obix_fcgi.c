@@ -72,7 +72,8 @@ int main(int argc, char** argv)
             break;
         }
 
-        log_debug("Request accepted");
+        const char* clientAddr = FCGX_GetParam("REMOTE_ADDR", request->envp);
+        log_debug("Request accepted from \"%s\"", clientAddr);
         obix_fcgi_handleRequest(request);
         log_debug("Request handled");
     }

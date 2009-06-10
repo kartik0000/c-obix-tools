@@ -53,11 +53,11 @@ IXML_Node* ixmlAttr_getNode(IXML_Attr* attr)
     return &(attr->n);
 }
 
-/**
- * Does the same with #ixmlDocument_getElementByHrefRecursive(IXML_Document*,const char*,int).
- * The difference is that this implementation uses utility from upnp library
- * to resolve URI. Such solution helps to resolve relative URI starting with '/'.
- */
+///**
+// * Does the same with #ixmlDocument_getElementByHrefRecursive(IXML_Document*,const char*,int).
+// * The difference is that this implementation uses utility from upnp library
+// * to resolve URI. Such solution helps to resolve relative URI starting with '/'.
+// */
 //static IXML_Node* ixmlDocument_getElementByHrefRecursiveUpnp(IXML_Node* node,
 //		const char* href, const char* baseUri)
 //{

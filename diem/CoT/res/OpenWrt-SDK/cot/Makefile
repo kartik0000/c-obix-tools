@@ -9,7 +9,7 @@ PKG_NAME:=cot
 PKG_VERSION:=0.0.0
 PKG_RELEASE:=1
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
 PKG_SOURCE_URL:=http://www.tml.tkk.fi/~litvinov/
 
 include $(INCLUDE_DIR)/package.mk

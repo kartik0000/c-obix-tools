@@ -805,6 +805,7 @@ void handlerSignUp(Response* response, const char* uri, IXML_Document* input)
         return;
     }
 
+    log_debug("New object is successfully registered at \"%s\"", href);
     // return saved object
     obix_server_generateResponse(response,
                                  element,
@@ -820,8 +821,6 @@ void handlerSignUp(Response* response, const char* uri, IXML_Document* input)
         xmldb_delete(href);
         // TODO delete also record from device list
     }
-
-    log_debug("New object is successfully registered at \"%s\"", href);
 
     // send response
     (*_responseListener)(response);

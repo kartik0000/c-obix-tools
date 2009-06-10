@@ -74,7 +74,6 @@ ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
-ALLOCA = @ALLOCA@
 AMTAR = @AMTAR@
 AR = @AR@
 AUTOCONF = @AUTOCONF@
@@ -145,6 +144,7 @@ STRIP = @STRIP@
 UPNP_CFLAGS = @UPNP_CFLAGS@
 UPNP_LIBS = @UPNP_LIBS@
 VERSION = @VERSION@
+WARN_FLAGS = @WARN_FLAGS@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
@@ -214,7 +214,8 @@ obix_test_SOURCES = test_main.h test_main.c \
 					  $(top_srcdir)/src/server/post_handler.h \
 					  $(top_srcdir)/src/server/post_handler.c			   
 
-obix_test_CFLAGS = -I$(top_srcdir)/src/client \
+obix_test_CFLAGS = $(WARN_FLAGS) \
+					  -I$(top_srcdir)/src/client \
 					  -I$(top_srcdir)/src/server \
 					  -I$(top_srcdir)/src/common					  
 
