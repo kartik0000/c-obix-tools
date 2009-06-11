@@ -13,6 +13,8 @@
 extern const char* OBIX_META_WATCH_UPDATED_YES;
 extern const char* OBIX_META_WATCH_UPDATED_NO;
 
+extern const long OBIX_WATCH_LEASE_NO_CHANGE;
+
 /**
  * Represents a separate watch item.
  *
@@ -49,14 +51,17 @@ oBIX_Watch_Item;
  */
 typedef struct oBIX_Watch
 {
+    /** Id of the watch object. */
     int id;
-    /**
-     * Id of the timer which removes old unused Watch object.
-     */
-    int leaseTimer;
-    /**
-     * Pointer to the list of items monitored by this Watch object.
-     */
+    /** Id of the timer which removes old unused Watch object. */
+    int leaseTimerId;
+    /** Id of the long poll task which is scheduled timer which removes old unused Watch object. */
+    int pollTaskId;
+    /** Minimum waiting time for long poll requests. */
+    long pollWaitMin;
+    /** Maximum waiting time for long poll requests. */
+    long pollWaitMax;
+    /** Pointer to the list of items monitored by this Watch object. */
     oBIX_Watch_Item* items;
 }
 oBIX_Watch;
@@ -124,6 +129,8 @@ int obixWatchItem_setUpdated(oBIX_Watch_Item* item, BOOL isUpdated);
 
 BOOL obixWatch_isWatchUri(const char* uri);
 
-int obixWatch_resetLeaseTimer(oBIX_Watch* watch, const char* newPeriod);
+int obixWatch_resetLeaseTimer(oBIX_Watch* watch, long newPeriod);
+
+int obixWatch_processTimeUpdates(const char* uri, IXML_Element* element);
 
 #endif /* WATCH_H_ */

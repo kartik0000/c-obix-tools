@@ -17,11 +17,16 @@ const char* OBIX_SYS_WATCH_OUT_STUB = "/sys/watch-out-stub/";
 
 const char* OBIX_META = "meta";
 
-static const char* OBIX_LOBBY_FILE = "server_lobby.xml";
-static const char* OBIX_ABOUT_FILE = "server_about.xml";
-static const char* OBIX_WATCH_FILE = "server_watch.xml";
-static const char* OBIX_SYS_OBJECTS_FILE = "server_sys_objects.xml";
-static const char* OBIX_DEVICES_FILE = "server_devices.xml";
+static const char* OBIX_STORAGE_FILES[] =
+    {"server_lobby.xml",		//Lobby object
+     "server_about.xml",		//About object
+     "server_watch.xml",		//Watch object
+     "server_sys_objects.xml",	//system objects
+     "server_devices.xml",		//Device list
+     "server_def.xml",			//Custom contracts
+     "server_test_device.xml"	//Test device object
+    };
+static const int OBIX_STORAGE_FILES_COUNT = 7;
 
 /**The place where all data is stored.*/
 static IXML_Document* storage = NULL;
@@ -156,37 +161,15 @@ int xmldb_init(const char* serverAddr)
     }
     log_debug("Storage is initialized with server address: %s", _serverAddress);
 
-    // load lobby object to the storage
-    error = xmldb_loadFile(OBIX_LOBBY_FILE);
-    if (error != 0)
+    // load storage contents from files:
+    int i;
+    for (i = 0; i < OBIX_STORAGE_FILES_COUNT; i++)
     {
-        return error;
-    }
-
-    // load system objects from a separate file
-    error = xmldb_loadFile(OBIX_SYS_OBJECTS_FILE);
-    if (error != 0)
-    {
-        return error;
-    }
-
-    // load about object from a separate file
-    error = xmldb_loadFile(OBIX_ABOUT_FILE);
-    if (error != 0)
-    {
-        return error;
-    }
-    // load WatchService object from a separate file
-    error = xmldb_loadFile(OBIX_WATCH_FILE);
-    if (error != 0)
-    {
-        return error;
-    }
-    // load devices object from a separate file
-    error = xmldb_loadFile(OBIX_DEVICES_FILE);
-    if (error != 0)
-    {
-        return error;
+        error = xmldb_loadFile(OBIX_STORAGE_FILES[i]);
+        if (error != 0)
+        {
+            return error;
+        }
     }
 
     return 0;

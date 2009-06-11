@@ -70,7 +70,7 @@ static const obix_server_postHandler POST_HANDLER[] =
         &handlerWatchPollRefresh,	//5 Watch.pollRefresh
         &handlerWatchDelete,		//6 Watch.delete
         &handlerSignUp				//7 signUp
-        //		&handlerBatch				//8 Batch
+        //&handlerBatch				//8 Batch
     };
 
 static const int POST_HANDLERS_COUNT = 8;
@@ -280,7 +280,7 @@ void handlerWatchAdd(Response* response, const char* uri, IXML_Document* input)
     }
 
     // reset lease timer
-    obixWatch_resetLeaseTimer(watch, NULL);
+    obixWatch_resetLeaseTimer(watch, OBIX_WATCH_LEASE_NO_CHANGE);
 
     // prepare response header
     obixResponse_setText(response, WATCH_OUT_PREFIX, TRUE);
@@ -412,7 +412,7 @@ void handlerWatchRemove(Response* response,
     }
 
     // reset lease timer
-    obixWatch_resetLeaseTimer(watch, NULL);
+    obixWatch_resetLeaseTimer(watch, OBIX_WATCH_LEASE_NO_CHANGE);
 
     // get list of URI's to be removed
     const char** uriSet = NULL;
@@ -485,7 +485,7 @@ static void handlerWatchPollHelper(Response* response,
     }
 
     // reset lease timer
-    obixWatch_resetLeaseTimer(watch, NULL);
+    obixWatch_resetLeaseTimer(watch, OBIX_WATCH_LEASE_NO_CHANGE);
 
     //prepare response header
     obixResponse_setText(response, WATCH_OUT_PREFIX, TRUE);
@@ -547,6 +547,7 @@ void handlerWatchPollChanges(Response* response,
                              const char* uri,
                              IXML_Document* input)
 {
+
     handlerWatchPollHelper(response, uri, input, TRUE);
 }
 

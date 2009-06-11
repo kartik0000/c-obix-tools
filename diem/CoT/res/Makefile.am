@@ -11,7 +11,9 @@ dist_pkgsysconf_DATA  	=   obix-lighttpd.conf \
 							server_devices.xml \
 							server_lobby.xml \
 							server_sys_objects.xml \
-							server_watch.xml
+							server_watch.xml \
+							server_def.xml \
+							server_test_device.xml
 			   
 ## Data files for adapters
 dist_pkgsysconf_DATA	+=  sensor_floor_config.xml \

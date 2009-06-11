@@ -225,7 +225,7 @@ void obix_server_handleGET(Response* response, const char* uri)
     oBIX_Watch* watch = obixWatch_getByUri(uri);
     if (watch != NULL)
     {
-        obixWatch_resetLeaseTimer(watch, NULL);
+        obixWatch_resetLeaseTimer(watch, OBIX_WATCH_LEASE_NO_CHANGE);
     }
 
     obix_server_generateResponse(response,
@@ -325,29 +325,22 @@ void obix_server_handlePUT(Response* response,
     case 1: //ok, but new value is the same as the old one
         {
             // check whether it is request for overwriting Watch.lease value.
-            oBIX_Watch* watch = obixWatch_getByUri(uri);
-            if (watch != NULL)
+            error = obixWatch_processTimeUpdates(uri, element);
+            if (error < 0)
             {
-                // TODO checking that input has correct format should be done
-                // for all input values. In that case it would be possible to
-                // set new watch lease time before storing to database
-                error = obixWatch_resetLeaseTimer(
-                            watch,
-                            ixmlElement_getAttribute(element, OBIX_ATTR_VAL));
-                if (error != 0)
-                {
-                    obix_server_generateObixErrorMessage(
-                        response,
-                        uri,
-                        NULL,
-                        "Write Error",
-                        "Unable to update Watch lease value. Lease value is "
-                        "updated, but the real timeout is left unchanged. That "
-                        "is known issue. Please check that you provided correct"
-                        " reltime value and try again.");
-                    (*_responseListener)(response);
-                    return;
-                }
+            	// it was new value for some Watch parameter which failed to
+            	// be processed
+                obix_server_generateObixErrorMessage(
+                    response,
+                    uri,
+                    NULL,
+                    "Write Error",
+                    "Unable to update Watch parameter. Note: Value is updated "
+                    "in storage, but did not affect the behavior of the Watch "
+                    "object. That is known issue. Please check that you "
+                    "provided correct reltime value and try again.");
+                (*_responseListener)(response);
+                return;
             }
 
             // reply with the updated object

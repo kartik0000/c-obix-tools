@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+	<!--
+		Custom contracts definition.
+	-->
+<obj href="/obix/def/">
+	<!--
+		Extension for the Lobby object which allows clients adding their own
+		information to the server using signUp operation.
+	-->
+	<obj href="SignUpLobby" is="obix:Lobby">
+		<op name="signUp" href="signUp/" in="obix:obj" out="obix:obj" />
+	</obj>
+	<!--
+		Advanced Watch object, which supports long poll requests (pollChanges
+		operation doesn't answer immediately, but waits for something to be
+		returned for at least pollWaitInterval/min, but no more than
+		pollWaitInterval/max).
+	-->
+	<obj href="LongPollWatch" is="obix:Watch">
+		<obj name="pollWaitInterval" href="pollWaitInterval/">
+			<reltime name="min" min="PT0S" val="PT0S" writable="true" />
+			<reltime name="max" min="PT0S" val="PT0S" writable="true" />
+		</obj>
+	</obj>
+</obj>

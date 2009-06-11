@@ -14,6 +14,9 @@
 #ifndef PTASK_H_
 #define PTASK_H_
 
+///@todo Create separate header for BOOL
+#include "ixml_ext.h"
+
 /**
  * Specifies that the task should be executed indefinite number of times
  * (until #ptask_cancel() is called).
@@ -65,9 +68,31 @@ int ptask_dispose(Task_Thread* thread);
  * @return @li >=0 - ID of the scheduled task. Can be used to cancel the task.
  *         @li <0 - Error code.
  */
-int ptask_schedule(Task_Thread* thread, periodic_task task, void* arg, long period, int executeTimes);
+int ptask_schedule(Task_Thread* thread,
+                   periodic_task task,
+                   void* arg,
+                   long period,
+                   int executeTimes);
 
-int ptask_reschedule(Task_Thread* thread, int taskId, long period, int executeTimes);
+/**
+ * Sets new execution period for the specified task.
+ *
+ * @param thread Thread in which the task is scheduled.
+ * @param taskId Id of the scheduled task.
+ * @param period New time interval in milliseconds (or time which will be added
+ *               to the current task period).
+ * @param executeTimes Defines how many times (min. 1) the task should be
+ *                     executed. If #EXECUTE_INDEFINITE is provided than the
+ *                     task is executed until #ptask_cancel() with
+ *                     corresponding task ID is called.
+ * @param add Defines whether time provided in @a period argument will be used
+ *            as new execution period, or will be added to the current one.
+ */
+int ptask_reschedule(Task_Thread* thread,
+                     int taskId,
+                     long period,
+                     int executeTimes,
+                     BOOL add);
 
 int ptask_reset(Task_Thread* thread, int taskId);
 

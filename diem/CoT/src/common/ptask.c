@@ -37,6 +37,18 @@ struct _Task_Thread
     pthread_cond_t taskListUpdated;
 };
 
+//static void timespec_fromMillis(struct timespec* time, long millis)
+//{
+//	time->tv_sec = millis / 1000;
+//	time->tv_nsec = (millis % 1000) * 1000000;
+//}
+//
+//static int timespec_substract(struct timespec* time1, struct timespec* time2)
+//{
+//	//TODO implement me
+//	return -1;
+//}
+
 static int timespec_cmp(struct timespec* time1, struct timespec* time2)
 {
     // compare seconds first
@@ -217,7 +229,11 @@ int ptask_schedule(Task_Thread* thread, periodic_task task, void* arg, long peri
     return taskId;
 }
 
-int ptask_reschedule(Task_Thread* thread, int taskId, long period, int executeTimes)
+int ptask_reschedule(Task_Thread* thread,
+                     int taskId,
+                     long period,
+                     int executeTimes,
+                     BOOL add)
 {
     pthread_mutex_lock(&(thread->taskListMutex));
 

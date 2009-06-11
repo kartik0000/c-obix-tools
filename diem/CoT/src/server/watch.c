@@ -18,6 +18,8 @@
 const char* OBIX_META_WATCH_UPDATED_YES = "y";
 const char* OBIX_META_WATCH_UPDATED_NO  = "n";
 
+const long OBIX_WATCH_LEASE_NO_CHANGE = -1;
+
 // TODO: load this parameter from settings file
 static const int MAX_WATCH_COUNT = 50;
 
@@ -33,7 +35,9 @@ static const int WATCH_URI_PREFIX_LENGTH = 24;
 static oBIX_Watch** _watches;
 static int _watchesCount;
 /** Thread for removing unused watches. */
-static Task_Thread* _thread;
+static Task_Thread* _threadLease;
+/** Thread for parking long poll requests. */
+static Task_Thread* _threadLongPoll;
 
 int obixWatch_init()
 {
@@ -54,8 +58,14 @@ int obixWatch_init()
     _watchesCount = 0;
 
     // initialize thread which will be used to remove old watch objects
-    _thread = ptask_init();
-    if (_thread == NULL)
+    _threadLease = ptask_init();
+    if (_threadLease == NULL)
+    {
+        return -3;
+    }
+    // initialize thread which will be used to park long poll requests
+    _threadLongPoll = ptask_init();
+    if (_threadLongPoll == NULL)
     {
         return -3;
     }
@@ -84,10 +94,14 @@ int obixWatch_dispose()
     free(_watches);
     _watches = NULL;
 
-    // stop Lease timer thread
-    if (_thread != NULL)
+    // stop threads
+    if (_threadLease != NULL)
     {
-        ptask_dispose(_thread);
+        ptask_dispose(_threadLease);
+    }
+    if (_threadLongPoll != NULL)
+    {
+        ptask_dispose(_threadLongPoll);
     }
 
     return error;
@@ -170,7 +184,7 @@ static int obixWatch_deleteHelper(oBIX_Watch* watch)
 int obixWatch_delete(oBIX_Watch* watch)
 {
     // remove watch deleting task
-    int error = ptask_cancel(_thread, watch->leaseTimer);
+    int error = ptask_cancel(_threadLease, watch->leaseTimerId);
     if (error != 0)
     {
         log_error("Unable to cancel watch lease timer: "
@@ -302,6 +316,10 @@ int obixWatch_create(IXML_Element** watchDOM)
     watch->items = NULL;
     // we start counting watches from 1
     watch->id = watchId + 1;
+    // set default poll wait times to 0, which means that pollChanges has
+    // standard behavior
+    watch->pollWaitMin = 0;
+    watch->pollWaitMax = 0;
     // save watch reference
     _watches[watchId] = watch;
     _watchesCount++;
@@ -350,11 +368,11 @@ int obixWatch_create(IXML_Element** watchDOM)
     free(watchUri);
 
     // create task for removing unused watch
-    watch->leaseTimer = ptask_schedule(_thread, &taskDeleteWatch, watch, leaseTime, 1);
-    if (watch->leaseTimer < 0)
+    watch->leaseTimerId = ptask_schedule(_threadLease, &taskDeleteWatch, watch, leaseTime, 1);
+    if (watch->leaseTimerId < 0)
     {
         log_error("Unable to schedule watch deleting task: "
-                  "ptask_schedule() returned %d.", watch->leaseTimer);
+                  "ptask_schedule() returned %d.", watch->leaseTimerId);
         cleanup();
         return -4;
     }
@@ -632,35 +650,80 @@ BOOL obixWatch_isWatchUri(const char* uri)
     }
 }
 
-int obixWatch_resetLeaseTimer(oBIX_Watch* watch, const char* newPeriod)
+int obixWatch_resetLeaseTimer(oBIX_Watch* watch, long newPeriod)
 {
     int error;
-    if (newPeriod != NULL)
-    {
-        long period;
-        error = obix_reltime_parseToLong(newPeriod, &period);
+    if (newPeriod >= 0)
+    {	// set new lease time and reset timer
+        error = ptask_reschedule(_threadLease,
+                                 watch->leaseTimerId,
+                                 newPeriod,
+                                 1,
+                                 FALSE);
         if (error != 0)
         {
-            log_warning("Wrong lease value \"%s\" received for "
-                        "the watch #%d.", newPeriod, watch->id);
+            log_error("Unable to reschedule Watch lease timer for the watch "
+                      "#%d. New lease value is %d.", watch->id, newPeriod);
             return -1;
         }
-
-        error = ptask_reschedule(_thread, watch->leaseTimer, period, 1);
+    }
+    else
+    {	// reset lease timer
+        error = ptask_reset(_threadLease, watch->leaseTimerId);
         if (error != 0)
         {
-            log_error("Unable to reschedule Watch lease timer for the "
-                      "watch #%d. New lease value is %d.", watch->id, period);
+            log_error("Unable to reset watch lease timer: "
+                      "ptask_reset() returned %d.", error);
             return -1;
         }
     }
 
-    error = ptask_reset(_thread, watch->leaseTimer);
+    return 0;
+}
+
+int obixWatch_processTimeUpdates(const char* uri, IXML_Element* element)
+{
+    oBIX_Watch* watch = obixWatch_getByUri(uri);
+    if (watch == NULL)
+    {
+        // the uri doesn't correspond to any Watch object
+        return 1;
+    }
+
+    // we assume that input data is correct
+    const char* newValue = ixmlElement_getAttribute(element, OBIX_ATTR_VAL);
+    long time;
+    int error = obix_reltime_parseToLong(newValue, &time);
     if (error != 0)
     {
-        log_error("Unable to reset watch lease timer: "
-                  "ptask_reset() returned %d.", error);
+        // TODO checking that input has correct format should be done
+        // for all input values. In that case it would be possible to
+        // check for all errors before storing new value to the storage
+        log_warning("Unable to parse reltime value \"%s\" for Watch #%d ",
+                    newValue, watch->id);
         return -1;
+    }
+
+    // we assume that uri is either .../lease, .../pollWaitInterval/min or
+    // .../pollWaitInterval/max So we can distinguish them by checking only
+    // the last symbol.
+    int lastSymbol = strlen(uri) - 1;
+    if (uri[lastSymbol] == '/')
+    {
+        lastSymbol--;
+    }
+
+    switch(uri[lastSymbol])
+    {
+    case 'e': // /lease
+        return obixWatch_resetLeaseTimer(watch, time);
+        break;
+    case 'n': // /pollWaitInterval/min
+        watch->pollWaitMin = time;
+        break;
+    case 'x': // /pollWaitInterval/max
+        watch->pollWaitMax = time;
+        break;
     }
 
     return 0;
