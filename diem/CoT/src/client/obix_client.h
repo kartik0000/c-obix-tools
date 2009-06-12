@@ -252,8 +252,8 @@ int obix_writeValue(int connectionId,
  *
  * Overwrites existing listener if is called twice.
  *
- * This method can be also used to subscribe for the updates of any objects
- * stored at the oBIX server. In that case @a 0 should be provided as
+ * This method can be also used to subscribe for the updates of any other
+ * objects stored at the oBIX server. In that case @a 0 should be provided as
  * @a deviceId and @a paramUri should be relative to the server root.
  *
  * @param connectionId ID of the connection which should be used.
@@ -267,6 +267,8 @@ int obix_writeValue(int connectionId,
  *                 by this client.
  * @param listener Pointer to the listener function which would be invoked
  *                 every time when the subscribed parameter is changed.
+ * @note @a listener method should be quick. Slow listener (especially if it
+ *       waits for some resource) will block subsequent calls to listeners.
  * @return @li >=0 ID of the created listener;
  *         @li <0 error code.
  */

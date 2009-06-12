@@ -37,17 +37,42 @@ struct _Task_Thread
     pthread_cond_t taskListUpdated;
 };
 
-//static void timespec_fromMillis(struct timespec* time, long millis)
-//{
-//	time->tv_sec = millis / 1000;
-//	time->tv_nsec = (millis % 1000) * 1000000;
-//}
-//
-//static int timespec_substract(struct timespec* time1, struct timespec* time2)
-//{
-//	//TODO implement me
-//	return -1;
-//}
+/**@name Utility methods for work with @a timespec structure @{*/
+static void timespec_fromMillis(struct timespec* time, long millis)
+{
+    time->tv_sec = millis / 1000;
+    time->tv_nsec = (millis % 1000) * 1000000;
+}
+
+static int timespec_add(struct timespec* time1, const struct timespec* time2)
+{
+    long newNano = time1->tv_nsec + time2->tv_nsec;
+    time1->tv_sec += time2->tv_sec + (newNano / 1000000000);
+    time1->tv_nsec = newNano % 1000000000;
+    // check negative cases
+    if ((time1->tv_nsec < 0) && (time1->tv_sec > 0))
+    {
+        time1->tv_sec--;
+        time1->tv_nsec = 1000000000 - time1->tv_nsec;
+    }
+    else if ((time1->tv_sec < 0) && (time1->tv_nsec > 0))
+    {
+        time1->tv_sec++;
+        time1->tv_nsec = time1->tv_nsec - 1000000000;
+    }
+
+    // return positive value if result is positive and vice versa
+    if ((time1->tv_sec > 0) || (time1->tv_nsec > 0))
+        return 1;
+    else
+        return -1;
+}
+
+static void timespec_copy(struct timespec* dest, const struct timespec* source)
+{
+    dest->tv_sec = source->tv_sec;
+    dest->tv_nsec = source->tv_nsec;
+}
 
 static int timespec_cmp(struct timespec* time1, struct timespec* time2)
 {
@@ -76,6 +101,7 @@ static int timespec_cmp(struct timespec* time1, struct timespec* time2)
         }
     }
 }
+/**@}*/
 
 // this is called only from ptask_schedule() thus is thread safe
 static int generateId(Task_Thread* thread)
@@ -87,15 +113,12 @@ static void periodicTask_generateNextExecTime(Periodic_Task* ptask)
 {
     // we generate next time, by adding period to last time when the task
     // supposed to be executed
-    long newNano = ptask->period.tv_nsec + ptask->nextScheduledTime.tv_nsec;
-    ptask->nextScheduledTime.tv_sec += ptask->period.tv_sec + (newNano / 1000000000);
-    ptask->nextScheduledTime.tv_nsec = newNano % 1000000000;
+    timespec_add(&(ptask->nextScheduledTime), &(ptask->period));
 }
 
 static void periodicTask_setPeriod(Periodic_Task* ptask, long period, int executeTimes)
 {
-    ptask->period.tv_sec = period / 1000;
-    ptask->period.tv_nsec = (period % 1000) * 1000000;
+    timespec_fromMillis(&(ptask->period), period);
     ptask->executeTimes = executeTimes;
 }
 
@@ -244,13 +267,51 @@ int ptask_reschedule(Task_Thread* thread,
         return -1;
     }
 
-    periodicTask_setPeriod(ptask, period, executeTimes);
-    periodicTask_resetExecTime(ptask);
+    if (add)
+    {
+        // add provided time to the period and next execution time
+        struct timespec addTime, temp;
+        timespec_fromMillis(&addTime, period);
+        timespec_copy(&temp, &(ptask->period));
+        if (timespec_add(&temp, &addTime) < 0)
+        {	// resulting new period would be negative -> error
+            pthread_mutex_unlock(&(thread->taskListMutex));
+            return -1;
+        }
+
+        timespec_copy(&(ptask->period), &temp);
+        timespec_add(&(ptask->nextScheduledTime), &addTime);
+        ptask->executeTimes = executeTimes;
+    }
+    else // add == false
+    {
+    	if (period < 0)
+    	{
+    		// period should not be negative
+            pthread_mutex_unlock(&(thread->taskListMutex));
+            return -1;
+    	}
+        // set provided time as a new period and reschedule execution time
+        periodicTask_setPeriod(ptask, period, executeTimes);
+        periodicTask_resetExecTime(ptask);
+    }
 
     // task list is updated, notify taskThread
     pthread_cond_signal(&(thread->taskListUpdated));
     pthread_mutex_unlock(&(thread->taskListMutex));
     return 0;
+}
+
+BOOL ptask_isScheduled(Task_Thread* thread, int taskId)
+{
+	if (periodicTask_get(thread, taskId) != NULL)
+	{
+		return TRUE;
+	}
+	else
+	{
+		return FALSE;
+	}
 }
 
 int ptask_reset(Task_Thread* thread, int taskId)
@@ -418,7 +479,7 @@ Task_Thread* ptask_init()
                     "Using default attributes.", error);
     }
 
-    // initialize other fields with zeros
+    // initialize other fields
     thread->id_gen = 1;
     thread->taskList = NULL;
 

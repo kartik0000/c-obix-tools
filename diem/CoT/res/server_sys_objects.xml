@@ -15,7 +15,7 @@
 		<obj name="pollWaitInterval" href="pollWaitInterval/">
 			<reltime name="min" href="min" min="PT0S" max="PT1M" val="PT0S"
 				writable="true" />
-			<reltime name="max" href="man" min="PT0S" max="PT1M" val="PT0S"
+			<reltime name="max" href="max" min="PT0S" max="PT1M" val="PT0S"
 				writable="true" />
 		</obj>
 		<op name="add" href="add" in="obix:WatchIn" out="obix:WatchOut">

@@ -9,6 +9,7 @@
 #define WATCH_H_
 
 #include <ixml_ext.h>
+#include "response.h"
 
 extern const char* OBIX_META_WATCH_UPDATED_YES;
 extern const char* OBIX_META_WATCH_UPDATED_NO;
@@ -65,6 +66,10 @@ typedef struct oBIX_Watch
     oBIX_Watch_Item* items;
 }
 oBIX_Watch;
+
+typedef void (*obixWatch_pollHandler)(oBIX_Watch* watch,
+                                      Response* response,
+                                      const char* uri);
 
 /**@name oBIX Watch utilities @{*//////////////////////////////////////////////
 // TODO: what about creating a separate file for these watch utilities?
@@ -132,5 +137,13 @@ BOOL obixWatch_isWatchUri(const char* uri);
 int obixWatch_resetLeaseTimer(oBIX_Watch* watch, long newPeriod);
 
 int obixWatch_processTimeUpdates(const char* uri, IXML_Element* element);
+
+BOOL obixWatch_isLongPoll(oBIX_Watch* watch);
+
+int obixWatch_holdPoll(obixWatch_pollHandler pollHandler,
+                       oBIX_Watch* watch,
+                       Response* response,
+                       const char* uri,
+                       BOOL maxWait);
 
 #endif /* WATCH_H_ */

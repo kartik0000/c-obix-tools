@@ -65,7 +65,7 @@ int ptask_dispose(Task_Thread* thread);
  *                     executed. If #EXECUTE_INDEFINITE is provided than the
  *                     task is executed until #ptask_cancel() with
  *                     corresponding task ID is called.
- * @return @li >=0 - ID of the scheduled task. Can be used to cancel the task.
+ * @return @li >0 - ID of the scheduled task. Can be used to cancel the task.
  *         @li <0 - Error code.
  */
 int ptask_schedule(Task_Thread* thread,
@@ -87,12 +87,26 @@ int ptask_schedule(Task_Thread* thread,
  *                     corresponding task ID is called.
  * @param add Defines whether time provided in @a period argument will be used
  *            as new execution period, or will be added to the current one.
+ * @note When @a add is set to @a TRUE, @a period will be also added to the next
+ *       execution time, but when @a add is @a FALSE next execution will be
+ *       (current time + @a period).
+ * @return @a 0 on success, negative error code otherwise.
  */
 int ptask_reschedule(Task_Thread* thread,
                      int taskId,
                      long period,
                      int executeTimes,
                      BOOL add);
+
+/**
+ * Check whether task with provided id is scheduled for execution in the thread.
+ *
+ * @param thread Thread where task should be searched for.
+ * @param taskId Task id which is searched for.
+ * @return @a TRUE if the task with specified @taskId is scheduled,
+ *         @a FALSE otherwise.
+ */
+BOOL ptask_isScheduled(Task_Thread* thread, int taskId);
 
 int ptask_reset(Task_Thread* thread, int taskId);
 

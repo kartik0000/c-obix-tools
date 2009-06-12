@@ -1247,7 +1247,7 @@ int http_registerDevice(Connection* connection, Device** device, const char* dat
         response = NULL;
         curl_ext_getDOM(_curl_handle, uri, &response);
         if ((response == NULL) ||
-                (parseResponse(response, NULL) != OBIX_SUCCESS))
+                (parseResponse(response, &element) != OBIX_SUCCESS))
         {
             // It's a pity but our hopes did not come true :) URI from the
             // error object did not contain any good data

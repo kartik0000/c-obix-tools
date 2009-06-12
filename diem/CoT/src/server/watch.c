@@ -15,6 +15,15 @@
 #include "xml_storage.h"
 #include "watch.h"
 
+typedef struct PollTaskParams
+{
+    obixWatch_pollHandler pollHandler;
+    oBIX_Watch* watch;
+    Response* response;
+    const char* uri;
+}
+PollTaskParams;
+
 const char* OBIX_META_WATCH_UPDATED_YES = "y";
 const char* OBIX_META_WATCH_UPDATED_NO  = "n";
 
@@ -192,6 +201,12 @@ int obixWatch_delete(oBIX_Watch* watch)
         return -3;
     }
 
+    if (watch->pollTaskId > 0)
+    {
+        ptask_cancel(_threadLease, watch->pollTaskId);
+        // ignore error because poll task can be already completed
+    }
+
     return obixWatch_deleteHelper(watch);
 }
 
@@ -320,6 +335,8 @@ int obixWatch_create(IXML_Element** watchDOM)
     // standard behavior
     watch->pollWaitMin = 0;
     watch->pollWaitMax = 0;
+    // zero value of pollTaskId says that no task was scheduled
+    watch->pollTaskId = 0;
     // save watch reference
     _watches[watchId] = watch;
     _watchesCount++;
@@ -719,11 +736,97 @@ int obixWatch_processTimeUpdates(const char* uri, IXML_Element* element)
         return obixWatch_resetLeaseTimer(watch, time);
         break;
     case 'n': // /pollWaitInterval/min
-        watch->pollWaitMin = time;
+        {
+            // TODO it can be partly omitted if the check is beforehand
+            if ((time < 0) || (time > watch->pollWaitMax))
+            {
+                log_warning("Unable to update watch%d/pollWaitInterval/min: "
+                            "Wrong time (%ld) is provided.",
+                            watch->id, time);
+                return -1;
+            }
+            watch->pollWaitMin = time;
+        }
         break;
     case 'x': // /pollWaitInterval/max
-        watch->pollWaitMax = time;
+        {
+            if (time < watch->pollWaitMin)
+            {
+                log_warning("Unable to update watch%d/pollWaitInterval/max: "
+                            "Wrong time (%ld) is provided.",
+                            watch->id, time);
+                return -1;
+            }
+            watch->pollWaitMax = time;
+        }
         break;
+    }
+
+    return 0;
+}
+
+BOOL obixWatch_isLongPoll(oBIX_Watch* watch)
+{
+    return (watch->pollWaitMax > 0) ? TRUE : FALSE;
+}
+
+//This task is scheduled to execute delayed long poll handler
+void obixWatch_longPollTask(void* arg)
+{
+    PollTaskParams* params = (PollTaskParams*) arg;
+    params->watch->pollTaskId = -1;
+    (*(params->pollHandler))(params->watch, params->response, params->uri);
+    free(params);
+}
+
+int obixWatch_holdPoll(obixWatch_pollHandler pollHandler,
+                       oBIX_Watch* watch,
+                       Response* response,
+                       const char* uri,
+                       BOOL maxWait)
+{
+    // check whether there is already scheduled poll response for this watch
+    // TODO this is not completely thread safe
+    if (watch->pollTaskId > 0)
+    {
+        log_error("Unable to hold Watch poll request: Previous request is not "
+                  "yet answered.");
+        return -1;
+    }
+
+    // calculate hold time
+    long delay = maxWait ? watch->pollWaitMax : watch->pollWaitMin;
+
+    if (delay == 0)
+    {
+        // we can execute poll handler right now
+        (*pollHandler)(watch, response, uri);
+        return 0;
+    }
+
+    // schedule execution of the handler
+    // create structure which will hold all parameters for poll task
+    PollTaskParams* params = (PollTaskParams*) malloc(sizeof(PollTaskParams));
+    if (params == NULL)
+    {
+        log_error("Unable to hold Watch poll request: Not enough memory.");
+        return -1;
+    }
+
+    params->watch = watch;
+    params->response = response;
+    params->uri = uri;
+
+    watch->pollTaskId = ptask_schedule(_threadLongPoll,
+                                       &obixWatch_longPollTask,
+                                       (void*) params,
+                                       delay,
+                                       1);
+    if (watch->pollTaskId < 0)
+    {
+        log_error("Unable to hold Watch poll request: "
+                  "Unable to schedule task.");
+        return watch->pollTaskId;
     }
 
     return 0;
