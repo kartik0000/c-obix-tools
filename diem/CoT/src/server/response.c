@@ -13,7 +13,7 @@
 #include <obix_utils.h>
 #include "response.h"
 
-Response* obixResponse_create(FCGX_Request* request)
+Response* obixResponse_create(Request* request)
 {
     Response* response = (Response*) malloc(sizeof(Response));
     if (response == NULL)

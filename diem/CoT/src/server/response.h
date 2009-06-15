@@ -8,21 +8,20 @@
 #ifndef RESPONSE_H_
 #define RESPONSE_H_
 
-#include <fcgiapp.h>
-
 #include "ixml_ext.h"
+#include "request.h"
 
 typedef struct Response
 {
     char* body;
     char* uri;
     BOOL error;
-    FCGX_Request* request;
+    Request* request;
     struct Response* next;
 }
 Response;
 
-Response* obixResponse_create(FCGX_Request* request);
+Response* obixResponse_create(Request* request);
 
 Response* obixResponse_add(Response* response);
 

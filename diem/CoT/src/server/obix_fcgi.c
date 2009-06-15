@@ -1,11 +1,14 @@
 // gcc -I/usr/include/fastcgi -lfcgi testfastcgi.c -o test.fastcgi
 #include <stdlib.h>
+#include <pthread.h>
+#include <fcgiapp.h>
 
 #include <lwl_ext.h>
 #include <obix_utils.h>
 #include <ptask.h>
 #include "xml_storage.h"
 #include "server.h"
+#include "request.h"
 #include "obix_fcgi.h"
 
 #define LISTENSOCK_FILENO 0
@@ -32,12 +35,29 @@ static const char* ERROR_STATIC = "<err displayName=\"Internal Server Error\" "
                                   "This is a static error message which is "
                                   "returned when things go really bad./>\"";
 
+struct _Request
+{
+    FCGX_Request r;
+    struct _Request* next;
+};
+
+//TODO read max request number from array
+static Request* _requestList;
+static int _requestCounter;
+static const int REQUEST_MAX = 2;
+pthread_mutex_t _requestListMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t _requestListNew = PTHREAD_COND_INITIALIZER;
+
+static void obixRequest_release(Request* request);
+static Request* obixRequest_get();
+static void obixRequest_free(Request* request);
+
 /**
  * Entry point of FCGI script.
  */
 int main(int argc, char** argv)
 {
-    FCGX_Request* request;
+    Request* request;
 
     log_debug("Starting oBIX server...");
     char* resourceDir = NULL;
@@ -54,51 +74,44 @@ int main(int argc, char** argv)
     }
 
     // init server
-    if (obix_fcgi_init(&request, resourceDir) != 0)
+    if (obix_fcgi_init(resourceDir) != 0)
     {
         // initialization failed
-        obix_fcgi_shutdown(request);
+        obix_fcgi_shutdown();
         return -1;
     }
 
     // main loop
     while (1)
     {
+        // get free request object
+        request = obixRequest_get();
         log_debug("Waiting for the request..");
-        int error = FCGX_Accept_r(request);
+        int error = FCGX_Accept_r(&(request->r));
         if (error)
         {
             log_warning("Stopping the server: FCGX_Accept_r returned %d", error);
             break;
         }
 
-        const char* clientAddr = FCGX_GetParam("REMOTE_ADDR", request->envp);
+        const char* clientAddr = FCGX_GetParam("REMOTE_ADDR", request->r.envp);
         log_debug("Request accepted from \"%s\"", clientAddr);
         obix_fcgi_handleRequest(request);
         log_debug("Request handled");
     }
 
     // shut down
-    obix_fcgi_shutdown(request);
+    obix_fcgi_shutdown();
     return 0;
 }
 
-int obix_fcgi_init(FCGX_Request** request, char* resourceDir)
+int obix_fcgi_init(char* resourceDir)
 {
     // call before Accept in multithreaded apps
     int error = FCGX_Init();
     if (error)
     {
         log_error("Unable to start the server. FCGX_Init returned: %d", error);
-        return -1;
-    }
-
-    // init request object
-    *request = (FCGX_Request*) malloc(sizeof(FCGX_Request));
-    error = FCGX_InitRequest(*request, LISTENSOCK_FILENO, LISTENSOCK_FLAGS);
-    if (error)
-    {
-        log_error("Unable to start the server. FCGX_InitRequest failed: %d", error);
         return -1;
     }
 
@@ -112,17 +125,19 @@ void obix_fcgi_shutdown(FCGX_Request* request)
 {
     obix_server_shutdown();
 
-    if (request != NULL)
+    pthread_mutex_lock(&_requestListMutex);
+    if (_requestList != NULL)
     {
-        FCGX_Free(request, TRUE);
+        obixRequest_free(_requestList);
     }
+    pthread_mutex_unlock(&_requestListMutex);
     FCGX_ShutdownPending();
 }
 
-void obix_fcgi_handleRequest(FCGX_Request* request)
+void obix_fcgi_handleRequest(Request* request)
 {
     // get request URI
-    const char* uri = FCGX_GetParam("REQUEST_URI", request->envp);
+    const char* uri = FCGX_GetParam("REQUEST_URI", request->r.envp);
     if (uri == NULL)
     {
         log_error("Unable to retrieve URI from the request.");
@@ -144,7 +159,7 @@ void obix_fcgi_handleRequest(FCGX_Request* request)
     }
 
     // check the type of request
-    const char* requestType = FCGX_GetParam("REQUEST_METHOD", request->envp);
+    const char* requestType = FCGX_GetParam("REQUEST_METHOD", request->r.envp);
     if (requestType == NULL)
     {
         log_error("Unable to get the request type.");
@@ -203,22 +218,23 @@ void obix_fcgi_handleRequest(FCGX_Request* request)
         char* message = (char*) malloc(strlen(requestType) + 42);
         sprintf(message, "%s request is not supported by oBIX server.", requestType);
         obix_server_generateObixErrorMessage(response,
-                                        uri,
-                                        OBIX_HREF_ERR_UNSUPPORTED,
-                                        "Unsupported Request",
-                                        message);
+                                             uri,
+                                             OBIX_HREF_ERR_UNSUPPORTED,
+                                             "Unsupported Request",
+                                             message);
         free(message);
         obix_fcgi_sendResponse(response);
     }
 }
 
-void obix_fcgi_sendStaticErrorMessage(FCGX_Request* request)
+void obix_fcgi_sendStaticErrorMessage(Request* request)
 {
     // send HTTP reply
-    FCGX_FPrintF(request->out, HTTP_STATUS_OK);
-    FCGX_FPrintF(request->out, XML_HEADER);
-    FCGX_FPrintF(request->out, ERROR_STATIC);
-    FCGX_Finish_r(request);
+    FCGX_FPrintF(request->r.out, HTTP_STATUS_OK);
+    FCGX_FPrintF(request->r.out, XML_HEADER);
+    FCGX_FPrintF(request->r.out, ERROR_STATIC);
+    FCGX_Finish_r(&(request->r));
+    obixRequest_release(request);
 }
 
 void obix_fcgi_sendResponse(Response* response)
@@ -244,7 +260,7 @@ void obix_fcgi_sendResponse(Response* response)
         iterator = iterator->next;
     }
 
-    FCGX_Request* request = response->request;
+    FCGX_Request* request = &(response->request->r);
 
     // send HTTP header
     FCGX_FPrintF(request->out, HTTP_STATUS_OK);
@@ -264,10 +280,11 @@ void obix_fcgi_sendResponse(Response* response)
     }
 
     FCGX_Finish_r(request);
+    obixRequest_release(response->request);
     obixResponse_free(response);
 }
 
-char* obix_fcgi_readRequestInput(FCGX_Request* request)
+char* obix_fcgi_readRequestInput(Request* request)
 {
     char* buffer = NULL;
     int bufferSize = 1024;
@@ -287,7 +304,9 @@ char* obix_fcgi_readRequestInput(FCGX_Request* request)
             return NULL;
         }
 
-        bytesRead += FCGX_GetStr(buffer + bytesRead, bufferSize - bytesRead, request->in);
+        bytesRead += FCGX_GetStr(buffer + bytesRead,
+                                 bufferSize - bytesRead,
+                                 request->r.in);
 
         if (bytesRead == 0)
         {
@@ -296,7 +315,7 @@ char* obix_fcgi_readRequestInput(FCGX_Request* request)
             return NULL;
         }
 
-        error = FCGX_GetError(request->in);
+        error = FCGX_GetError(request->r.in);
         if (error != 0)
         {
             log_error("Error occurred while reading request input (code %d).", error);
@@ -324,7 +343,7 @@ void obix_fcgi_dumpEnvironment(Response* response)
 
     if (response->request != NULL)
     {
-        for (envp = response->request->envp; *envp; ++envp)
+        for (envp = response->request->r.envp; *envp; ++envp)
         {
             bufferSize += strlen(*envp) + 32;
         }
@@ -344,7 +363,7 @@ void obix_fcgi_dumpEnvironment(Response* response)
 
     if (response->request != NULL)
     {
-        for (envp = response->request->envp; *envp; ++envp)
+        for (envp = response->request->r.envp; *envp; ++envp)
         {
             strcat(buffer, "    <str val=\"");
             strcat(buffer, *envp);
@@ -393,3 +412,92 @@ void obix_fcgi_dumpEnvironment(Response* response)
     (*_responseListener)(response);
 }
 
+// put request to the head of the list
+static void obixRequest_release(Request* request)
+{
+    pthread_mutex_lock(&_requestListMutex);
+    request->next = _requestList;
+    _requestList = request;
+    pthread_cond_signal(&_requestListNew);
+    pthread_mutex_unlock(&_requestListMutex);
+}
+
+static Request* obixRequest_getHead()
+{
+    Request* request = _requestList;
+    _requestList = request->next;
+    request->next = NULL;
+    return request;
+}
+
+static Request* obixRequest_wait()
+{
+    // wait for some request instance to be free
+    pthread_cond_wait(&_requestListNew, &_requestListMutex);
+    return obixRequest_getHead();
+}
+
+static Request* obixRequest_get()
+{
+    Request* request;
+
+    pthread_mutex_lock(&_requestListMutex);
+
+    // if there are availabe request instances in the list...
+    if (_requestList != NULL)
+    {	// take head of the list
+        request = obixRequest_getHead();
+        pthread_mutex_unlock(&_requestListMutex);
+        return request;
+    }
+    // there is nothing in the list of requests..
+
+    if (_requestCounter == REQUEST_MAX)
+    {
+        log_warning("Maximum number of concurrent requests exceeded. "
+                    "Waiting for some request object to be freed. Try to "
+                    "increase maximum number of concurrent requests if you "
+                    "often see this warning.");
+        request = obixRequest_wait();
+        pthread_mutex_unlock(&_requestListMutex);
+        return request;
+    }
+
+    // we can create a new one
+    request = (Request*) malloc(sizeof(Request));
+    if (request == NULL)
+    {
+        log_error("Unable to create new request instance: "
+                  "Not enough memory.");
+        request = obixRequest_wait();
+        pthread_mutex_unlock(&_requestListMutex);
+        return request;
+    }
+    // initalize FCGI request
+    request->next = NULL;
+    int error = FCGX_InitRequest(&(request->r),
+                                 LISTENSOCK_FILENO,
+                                 LISTENSOCK_FLAGS);
+    if (error != 0)
+    {
+        log_error("Unable to initialize FCGI request: "
+                  "FCGX_InitRequest returned %d.", error);
+        free(request);
+        request = obixRequest_wait();
+        pthread_mutex_unlock(&_requestListMutex);
+        return request;
+    }
+    _requestCounter++;
+    pthread_mutex_unlock(&_requestListMutex);
+    return request;
+}
+
+static void obixRequest_free(Request* request)
+{
+    if (request->next != NULL)
+    {
+        FCGX_Free(&(request->r), TRUE);
+        free(request->next);
+    }
+    free(request);
+}

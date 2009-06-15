@@ -813,6 +813,7 @@ int obixWatch_holdPoll(obixWatch_pollHandler pollHandler,
         return -1;
     }
 
+    params->pollHandler = pollHandler;
     params->watch = watch;
     params->response = response;
     params->uri = uri;
@@ -828,6 +829,8 @@ int obixWatch_holdPoll(obixWatch_pollHandler pollHandler,
                   "Unable to schedule task.");
         return watch->pollTaskId;
     }
+
+    log_debug("Request handling is suspended for %ld ms.", delay);
 
     return 0;
 }

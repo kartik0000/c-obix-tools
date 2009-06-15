@@ -3,6 +3,8 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
+#include <pthread.h>
 #include <obix_utils.h>
 #include <xml_storage.h>
 #include <lwl_ext.h>
@@ -14,9 +16,17 @@
 #include "test_main.h"
 
 BOOL _responseIsSent = FALSE;
+Response* _lastResponse;
+pthread_mutex_t _responseMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t _responseReceived = PTHREAD_COND_INITIALIZER;
+
 void dummyResponseListener(Response* response)
 {
+	pthread_mutex_lock(&_responseMutex);
     _responseIsSent = TRUE;
+    _lastResponse = response;
+    pthread_cond_signal(&_responseReceived);
+    pthread_mutex_unlock(&_responseMutex);
 }
 
 static BOOL isResponseSent()
@@ -30,6 +40,18 @@ static BOOL isResponseSent()
 
     printf("No response is sent...\n");
     return FALSE;
+}
+
+static Response* waitForResponse()
+{
+	pthread_mutex_lock(&_responseMutex);
+	struct timespec time;
+	clock_gettime(CLOCK_REALTIME, &time);
+	time.tv_sec++;
+	pthread_cond_timedwait(&_responseReceived, &_responseMutex, &time);
+	Response* response = _lastResponse;
+	pthread_mutex_unlock(&_responseMutex);
+	return response;
 }
 
 int testSearch(const char* testName, const char* href, const char* checkStr, BOOL exists)
@@ -204,7 +226,7 @@ int testGenerateResponse(const char* testName, const char* uri, const char* newU
         return 1;
     }
 
-    Response* response = obixResponse_create(NULL);
+    Response* response = obixResponse_create((Request*)1);
     obix_server_generateResponse(response, oBIXdoc, newUrl, TRUE, FALSE, 0, TRUE, FALSE);
 
     if ((response == NULL) || (response->body == NULL))
@@ -223,7 +245,7 @@ int testGenerateResponse(const char* testName, const char* uri, const char* newU
         return 1;
     }
 
-    response = obixResponse_create(NULL);
+    response = obixResponse_create((Request*)1);
     obix_server_generateResponse(response, oBIXdoc, newUrl, TRUE, FALSE, 0, FALSE, TRUE);
     if ((response == NULL) || (response->body == NULL))
     {
@@ -548,6 +570,12 @@ int checkResponse(Response* response, BOOL containsError)
         return 1;
     }
 
+    if (response->request == NULL)
+    {
+        printf("No request object found in the response.\n");
+        return 1;
+    }
+
     printResponse(response);
     // try to find error object in all response parts
     char* error = NULL;
@@ -612,11 +640,16 @@ int testWatchPollChanges(const char* testName,
                          const char* uri,
                          char* checkStrings[],
                          int checkSize,
-                         BOOL exists)
+                         BOOL exists,
+                         BOOL waitResponse)
 {
     obix_server_setResponseListener(&dummyResponseListener);
-    Response* response = obixResponse_create(NULL);
+    Response* response = obixResponse_create((Request*)1);
     obix_server_handlePOST(response, uri, NULL);
+    if (waitResponse)
+    {
+    	response = waitForResponse();
+    }
     if (checkResponse(response, FALSE) != 0)
     {
         printf("Poll Changes command failed.\n");
@@ -644,7 +677,7 @@ int testWatchRemove()
 {
     const char* testName = "Watch.remove test";
     obix_server_setResponseListener(&dummyResponseListener);
-    Response* response = obixResponse_create(NULL);
+    Response* response = obixResponse_create((Request*)1);
     obix_server_handlePOST(
         response,
         "/obix/watchService/watch1/remove",
@@ -664,9 +697,9 @@ int testWatchRemove()
 
     // now try to poll refresh and check that we do not receive object which
     // we've just removed from the watch list
-    response = obixResponse_create(NULL);
+    response = obixResponse_create((Request*)1);
     obix_server_handlePOST(response,
-                           "/obix/watchService/watch1/pollChanges",
+                           "/obix/watchService/watch1/pollRefresh",
                            NULL);
     if (checkResponse(response, FALSE) != 0)
     {
@@ -696,12 +729,26 @@ int testWatchRemove()
     return 0;
 }
 
+int testPutHandler(const char* testName, const char* uri, const char* data)
+{
+    Response* response = obixResponse_create((Request*)1);
+    obix_server_handlePUT(response, uri, data);
+    if (checkResponse(response, FALSE) != 0)
+    {
+        printTestResult(testName, FALSE);
+        return 1;
+    }
+    obixResponse_free(response);
+    printTestResult(testName, TRUE);
+    return 0;
+}
+
 int testWatch()
 {
     const char* testName = "oBIX Watch test";
     // create new Watch object
     obix_server_setResponseListener(&dummyResponseListener);
-    Response* response = obixResponse_create(NULL);
+    Response* response = obixResponse_create((Request*)1);
     obix_server_handlePOST(response, "/obix/watchService/make", NULL);
     if (checkResponse(response, FALSE) != 0)
     {
@@ -711,11 +758,22 @@ int testWatch()
     obixResponse_free(response);
 
     // consider that we received a watch with name watch1
+    // modify lease time
+    int error = testPutHandler(
+                    "Changing Watch lease time",
+                    "/obix/watchService/watch1/lease",
+                    "<reltime href=\"/obix/watchService/watch1/lease\" val=\"PT5M\"/>");
+    if (error != 0)
+    {
+        printTestResult(testName, FALSE);
+        return error;
+    }
+
     // add object to the watch
     // + one with wrong trailing slash, one <op/> object,
     // one comment and one wrong object.
     // TODO check duplicate request for same object
-    response = obixResponse_create(NULL);
+    response = obixResponse_create((Request*)1);
     obix_server_handlePOST(
         response,
         "/obix/watchService/watch1/add",
@@ -742,10 +800,10 @@ int testWatch()
     obixResponse_free(response);
 
     //check that corresponding meta tags are added to the storage
-    int error = testSearch("oBIX Watch: check created meta",
-                           "/obix/kitchen/temperature/",
-                           "<wi-1 val=\"n\"",
-                           TRUE);
+    error = testSearch("oBIX Watch: check created meta",
+                       "/obix/kitchen/temperature/",
+                       "<wi-1 val=\"n\"",
+                       TRUE);
     error += testSearch("oBIX Watch: check created parent\'s meta",
                         "/obix/kitchen/parent/",
                         "<wi-1 val=\"n\"",
@@ -758,28 +816,18 @@ int testWatch()
     }
 
     // let's change value of monitored objects and check for update
-    response = obixResponse_create(NULL);
-    obix_server_handlePUT(
-        response,
-        "/obix/kitchen/temperature/",
-        "<int href=\"/obix/kitchen/temperature/\" val=\"newValue\"/>");
-    if (checkResponse(response, FALSE) != 0)
+    error = testPutHandler(
+                testName,
+                "/obix/kitchen/temperature/",
+                "<int href=\"/obix/kitchen/temperature/\" val=\"newValue\"/>");
+    error += testPutHandler(
+                 testName,
+                 "/obix/kitchen/parent/child/",
+                 "<int href=\"/obix/kitchen/parent/child/\" val=\"newValue\"/>");
+    if (error != 0)
     {
-        printTestResult(testName, FALSE);
         return 1;
     }
-    obixResponse_free(response);
-    response = obixResponse_create(NULL);
-    obix_server_handlePUT(
-        response,
-        "/obix/kitchen/parent/child/",
-        "<int href=\"/obix/kitchen/parent/child/\" val=\"newValue\"/>");
-    if (checkResponse(response, FALSE) != 0)
-    {
-        printTestResult(testName, FALSE);
-        return 1;
-    }
-    obixResponse_free(response);
 
     // check that updated objects do have meta tags
     error = testSearch("oBIX Watch: check updated meta",
@@ -803,21 +851,39 @@ int testWatch()
     error = testWatchPollChanges("test Watch.pollChanges with some changes happened",
                                  "/obix/watchService/watch1/pollChanges",
                                  checkStrings, 2,
-                                 TRUE);
+                                 TRUE,
+                                 FALSE);
     error += testWatchPollChanges("test Watch.pollChanges with no changes",
                                   "/obix/watchService/watch1/pollChanges",
                                   checkStrings, 2,
+                                  FALSE,
                                   FALSE);
+
     if (error != 0)
     {
         printf("Poll changes test(s) failed.\n");
         printTestResult(testName, FALSE);
         return 1;
     }
+    // check long poll handling
+    error = testPutHandler(
+                "Changing Watch poll interval",
+                "/obix/watchService/watch1/pollWaitInterval/max",
+                "<reltime href=\"/obix/watchService/watch1/pollWaitInterval/max\" val=\"PT0.010S\"/>");
+    if (error != 0)
+    {
+        printTestResult(testName, FALSE);
+        return error;
+    }
+    error = testWatchPollChanges("test Watch.pollChanges with delay",
+                                 "/obix/watchService/watch1/pollChanges",
+                                 checkStrings, 2,
+                                 FALSE,
+                                 TRUE);
 
     // let's try to write once again to the same object, but write the same
     // value as it already has
-    response = obixResponse_create(NULL);
+    response = obixResponse_create((Request*)1);
     obix_server_handlePUT(
         response,
         "/obix/kitchen/temperature/",
@@ -863,7 +929,7 @@ int testSignUpHelper(const char* testName,
 {
     // invoke signup operation
     obix_server_setResponseListener(&dummyResponseListener);
-    Response* response = obixResponse_create(NULL);
+    Response* response = obixResponse_create((Request*)1);
     obix_server_handlePOST(response, "/obix/signUp/", inputData);
     if (checkResponse(response, !shouldPass) != 0)
     {

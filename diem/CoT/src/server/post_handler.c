@@ -535,6 +535,7 @@ void handlerWatchLongPoll(oBIX_Watch* watch,
                           Response* response,
                           const char* uri)
 {
+	log_debug("Handling long poll request.");
     //iterate through all watch items and generate response
     Response* respTail = pollWatchItemIterator(
                              "Watch.pollChanges",
