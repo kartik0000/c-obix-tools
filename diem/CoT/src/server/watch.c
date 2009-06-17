@@ -337,6 +337,7 @@ int obixWatch_create(IXML_Element** watchDOM)
     watch->pollWaitMax = 0;
     // zero value of pollTaskId says that no task was scheduled
     watch->pollTaskId = 0;
+    watch->isPollWaitingMax = FALSE;
     // save watch reference
     _watches[watchId] = watch;
     _watchesCount++;
@@ -655,6 +656,70 @@ int obixWatchItem_setUpdated(oBIX_Watch_Item* item, BOOL isUpdated)
     return xmldb_updateMeta(item->updated, newValue);
 }
 
+static void obixWatch_notifyPollTask(IXML_Element* meta)
+{
+    // let's find out what Watch does this meta tag belongs to
+    // extract watch id from the meta tag name
+    const char* tagName = ixmlElement_getTagName(meta);
+    int watchId = strtol(tagName + 3, NULL, 10);
+    oBIX_Watch* watch = obixWatch_get(watchId);
+    if (watch == NULL)
+    {
+        log_error("There is no watch corresponding to %s meta tag.",
+                  tagName);
+        return;
+    }
+    // if poll response is scheduled to execute with maximum delay, than
+    // reduce delay to the minimum
+    if ((watch->pollTaskId > 0) && (watch->isPollWaitingMax))
+    {
+        watch->isPollWaitingMax = FALSE;
+        ptask_reschedule(_threadLongPoll,
+                         watch->pollTaskId,
+                         watch->pollWaitMin - watch->pollWaitMax,
+                         1,
+                         TRUE);
+    }
+}
+
+void obixWatch_updateMeta(IXML_Element* meta)
+{
+    // iterate through all meta attributes, setting all
+    // watch attributes to updated state.
+    IXML_Node* metaNode = ixmlNode_getFirstChild(ixmlElement_getNode(meta));
+
+    for ( ;metaNode != NULL; metaNode = ixmlNode_getNextSibling(metaNode))
+    {
+        IXML_Element* metaElement = ixmlNode_convertToElement(metaNode);
+        if (metaElement == NULL)
+        {
+            // this piece of meta data is not an element - ignore it
+            continue;
+        }
+
+        const char* value = ixmlElement_getAttribute(metaElement, OBIX_ATTR_VAL);
+        // we compare only one char of the value so there is no need
+        // to use strcmp()
+        if ((value != NULL) && (*value == *OBIX_META_WATCH_UPDATED_NO))
+        {
+            int error = ixmlElement_setAttribute(metaElement,
+                                                 OBIX_ATTR_VAL,
+                                                 OBIX_META_WATCH_UPDATED_YES);
+            if (error != IXML_SUCCESS)
+            {
+                log_error("Unable to update meta information. "
+                          "Watches will not work properly.");
+                // ignore this meta attribute - it is already an error so there
+                // is no reason to continue :)
+                continue;
+            }
+
+            // notify waiting poll task that it can be executed earlier
+            obixWatch_notifyPollTask(metaElement);
+        }
+    }
+}
+
 BOOL obixWatch_isWatchUri(const char* uri)
 {
     if (strncmp(uri, WATCH_URI_TEMPLATE, WATCH_URI_PREFIX_LENGTH) == 0)
@@ -774,7 +839,8 @@ BOOL obixWatch_isLongPoll(oBIX_Watch* watch)
 void obixWatch_longPollTask(void* arg)
 {
     PollTaskParams* params = (PollTaskParams*) arg;
-    params->watch->pollTaskId = -1;
+    // 0 poll task id means that it is not scheduled
+    params->watch->pollTaskId = 0;
     (*(params->pollHandler))(params->watch, params->response, params->uri);
     free(params);
 }
@@ -803,6 +869,9 @@ int obixWatch_holdPoll(obixWatch_pollHandler pollHandler,
         (*pollHandler)(watch, response, uri);
         return 0;
     }
+
+    // remember for how long poll is suspended
+    watch->isPollWaitingMax = maxWait;
 
     // schedule execution of the handler
     // create structure which will hold all parameters for poll task

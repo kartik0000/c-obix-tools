@@ -256,41 +256,10 @@ static void updateMetaWatch(IXML_Node* node)
     }
 
     // get meta tag
-    IXML_Node* meta = ixmlElement_getNode(getMetaInfo(
-                                              ixmlNode_convertToElement(node)));
-    if (meta == NULL)
+    IXML_Element* meta = getMetaInfo(ixmlNode_convertToElement(node));
+    if (meta != NULL)
     {
-        // object doesn't have any meta tag - ignore it
-        return;
-    }
-
-    // iterate through all meta attributes, setting all
-    // watch attributes to updated state.
-    meta = ixmlNode_getFirstChild(meta);
-
-    for ( ;meta != NULL; meta = ixmlNode_getNextSibling(meta))
-    {
-        IXML_Element* metaElement = ixmlNode_convertToElement(meta);
-        if (metaElement == NULL)
-        {
-            // this piece of meta data is not an element - ignore it
-            continue;
-        }
-
-        const char* value = ixmlElement_getAttribute(metaElement, OBIX_ATTR_VAL);
-        // we compare only one char of the value so there is no need
-        // to use strcmp()
-        if ((value != NULL) && (*value == *OBIX_META_WATCH_UPDATED_NO))
-        {
-            int error = ixmlElement_setAttribute(metaElement,
-                                                 OBIX_ATTR_VAL,
-                                                 OBIX_META_WATCH_UPDATED_YES);
-            if (error != IXML_SUCCESS)
-            {
-                log_error("Unable to update meta information. "
-                          "Watches will not work properly.");
-            }
-        }
+        obixWatch_updateMeta(meta);
     }
 }
 

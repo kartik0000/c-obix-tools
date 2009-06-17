@@ -62,7 +62,7 @@ static int timespec_add(struct timespec* time1, const struct timespec* time2)
     }
 
     // return positive value if result is positive and vice versa
-    if ((time1->tv_sec > 0) || (time1->tv_nsec > 0))
+    if ((time1->tv_sec >= 0) && (time1->tv_nsec >= 0))
         return 1;
     else
         return -1;
@@ -175,10 +175,17 @@ static void periodicTask_execute(Task_Thread* thread, Periodic_Task* ptask)
 {
     (ptask->task)(ptask->arg);
     // check whether we need to schedule next execution time
-    if ((ptask->executeTimes >= 0) && (--(ptask->executeTimes) <= 0))
+    if (ptask->executeTimes > 0)
+    {
+    	ptask->executeTimes--;
+    }
+
+    if (ptask->executeTimes == 0)
     {
         // the task is already executed required times. Remove it
+    	pthread_mutex_lock(&(thread->taskListMutex));
         periodicTask_removeFromList(thread, ptask);
+        pthread_mutex_unlock(&(thread->taskListMutex));
         // and free resources
         periodicTask_free(ptask);
         return;
@@ -200,6 +207,11 @@ static Periodic_Task* periodicTask_get(Task_Thread* thread, int id)
 
 int ptask_schedule(Task_Thread* thread, periodic_task task, void* arg, long period, int executeTimes)
 {
+    if (executeTimes == 0)
+    {	// executeTimes can't be 0, but can be -1 (EXECUTE_INDEFINITE).
+        return -1;
+    }
+
     pthread_mutex_lock(&(thread->taskListMutex));
     Periodic_Task* ptask = periodicTask_create(thread, task, arg, period, executeTimes);
     if (ptask == NULL)
@@ -258,6 +270,11 @@ int ptask_reschedule(Task_Thread* thread,
                      int executeTimes,
                      BOOL add)
 {
+    if (executeTimes == 0)
+    {	// executeTimes can't be 0, but can be -1 (EXECUTE_INDEFINITE).
+        return -1;
+    }
+
     pthread_mutex_lock(&(thread->taskListMutex));
 
     Periodic_Task* ptask = periodicTask_get(thread, taskId);
@@ -285,12 +302,12 @@ int ptask_reschedule(Task_Thread* thread,
     }
     else // add == false
     {
-    	if (period < 0)
-    	{
-    		// period should not be negative
+        if (period < 0)
+        {
+            // period should not be negative
             pthread_mutex_unlock(&(thread->taskListMutex));
             return -1;
-    	}
+        }
         // set provided time as a new period and reschedule execution time
         periodicTask_setPeriod(ptask, period, executeTimes);
         periodicTask_resetExecTime(ptask);
@@ -304,14 +321,14 @@ int ptask_reschedule(Task_Thread* thread,
 
 BOOL ptask_isScheduled(Task_Thread* thread, int taskId)
 {
-	if (periodicTask_get(thread, taskId) != NULL)
-	{
-		return TRUE;
-	}
-	else
-	{
-		return FALSE;
-	}
+    if (periodicTask_get(thread, taskId) != NULL)
+    {
+        return TRUE;
+    }
+    else
+    {
+        return FALSE;
+    }
 }
 
 int ptask_reset(Task_Thread* thread, int taskId)

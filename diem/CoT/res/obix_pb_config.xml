@@ -73,7 +73,83 @@
     -->  
     <no-flush/>
   </log>
-    	
+
+<obj is="SmartApplication" displayName="Propagate value to another server">
+	<obj name="condition">		
+		<ref val="/obix/home/temperature">
+			<enum name="state" val="all"/>					
+		</ref>
+	</obj>
+	<obj name="action">		
+		<ref name="target" val="http://another.com/obix/home/temperature">
+			<ref name="copy" val="/obix/home/temperature"/>
+		</ref>
+	</obj>
+</obj>
+
+<obj is="SmartApplication" displayName="Monitor some condition">
+	<obj name="condition">
+		<enum range="SmartApplication/condition/op" val="and">
+			<ref val="/obix/home/temperature">
+				<enum name="state" val="less">
+					<int name="val" val="-5"/> 
+				</enum>
+			</ref>
+			<ref val="/obix/home/entranceDoor/open">
+				<enum name="state" val="equals">
+					<bool name="val" val="true"/>
+				</enum>
+			</ref>
+		</enum>
+	</obj>
+	<obj name="action">		
+		<ref name="target" val="/obix/home/freezingFlag">
+			<bool name="val" val="true"/>
+		</ref>
+	</obj>
+</obj>    	
+
+<obj is="SmartApplication" displayName="Monitor some condition">
+	<list name="conditions" of="Condition">
+		<obj name="condition">		
+			<obj name="watch">
+				<ref name="target" val="/obix/home/temperature"/>
+				<enum name="state" val="less"/>
+				<int name="value" val="-5"/> 
+			</obj>
+			<obj name="watch">
+				<ref name="target" val="/obix/home/entranceDoor/open"/>
+				<enum name="state" val="equals"/>
+				<obj name="value" val="true"/>
+			</obj>		
+		</obj>
+	</list>
+	<list name="actions" of="Action">
+		<obj name="action" is="SetAction">		
+			<ref name="target" val="/obix/home/FreezingFlag"/>
+			<bool name="value" val="true"/>
+		</obj>
+	</list>
+</obj>
+
+<obj is="SmartApplication" displayName="Propagate value to another server">
+	<list name="conditions" of="Condition">
+		<obj name="condition">
+			<obj name="watch">		
+				<ref name="target" val="/obix/home/temperature"/>
+				<enum name="state" val="all"/>		
+			</obj>			
+		</obj>
+	</list>
+	<list name="actions" of="Action">
+		<obj name="action" is="CopyAction">		
+			<ref name="target" val="http://another.com/obix/home/temperature"/>
+			<ref name="value" val="/obix/home/temperature"/>
+		</obj>
+	</list>
+</obj>
 </config>
+
+
 
 

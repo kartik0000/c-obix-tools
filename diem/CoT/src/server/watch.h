@@ -58,6 +58,8 @@ typedef struct oBIX_Watch
     int leaseTimerId;
     /** Id of the long poll task which is scheduled timer which removes old unused Watch object. */
     int pollTaskId;
+    /** Defines whether long poll task is now waiting for max time. */
+    BOOL isPollWaitingMax;
     /** Minimum waiting time for long poll requests. */
     long pollWaitMin;
     /** Maximum waiting time for long poll requests. */
@@ -131,6 +133,8 @@ oBIX_Watch_Item* obixWatch_getWatchItem(oBIX_Watch* watch, const char* watchItem
 BOOL obixWatchItem_isUpdated(oBIX_Watch_Item* item);
 
 int obixWatchItem_setUpdated(oBIX_Watch_Item* item, BOOL isUpdated);
+
+void obixWatch_updateMeta(IXML_Element* meta);
 
 BOOL obixWatch_isWatchUri(const char* uri);
 

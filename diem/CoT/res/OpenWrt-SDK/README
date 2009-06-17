@@ -36,8 +36,8 @@ USAGE:
    
 2. Prepare Makefile
 
-   - Copy (or create a symlink of) the ./cot folder (with Makefile in it) to 
-     <OpenWrt SDK>/package/cot/
+   - Copy (or create a symlink of) the ./cot folder from here (with Makefile in 
+     it) to <OpenWrt SDK>/package/cot/
    - The Makefile you've just copied says to Open Wrt SDK that it should 
      download distribution of the project from the Internet. If you don't want
      SDK to do it (or URL form Makefile is not available, which is quite 
@@ -65,7 +65,7 @@ USAGE:
    Makefiles for other libraries (as well as some patch files) can be downloaded 
    from the OpenWrt SVN repository:
    
-   - If you use old Open Wrt SDK release (<= 8.09) than checkout fcgi, lipupnp, 
+   - If you use old Open Wrt SDK release (<= 8.09) than checkout fcgi, libupnp, 
      curl and uclibc++ folders from 
      svn://svn.openwrt.org/openwrt/branches/packages_8.09/libs/
      Otherwise use svn://svn.openwrt.org/openwrt/packages/libs/ for latest 
@@ -85,11 +85,17 @@ USAGE:
    Ideally SDK should start from compiling dependency libraries, by downloading
    required sources from Internet and making other intelligent stuff.
    If you are lucky and everything is compiled successfully, than output
-   packages will found at <OpenWrt SDK>/bin folder. There will be also packages
-   for all dependency libraries but I don't recommend using those (except lwl). 
-   It is better to download ready packages from OpenWrt website if possible, 
-   because I can't guarantee that described steps produce truly correct 
-   packages.   
+   packages will found at <OpenWrt SDK>/bin folder. You'll need the following 
+   packages from here:
+   - lwl_<version>.ipk 				Third party logging library;
+   - libcot_<version>.ipk			Common library for oBIX clients and server;
+   - cot-server_<version>.ipk		oBIX server;
+   - cot-adapters_<version>.ipk		oBIX adapters.
+   
+   There will be also packages for all dependency libraries but I don't 
+   recommend using those (except lwl). It is better to download ready packages 
+   from OpenWrt website if possible, because I can't guarantee that described 
+   steps produce truly correct packages.   
    
    In order to recompile CoT use 'make package/cot-clean V=99' first. Command
    'make clean V=99' will remove everything including compilation outputs of all
