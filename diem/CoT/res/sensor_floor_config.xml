@@ -26,6 +26,10 @@
 		<server-address val="http://localhost" lobby="/obix/" />
 		<!--server-address val="http://195.156.198.29:8085" lobby="/obix/" /-->
 		<poll-interval val="1000" />
+		<long-poll>
+			<min-interval val="200"/>
+			<max-interval val="60000"/>
+		</long-poll>
 		<max-devices val="1" />
 		<max-listeners val="1" />
 	</connection>
@@ -115,7 +119,7 @@
 
 		<list href="http://195.156.198.23:80/obix/elsi/Stok/targets/" of="/def/elsi#target"></list>
 
-	</test-data>
+	</test-data>	
 
 
 	<!-- Log settings -->

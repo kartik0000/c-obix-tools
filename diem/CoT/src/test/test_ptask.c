@@ -24,7 +24,9 @@ int testGetClosestTask(Task_Thread* thread, char* testName, int checkIds[], int 
     {
         ptask = periodicTask_getClosest(thread);
         int taskId = ptask->id;
+        pthread_mutex_lock(&(thread->taskListMutex));
         periodicTask_execute(thread, ptask);
+        pthread_mutex_unlock(&(thread->taskListMutex));
         if (taskId != checkIds[i])
         {
             printf("Wrong closest task returned: id should be %d, but it is %d.\n",
@@ -128,9 +130,16 @@ int testPtaskReschedule(Task_Thread* thread,
         }
     }
 
+    if (ptask->nextScheduledTime.tv_nsec > 1000000000)
+    {
+        printf("New scheduled time has wrong format: tv_nsec > 1 sec.\n");
+        printTestResult(testName, FALSE);
+        return 1;
+    }
+
     // cancel task (note that they are not canceled on errors, but that's
-    // because I'm too lazy
-    ptask_cancel(thread, taskId);
+    // because I'm too lazy :)
+    ptask_cancel(thread, taskId, FALSE);
 
     printTestResult(testName, TRUE);
     return 0;
@@ -175,7 +184,7 @@ int testPeriodicTask(Task_Thread* thread)
     }
 
     // test removing periodic tasks
-    error = ptask_cancel(thread, id200);
+    error = ptask_cancel(thread, id200, FALSE);
     if (error != 0)
     {
         printf("Unable to remove a task: removePeriodicTask() returned error");
@@ -193,10 +202,11 @@ int testPeriodicTask(Task_Thread* thread)
         return error;
     }
 
-    ptask_cancel(thread, id90);
+    ptask_cancel(thread, id90, FALSE);
     checkIds[0] = id300;
     checkIds[1] = id300;
-    error = testGetClosestTask(thread, "test removePeriodic task from the beginning",
+    error = testGetClosestTask(thread,
+                               "test removePeriodic task from the beginning",
                                checkIds, 2);
     if (error != 0)
     {
@@ -216,6 +226,7 @@ int test_ptask()
     thread->id_gen = 0;
     pthread_mutex_init(&(thread->taskListMutex), NULL);
     pthread_cond_init(&(thread->taskListUpdated), NULL);
+    pthread_cond_init(&(thread->taskExecuted), NULL);
 
     int result = 0;
 
@@ -240,6 +251,11 @@ int test_ptask()
     result += testPtaskReschedule(thread,
                                   "test ptask_reschedule: add -1010 ",
                                   -1010,
+                                  TRUE,
+                                  TRUE);
+    result += testPtaskReschedule(thread,
+                                  "test ptask_reschedule: add -9800 ",
+                                  -9800,
                                   TRUE,
                                   TRUE);
     result += testPtaskReschedule(thread,

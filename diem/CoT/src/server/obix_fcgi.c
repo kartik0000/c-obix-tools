@@ -1,4 +1,3 @@
-// gcc -I/usr/include/fastcgi -lfcgi testfastcgi.c -o test.fastcgi
 #include <stdlib.h>
 #include <pthread.h>
 #include <fcgiapp.h>
@@ -6,6 +5,7 @@
 #include <lwl_ext.h>
 #include <obix_utils.h>
 #include <ptask.h>
+#include <xml_config.h>
 #include "xml_storage.h"
 #include "server.h"
 #include "request.h"
@@ -13,6 +13,12 @@
 
 #define LISTENSOCK_FILENO 0
 #define LISTENSOCK_FLAGS 0
+
+#define MAX_PARALLEL_REQUEST_DEFAULT 10
+
+static const char* CONFIG_FILE = "server_config.xml";
+
+static const char* CT_HOLD_REQUEST_MAX = "hold-request-max";
 
 /** Standard header of server answer*/
 static const char* HTTP_STATUS_OK = "Status: 200 OK\r\n"
@@ -34,17 +40,17 @@ static const char* ERROR_STATIC = "<err displayName=\"Internal Server Error\" "
                                   "display=\"Unable to process the request. "
                                   "This is a static error message which is "
                                   "returned when things go really bad./>\"";
-
 struct _Request
 {
     FCGX_Request r;
+    BOOL canWait;
     struct _Request* next;
 };
 
 //TODO read max request number from array
 static Request* _requestList;
-static int _requestCounter;
-static const int REQUEST_MAX = 2;
+static int _requestsInUse;
+static int _requestMaxCount = MAX_PARALLEL_REQUEST_DEFAULT + 1;
 pthread_mutex_t _requestListMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t _requestListNew = PTHREAD_COND_INITIALIZER;
 
@@ -105,20 +111,58 @@ int main(int argc, char** argv)
     return 0;
 }
 
+IXML_Element* obix_fcgi_loadConfig(char* resourceDir)
+{
+	config_setResourceDir(resourceDir);
+
+    IXML_Element* settings = config_loadFile(CONFIG_FILE);
+
+    if (settings == NULL)
+    {
+        // failed to load settings
+        return NULL;
+    }
+
+    // load optional parameter defining maximum number of requests
+    IXML_Element* configTag = config_getChildTag(settings,
+                              CT_HOLD_REQUEST_MAX,
+                              FALSE);
+    if (configTag != NULL)
+    {
+        _requestMaxCount = config_getTagIntAttrValue(
+                               configTag,
+                               CTA_VALUE,
+                               FALSE,
+                               MAX_PARALLEL_REQUEST_DEFAULT) + 1;
+    }
+
+    return settings;
+}
+
 int obix_fcgi_init(char* resourceDir)
 {
+    // register callback for handling responses
+    obix_server_setResponseListener(&obix_fcgi_sendResponse);
+
+    IXML_Element* settings = obix_fcgi_loadConfig(resourceDir);
+    if (settings == NULL)
+    {
+    	return -1;
+    }
+
     // call before Accept in multithreaded apps
     int error = FCGX_Init();
     if (error)
     {
         log_error("Unable to start the server. FCGX_Init returned: %d", error);
+        config_finishInit(FALSE);
         return -1;
     }
 
-    // register callback for handling responses
-    obix_server_setResponseListener(&obix_fcgi_sendResponse);
-
-    return obix_server_init(resourceDir);
+    // configure server
+    error = obix_server_init(settings);
+    config_finishInit(error == 0);
+    return error;
 }
 
 void obix_fcgi_shutdown(FCGX_Request* request)
@@ -169,7 +213,7 @@ void obix_fcgi_handleRequest(Request* request)
 
     // prepare response object
 
-    Response* response = obixResponse_create(request);
+    Response* response = obixResponse_create(request, request->canWait);
     if (response == NULL)
     {
         log_error("Unable to create response object: Not enough memory.");
@@ -418,6 +462,7 @@ static void obixRequest_release(Request* request)
     pthread_mutex_lock(&_requestListMutex);
     request->next = _requestList;
     _requestList = request;
+    _requestsInUse--;
     pthread_cond_signal(&_requestListNew);
     pthread_mutex_unlock(&_requestListMutex);
 }
@@ -427,6 +472,17 @@ static Request* obixRequest_getHead()
     Request* request = _requestList;
     _requestList = request->next;
     request->next = NULL;
+    // check whether this request object can be used for handling long poll
+    // last available request object should not be used for that, because
+    // otherwise it will block server from handling other requests.
+    if (++_requestsInUse == _requestMaxCount)
+    {
+        request->canWait = FALSE;
+    }
+    else
+    {
+        request->canWait = TRUE;
+    }
     return request;
 }
 
@@ -437,41 +493,14 @@ static Request* obixRequest_wait()
     return obixRequest_getHead();
 }
 
-static Request* obixRequest_get()
+static int obixRequest_create()
 {
-    Request* request;
-
-    pthread_mutex_lock(&_requestListMutex);
-
-    // if there are availabe request instances in the list...
-    if (_requestList != NULL)
-    {	// take head of the list
-        request = obixRequest_getHead();
-        pthread_mutex_unlock(&_requestListMutex);
-        return request;
-    }
-    // there is nothing in the list of requests..
-
-    if (_requestCounter == REQUEST_MAX)
-    {
-        log_warning("Maximum number of concurrent requests exceeded. "
-                    "Waiting for some request object to be freed. Try to "
-                    "increase maximum number of concurrent requests if you "
-                    "often see this warning.");
-        request = obixRequest_wait();
-        pthread_mutex_unlock(&_requestListMutex);
-        return request;
-    }
-
-    // we can create a new one
-    request = (Request*) malloc(sizeof(Request));
+    Request* request = (Request*) malloc(sizeof(Request));
     if (request == NULL)
     {
         log_error("Unable to create new request instance: "
                   "Not enough memory.");
-        request = obixRequest_wait();
-        pthread_mutex_unlock(&_requestListMutex);
-        return request;
+        return -1;
     }
     // initalize FCGI request
     request->next = NULL;
@@ -483,11 +512,50 @@ static Request* obixRequest_get()
         log_error("Unable to initialize FCGI request: "
                   "FCGX_InitRequest returned %d.", error);
         free(request);
+        return -1;
+    }
+
+    // store request at head
+    request->next = _requestList;
+    _requestList = request;
+    return 0;
+}
+
+static Request* obixRequest_get()
+{
+    Request* request;
+
+    pthread_mutex_lock(&_requestListMutex);
+
+    // if there are available request instances in the list...
+    if (_requestList != NULL)
+    {	// take head of the list
+        request = obixRequest_getHead();
+        pthread_mutex_unlock(&_requestListMutex);
+        return request;
+    }
+    // there is nothing in the list of requests..
+
+    if (_requestsInUse == _requestMaxCount)
+    {
+        log_error("Maximum number of concurrent requests exceeded. "
+                  "That should never happen! Waiting for some request object "
+                  "to be freed. Please, contact the developer if you see this "
+                  "message.");
         request = obixRequest_wait();
         pthread_mutex_unlock(&_requestListMutex);
         return request;
     }
-    _requestCounter++;
+
+    // we can create a new one
+    if (obixRequest_create() != 0)
+    {
+        request = obixRequest_wait();
+        pthread_mutex_unlock(&_requestListMutex);
+        return request;
+    }
+
+    request = obixRequest_getHead();
     pthread_mutex_unlock(&_requestListMutex);
     return request;
 }

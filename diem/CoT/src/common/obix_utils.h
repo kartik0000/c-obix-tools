@@ -7,7 +7,7 @@
 #ifndef OBIX_UTILS_H_
 #define OBIX_UTILS_H_
 
-//#include <ixml_ext.h>
+#include <ixml_ext.h>
 
 //TODO add description to all fields
 extern const char* OBIX_HREF_ERR_BAD_URI;
@@ -38,6 +38,9 @@ extern const char* OBIX_NAME_WATCH_POLLCHANGES;
 extern const char* OBIX_NAME_WATCH_POLLREFRESH;
 extern const char* OBIX_NAME_WATCH_DELETE;
 extern const char* OBIX_NAME_WATCH_LEASE;
+extern const char* OBIX_NAME_WATCH_POLL_WAIT_INTERVAL;
+extern const char* OBIX_NAME_WATCH_POLL_WAIT_INTERVAL_MIN;
+extern const char* OBIX_NAME_WATCH_POLL_WAIT_INTERVAL_MAX;
 
 extern const char* OBIX_OBJ_ERR_TEMPLATE;
 extern const char* OBIX_OBJ_NULL_TEMPLATE;
@@ -66,5 +69,7 @@ typedef enum {
 } RELTIME_FORMAT;
 
 char* obix_reltime_fromLong(long period, RELTIME_FORMAT);
+
+BOOL obix_obj_implementsContract(IXML_Element* obj, const char* contract);
 
 #endif /* OBIX_UTILS_H_ */

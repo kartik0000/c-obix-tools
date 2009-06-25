@@ -18,7 +18,7 @@
 #include "obix_http.h"
 
 #define DEFAULT_POLLING_INTERVAL 500
-#define DEFAULT_WATCH_LEASE_PADDING 10000
+#define DEFAULT_WATCH_LEASE_PADDING 20000
 
 #define OBIX_WATCH_IN_TEMPLATE_HEADER ("<obj is=\"obix:WatchIn\">\r\n" \
 							           "  <list name=\"hrefs\" of=\"obix:Uri\">\r\n")
@@ -64,6 +64,9 @@ const Comm_Stack OBIX_HTTP_COMM_STACK =
 static const char* CT_SERVER_ADDRESS = "server-address";
 static const char* CT_POLL_INTERVAL = "poll-interval";
 static const char* CT_WATCH_LEASE = "watch-lease";
+static const char* CT_LONG_POLL = "long-poll";
+static const char* CT_LONG_POLL_MIN = "min-interval";
+static const char* CT_LONG_POLL_MAX = "max-interval";
 static const char* CTA_LOBBY = "lobby";
 
 static BOOL _initialized;
@@ -371,6 +374,114 @@ static int addWatchItem(Http_Connection* c,
     return OBIX_SUCCESS;
 }
 
+/**
+ * @return 1 Parameter uri is not found;
+ */
+static int setWatchTimeParam(Http_Connection* c,
+                             CURL_EXT* curlHandle,
+                             IXML_Document* watchXml,
+                             const char* paramName,
+                             long paramValue)
+{
+    char* paramUri = getObjectUri(watchXml, paramName, c, TRUE);
+    if (paramUri == NULL)
+    {
+        log_warning("watchService.make operation at server \"%s\" returned "
+                    "Watch object without \'%s\' tag:\n%s", c->serverUri,
+                    paramName, curlHandle->inputBuffer);
+        free(paramUri);
+        return OBIX_ERR_BAD_CONNECTION;
+    }
+
+    char* leaseTime = obix_reltime_fromLong(paramValue, RELTIME_SEC);
+    if (leaseTime == NULL)
+    {
+        // this should never happen!
+        log_error("Unable to convert time from long (%ld) to obix:reltime!",
+                  paramValue);
+        free(paramUri);
+        return OBIX_ERR_UNKNOWN_BUG;
+    }
+
+    int error = writeValue(paramUri,
+                           leaseTime,
+                           OBIX_T_RELTIME,
+                           curlHandle);
+    free(paramUri);
+    free(leaseTime);
+    return error;
+}
+
+static int setWatchPollWaitTime(Http_Connection* c,
+                                CURL_EXT* curlHandle,
+                                IXML_Document* watchXml)
+{
+    if (c->pollWaitMax == 0)
+    {
+        // nothing to be done: wait interval is zero by default
+        return OBIX_SUCCESS;
+    }
+    int error = setWatchTimeParam(c,
+                                  curlHandle,
+                                  watchXml,
+                                  OBIX_NAME_WATCH_POLL_WAIT_INTERVAL_MAX,
+                                  c->pollWaitMax);
+    if (error == OBIX_ERR_BAD_CONNECTION)
+    {
+        // Failed to set time. Most probably server doesn't support it.
+        // Switch to the traditional polling.
+        c->pollWaitMin = 0;
+        c->pollWaitMax = 0;
+        log_warning("Unable to set Watch poll wait interval. Switching to the "
+                    "traditional polling.");
+        return OBIX_SUCCESS;
+    }
+
+    if (error != OBIX_SUCCESS)
+    {
+        // some other kind of problem occurred
+        return error;
+    }
+
+    error = setWatchTimeParam(c,
+                              curlHandle,
+                              watchXml,
+                              OBIX_NAME_WATCH_POLL_WAIT_INTERVAL_MIN,
+                              c->pollWaitMin);
+    if (error == OBIX_ERR_BAD_CONNECTION)
+    {
+        // Failed to set time. Most probably server doesn't support it.
+        // Switch to the traditional polling.
+        c->pollWaitMin = 0;
+        c->pollWaitMax = 0;
+        log_warning("Unable to set Watch poll wait interval. Switching to the "
+                    "traditional polling.");
+        return OBIX_SUCCESS;
+    }
+
+    return error;
+}
+
+static int setWatchLeaseTime(Http_Connection* c,
+                             CURL_EXT* curlHandle,
+                             IXML_Document* watchXml)
+{
+    int error = setWatchTimeParam(c,
+                                  curlHandle,
+                                  watchXml,
+                                  OBIX_NAME_WATCH_LEASE,
+                                  c->watchLease);
+    if (error == OBIX_ERR_BAD_CONNECTION)
+    {
+        // server could return error just because it prevents changes of
+        // Watch.lease.
+        // TODO it's not very safe - lease can remain smaller than poll interval
+        return OBIX_SUCCESS;
+    }
+
+    return error;
+}
+
 static int createWatch(Http_Connection* c, CURL_EXT* curlHandle)
 {
     char* watchAddUri = NULL;
@@ -423,50 +534,28 @@ static int createWatch(Http_Connection* c, CURL_EXT* curlHandle)
         return OBIX_ERR_BAD_CONNECTION;
     }
 
-    // store all these URIs
+    // try to set watch lease time
+    int error = setWatchLeaseTime(c, curlHandle, response);
+    if (error != OBIX_SUCCESS)
+    {
+        cleanup();
+        return error;
+    }
+
+    error = setWatchPollWaitTime(c, curlHandle, response);
+    ixmlDocument_free(response);
+    if (error != OBIX_SUCCESS)
+    {
+        cleanup();
+        return error;
+    }
+
+    // store all received URIs
     c->watchAddUri = watchAddUri;
     c->watchRemoveUri = watchRemoveUri;
     c->watchDeleteUri = watchDeteleUri;
     c->watchPollChangesFullUri = watchPollChangesFullUri;
-
-    // try to set watch lease time
-    char* watchLeaseUri = getObjectUri(response, OBIX_NAME_WATCH_LEASE, c, TRUE);
-    ixmlDocument_free(response);
-    if (watchLeaseUri == NULL)
-    {
-        log_warning("watchService.make operation at server \"%s\" returned Watch "
-                    "object without \'%s\' tag:\n%s", c->serverUri,
-                    OBIX_NAME_WATCH_LEASE, curlHandle->inputBuffer);
-        free(watchLeaseUri);
-        // do not consider this error as a big problem
-        return OBIX_SUCCESS;
-    }
-
-    char* leaseTime = obix_reltime_fromLong(c->watchLease, RELTIME_SEC);
-    if (leaseTime == NULL)
-    {
-        // this should never happen!
-        log_error("Unable to convert Watch.lease time from long (%ld) to "
-                  "obix:reltime!", c->watchLease);
-        free(watchLeaseUri);
-        cleanup();
-        return OBIX_ERR_UNKNOWN_BUG;
-    }
-
-    int error = writeValue(watchLeaseUri,
-                           leaseTime,
-                           OBIX_T_RELTIME,
-                           curlHandle);
-    free(watchLeaseUri);
-    free(leaseTime);
-    if (error == OBIX_ERR_BAD_CONNECTION)
-    {
-        // server could return error just because it prevents changes of
-        // Watch.lease. So we ignore this error.
-        return OBIX_SUCCESS;
-    }
-
-    return error;
+    return OBIX_SUCCESS;
 }
 
 /**
@@ -550,8 +639,7 @@ static int parseWatchOut(IXML_Document* doc,
 
         // we received error object instead of WatchOut.
         // in case if it is BadUri than try to create new Watch object.
-        const char* errType = ixmlElement_getAttribute(element, OBIX_ATTR_IS);
-        if ((errType == NULL) || (strstr(errType, OBIX_HREF_ERR_BAD_URI) == NULL))
+        if (!obix_obj_implementsContract(element, OBIX_HREF_ERR_BAD_URI))
         {
             // it is some strange error. no idea what to do with it
             return OBIX_ERR_BAD_CONNECTION;
@@ -703,31 +791,39 @@ static void watchPollTask(void* arg)
 {
     Http_Connection* c = (Http_Connection*) arg;
 
-    pthread_mutex_lock(c->watchMutex);
+    pthread_mutex_lock(&(c->watchMutex));
     if (c->watchPollChangesFullUri == NULL)
     {
         log_error("Watch Poll Task: Someone deleted Watch object but did not "
                   "cancel the poll task.");
-        if (ptask_cancel(_watchThread, c->watchPollTaskId) != 0)
+        if (ptask_cancel(_watchThread, c->watchPollTaskId, FALSE) != 0)
         {
             log_error("Watch Poll Task: Unable to delete myself.");
         }
-        pthread_mutex_unlock(c->watchMutex);
+        pthread_mutex_unlock(&(c->watchMutex));
         return;
     }
 
-    log_debug("requesting %s", c->watchPollChangesFullUri);
+    // we copy URI so that we could release mutex before sending HTTP requests
+    // if we don't copy URI than someone can be lucky enough to delete watchUri
+    // string before curl_ext_postDOM. We can't hold mutex during request
+    // because long poll requests can take considerable amount of time.
+    char watchPollChangesUri[strlen(c->watchPollChangesFullUri) + 1];
+    strcpy(watchPollChangesUri, c->watchPollChangesFullUri);
+    pthread_mutex_unlock(&(c->watchMutex));
+
+    log_debug("requesting %s", watchPollChangesUri);
     IXML_Document* response;
 
+    _curl_watch_handle->outputBuffer = NULL;
     int error = curl_ext_postDOM(_curl_watch_handle,
-                                 c->watchPollChangesFullUri,
+                                 watchPollChangesUri,
                                  &response);
     if (error != 0)
     {
         log_error("Watch Poll Task: "
                   "Unable to poll changes from the server %s.",
-                  c->watchPollChangesFullUri);
-        pthread_mutex_unlock(c->watchMutex);
+                  watchPollChangesUri);
         return;
     }
 
@@ -738,7 +834,6 @@ static void watchPollTask(void* arg)
                   "Unable to parse WatchOut object (error %d).", error);
     }
 
-    pthread_mutex_unlock(c->watchMutex);
     ixmlDocument_free(response);
 }
 
@@ -750,8 +845,8 @@ static int removeWatch(Http_Connection* c)
                     "Some subscribed listeners can stop receiving updates.");
     }
 
-    // stop polling task
-    int error = ptask_cancel(_watchThread, c->watchPollTaskId);
+    // change poll task properties so that it will be executed only once
+    int error = ptask_reschedule(_watchThread, c->watchPollTaskId, 0, 1, TRUE);
     if (error != 0)
     {
         log_error("Unable to cancel Watch Poll Task:"
@@ -786,17 +881,41 @@ static int removeWatch(Http_Connection* c)
     else
     {
         // check the response
-        if (parseResponse(response, NULL) != OBIX_SUCCESS)
+        IXML_Element* obixObj = NULL;
+        error = parseResponse(response, &obixObj);
+        if (error != OBIX_SUCCESS)
         {
-            ixmlDocument_free(response);
-            return OBIX_ERR_BAD_CONNECTION;
+            // check if the response contain Bad Uri error which means
+            // that Watch object was already removed and thus we can ignore this
+            // error
+            if (obix_obj_implementsContract(obixObj, OBIX_HREF_ERR_BAD_URI))
+            {
+                log_warning("The Watch object is already deleted at the "
+                            "server. Probably server has dropped it because "
+                            "lease time of the object is less than poll "
+                            "interval.");
+            }
+            else
+            {
+                // some unknown error
+                ixmlDocument_free(response);
+                return OBIX_ERR_BAD_CONNECTION;
+            }
+
         }
 
         ixmlDocument_free(response);
     }
 
+    // stop polling task and wait for it if it is executing right now
+    // ignore error - we just want make sure that the task is canceled
+    // but it can be cancelled earlier
+    ptask_cancel(_watchThread, c->watchPollTaskId, TRUE);
+
     // reset all Watch related variables, because they are no longer valid
+    pthread_mutex_lock(&(c->watchMutex));
     resetWatchUris(c);
+    pthread_mutex_unlock(&(c->watchMutex));
 
     return OBIX_SUCCESS;
 }
@@ -806,7 +925,7 @@ static int addListener(Http_Connection* c,
                        Listener* listener)
 {
     // save listener to the listeners table
-    pthread_mutex_lock(c->watchMutex);
+    pthread_mutex_lock(&(c->watchMutex));
     table_put(c->watchTable, paramUri, listener);
 
     // check that we already have a watch object for this server
@@ -816,24 +935,25 @@ static int addListener(Http_Connection* c,
         int error = createWatch(c, _curl_handle);
         if (error != OBIX_SUCCESS)
         {
-            pthread_mutex_unlock(c->watchMutex);
+            pthread_mutex_unlock(&(c->watchMutex));
             return error;
         }
 
         // schedule polling task
         // schedule new periodic task for watch polling
+        long pollInterval = (c->pollWaitMax == 0) ? c->pollInterval : 0;
         int ptaskId = ptask_schedule(_watchThread, &watchPollTask, c,
-                                     c->pollInterval, EXECUTE_INDEFINITE);
+                                     pollInterval, EXECUTE_INDEFINITE);
         if (ptaskId < 0)
         {
             log_error("Unable to schedule Watch Poll Task: Not enough memory.");
-            pthread_mutex_unlock(c->watchMutex);
+            pthread_mutex_unlock(&(c->watchMutex));
             return OBIX_ERR_NO_MEMORY;
         }
         c->watchPollTaskId = ptaskId;
 
     }
-    pthread_mutex_unlock(c->watchMutex);
+    pthread_mutex_unlock(&(c->watchMutex));
 
     return OBIX_SUCCESS;
 }
@@ -841,17 +961,19 @@ static int addListener(Http_Connection* c,
 static int removeListener(Http_Connection* c, const char* paramUri)
 {
     // remove listener URI from the listeners table
-    pthread_mutex_lock(c->watchMutex);
+    pthread_mutex_lock(&(c->watchMutex));
     table_remove(c->watchTable, paramUri);
 
     // remove Watch object  from the server completely
     // if there are no more items to watch
     int retVal = OBIX_SUCCESS;
-    if (c->watchTable->count == 0)
+    int watchItemCount = c->watchTable->count;
+    pthread_mutex_unlock(&(c->watchMutex));
+
+    if (watchItemCount == 0)
     {
         retVal = removeWatch(c);
     }
-    pthread_mutex_unlock(c->watchMutex);
 
     return retVal;
 }
@@ -930,9 +1052,10 @@ int http_initConnection(IXML_Element* connItem, Connection** connection)
     char* lobbyUri = NULL;
     Http_Connection* c;
     Table* table = NULL;
-    pthread_mutex_t* mutex = NULL;
     long pollInterval = DEFAULT_POLLING_INTERVAL;
     long watchLease;
+    long pollWaitMin = 0;
+    long pollWaitMax = 0;
 
     // helper function for releasing resources on error
     void cleanup()
@@ -943,8 +1066,6 @@ int http_initConnection(IXML_Element* connItem, Connection** connection)
             free(lobbyUri);
         if (table != NULL)
             free(table);
-        if (mutex != NULL)
-            free(mutex);
     }
 
     // load server address
@@ -1011,9 +1132,48 @@ int http_initConnection(IXML_Element* connItem, Connection** connection)
                            FALSE,
                            DEFAULT_POLLING_INTERVAL);
     }
+    // load long poll intervals which are also optional
+    element = config_getChildTag(connItem, CT_LONG_POLL, FALSE);
+    if (element != NULL)
+    {
+        IXML_Element* childTag = config_getChildTag(element,
+                                 CT_LONG_POLL_MIN,
+                                 TRUE);
+        if (childTag == NULL)
+        {
+            cleanup();
+            return OBIX_ERR_INVALID_ARGUMENT;
+        }
+        pollWaitMin = config_getTagLongAttrValue(childTag,
+                      OBIX_ATTR_VAL,
+                      TRUE,
+                      0);
+        childTag = config_getChildTag(element,
+                                      CT_LONG_POLL_MAX,
+                                      TRUE);
+        if (childTag == NULL)
+        {
+            cleanup();
+            return OBIX_ERR_INVALID_ARGUMENT;
+        }
+        pollWaitMax = config_getTagLongAttrValue(childTag,
+                      OBIX_ATTR_VAL,
+                      TRUE,
+                      0);
+        if ((pollWaitMin < 0) || (pollWaitMax < 0))
+        {
+            log_error("Configuration tag <%s/> should have correct child tags "
+                      "<%s/> and <%s/>.",
+                      CT_LONG_POLL, CT_LONG_POLL_MIN, CT_LONG_POLL_MAX);
+            cleanup();
+            return OBIX_ERR_INVALID_ARGUMENT;
+        }
+    }
+
     // load watch lease time, this is also optional parameter
-    // by default it is pollInterval + padding
-    watchLease = pollInterval + DEFAULT_WATCH_LEASE_PADDING;
+    // by default it is pollInterval (or pollWaitMax) + padding
+    watchLease = (pollInterval > pollWaitMax) ? pollInterval : pollWaitMax;
+    watchLease += DEFAULT_WATCH_LEASE_PADDING;
     element = config_getChildTag(connItem, CT_WATCH_LEASE, FALSE);
     if (element != NULL)
     {
@@ -1021,7 +1181,7 @@ int http_initConnection(IXML_Element* connItem, Connection** connection)
                          element,
                          CTA_VALUE,
                          FALSE,
-                         pollInterval + DEFAULT_WATCH_LEASE_PADDING);
+                         watchLease);
     }
 
     // allocate space for the connection object
@@ -1036,28 +1196,23 @@ int http_initConnection(IXML_Element* connItem, Connection** connection)
     *connection = &(c->c);
 
     table = table_create(listenerMaxCount);
-    mutex = (pthread_mutex_t*) malloc(sizeof(pthread_mutex_t));
-    if ((table == NULL) || (mutex == NULL))
-    {
-        log_error("Unable to initialize HTTP connection: Not enough memory.");
-        cleanup();
-        return OBIX_ERR_NO_MEMORY;
-    }
 
-    if (pthread_mutex_init(mutex, NULL) != 0)
+    if (pthread_mutex_init(&(c->watchMutex), NULL) != 0)
     {
         log_error("Unable to initialize HTTP connection: Unable to create mutex.");
         cleanup();
         return OBIX_ERR_HTTP_LIB;
     }
+
     c->watchTable = table;
-    c->watchMutex = mutex;
 
     c->serverUri = serverUri;
     c->serverUriLength = serverUriLength;
     c->lobbyUri = lobbyUri;
     c->pollInterval = pollInterval;
     c->watchLease = watchLease;
+    c->pollWaitMin = pollWaitMin;
+    c->pollWaitMax = pollWaitMax;
 
     // initialize other values with zeros
     c->signUpUri = NULL;
@@ -1083,11 +1238,7 @@ void http_freeConnection(Connection* connection)
     if (c->watchMakeUri != NULL)
         free(c->watchMakeUri);
     resetWatchUris(c);
-    if (c->watchMutex != NULL)
-    {
-        pthread_mutex_destroy(c->watchMutex);
-        free(c->watchMutex);
-    }
+    pthread_mutex_destroy(&(c->watchMutex));
     if (c->watchTable != 0)
     {
         table_free(c->watchTable);
@@ -1177,12 +1328,10 @@ int http_closeConnection(Connection* connection)
 
     log_debug("Closing connection to the server %s...", c->serverUri);
     // remove Watch and polling task if they were not removed earlier
-    pthread_mutex_lock(c->watchMutex);
     if (c->watchDeleteUri != NULL)
     {
         retVal = removeWatch(c);
     }
-    pthread_mutex_unlock(c->watchMutex);
 
     return retVal;
 }
@@ -1225,9 +1374,10 @@ int http_registerDevice(Connection* connection, Device** device, const char* dat
         }
         // Server returned error object.
         // TODO that is a workaround which works only with oBIX server
-        // from same project. When driver is restarted, it appears that
-        // data already exists on the server. If it is, than error message
-        // would contain URI of the existing data which we will try to use.
+        // from same project. The problem is that when driver is restarted, it
+        // appears that data already exists on the server. In that case error
+        // message from server would contain URI of the existing data which we
+        // will try to use.
         const char* attrValue = ixmlElement_getAttribute(
                                     element,
                                     OBIX_ATTR_HREF);
@@ -1325,6 +1475,7 @@ int http_registerListener(Connection* connection, Device* device, Listener** lis
 
     log_debug("Registering listener of parameter \"%s\" at the server "
               "\"%s\"...", (*listener)->paramUri, c->serverUri);
+    // generate full URI for listening parameter
     int fullParamUriLength = strlen((*listener)->paramUri) + 1;
     if (device != NULL)
     {	// need to add device URI
@@ -1425,11 +1576,20 @@ int http_unregisterListener(Connection* connection, Device* device, Listener* li
                     "operation (%s).", fullWatchRemoveUri);
     }
     else
-    {	// check server response
-        if (parseResponse(response, NULL) != OBIX_SUCCESS)
+    {
+    	IXML_Element* obixObj = NULL;
+    	// check server response
+    	error = parseResponse(response, &obixObj);
+        if (error != OBIX_SUCCESS)
         {
-            ixmlDocument_free(response);
-            return OBIX_ERR_BAD_CONNECTION;
+        	// if server replied with Bad Uri error, than we can consider
+        	// that watch item is removed (actually all Watch object is
+        	// dropped by someone)
+        	if (!obix_obj_implementsContract(obixObj, OBIX_HREF_ERR_BAD_URI))
+        	{
+        		ixmlDocument_free(response);
+        		return OBIX_ERR_BAD_CONNECTION;
+        	}
         }
         ixmlDocument_free(response);
     }

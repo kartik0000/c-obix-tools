@@ -8,7 +8,7 @@
 		information to the server using signUp operation.
 	-->
 	<obj href="SignUpLobby" is="obix:Lobby">
-		<op name="signUp" href="signUp/" in="obix:obj" out="obix:obj" />
+		<op name="signUp" in="obix:obj" out="obix:obj" />
 	</obj>
 	<!--
 		Advanced Watch object, which supports long poll requests (pollChanges
@@ -17,7 +17,7 @@
 		pollWaitInterval/max).
 	-->
 	<obj href="LongPollWatch" is="obix:Watch">
-		<obj name="pollWaitInterval" href="pollWaitInterval/">
+		<obj name="pollWaitInterval">
 			<reltime name="min" min="PT0S" val="PT0S" writable="true" />
 			<reltime name="max" min="PT0S" val="PT0S" writable="true" />
 		</obj>

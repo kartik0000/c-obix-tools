@@ -16,12 +16,13 @@ typedef struct Response
     char* body;
     char* uri;
     BOOL error;
+    BOOL canWait;
     Request* request;
     struct Response* next;
 }
 Response;
 
-Response* obixResponse_create(Request* request);
+Response* obixResponse_create(Request* request, BOOL canWait);
 
 Response* obixResponse_add(Response* response);
 

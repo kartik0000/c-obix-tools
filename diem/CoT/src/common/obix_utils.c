@@ -37,6 +37,9 @@ const char* OBIX_NAME_WATCH_POLLCHANGES = "pollChanges";
 const char* OBIX_NAME_WATCH_POLLREFRESH = "pollRefresh";
 const char* OBIX_NAME_WATCH_DELETE = "delete";
 const char* OBIX_NAME_WATCH_LEASE = "lease";
+const char* OBIX_NAME_WATCH_POLL_WAIT_INTERVAL = "pollWaitInterval";
+const char* OBIX_NAME_WATCH_POLL_WAIT_INTERVAL_MIN = "min";
+const char* OBIX_NAME_WATCH_POLL_WAIT_INTERVAL_MAX = "max";
 
 const char* OBIX_OBJ_ERR_TEMPLATE = "<err displayName=\"Internal Server Error\" "
                                     "display=\"%s/>\"";
@@ -227,8 +230,8 @@ int obix_reltime_parseToLong(const char* str, long* period)
 
     if (parsedSomething == 0)
     {
-    	// we did not parse any value
-    	return -1;
+        // we did not parse any value
+        return -1;
     }
 
     // save result at the output variable
@@ -320,7 +323,7 @@ char* obix_reltime_fromLong(long millis, RELTIME_FORMAT format)
     stringSize += plonglen(seconds);
     if (millis != 0)
     {
-    	stringSize += 4;
+        stringSize += 4;
     }
 
     char* reltime = (char*) malloc(stringSize);
@@ -361,36 +364,20 @@ char* obix_reltime_fromLong(long millis, RELTIME_FORMAT format)
 
     if (seconds > 0)
     {
-    	sprintf(reltime + pos, "%gS", seconds);
+        sprintf(reltime + pos, "%gS", seconds);
     }
 
     return reltime;
+}
 
-    //    switch (format)
-    //    {
-    //    case RELTIME_YEAR:
-    //    case RELTIME_MONTH:
-    //    case RELTIME_DAY:
-    //        {
-    //
-    //            days = millis / 86400000;
-    //            millis %= 86400000;
-    //        }
-    //    case RELTIME_HOUR:
-    //        {
-    //            hours = millis / 3600000;
-    //            millis %= 360000;
-    //        }
-    //    case RELTIME_MIN:
-    //        {
-    //            minutes = millis / 60000;
-    //            millis %= 60000;
-    //        }
-    //    case RELTIME_SEC:
-    //    case RELTIME_MILLIS:
-    //        {
-    //            seconds = millis / 1000.0;
-    //            //            millis %= 1000;
-    //        }
-    //    }
+BOOL obix_obj_implementsContract(IXML_Element* obj, const char* contract)
+{
+    const char* contractList = ixmlElement_getAttribute(obj, OBIX_ATTR_IS);
+    if ((contractList != NULL)
+            && (strstr(contractList, contract) != NULL))
+    {
+        return TRUE;
+    }
+
+    return FALSE;
 }

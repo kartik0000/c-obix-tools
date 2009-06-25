@@ -8,6 +8,8 @@
 #ifndef WATCH_H_
 #define WATCH_H_
 
+#include <pthread.h>
+
 #include <ixml_ext.h>
 #include "response.h"
 
@@ -56,8 +58,12 @@ typedef struct oBIX_Watch
     int id;
     /** Id of the timer which removes old unused Watch object. */
     int leaseTimerId;
-    /** Id of the long poll task which is scheduled timer which removes old unused Watch object. */
+    /** Id of the scheduled long poll request handler. */
     int pollTaskId;
+    /** Mutex for synchronization with scheduled long poll handler. */
+    pthread_mutex_t pollTaskMutex;
+    /** Condition saying that long poll handler is completed. */
+    pthread_cond_t pollTaskCompleted;
     /** Defines whether long poll task is now waiting for max time. */
     BOOL isPollWaitingMax;
     /** Minimum waiting time for long poll requests. */

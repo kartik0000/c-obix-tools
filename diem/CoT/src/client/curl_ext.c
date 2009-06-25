@@ -313,6 +313,7 @@ int curl_ext_get(CURL_EXT* handle, const char* uri)
         return -1;
     }
 
+    log_debug("Requesting data from %s.", uri);
     return sendRequest(handle, uri);
 }
 
@@ -486,7 +487,7 @@ int curl_ext_post(CURL_EXT* handle, const char* uri)
         return -1;
     }
 
-    log_debug("CURL sending data:\n%s", handle->outputBuffer);
+    log_debug("CURL sending data to %s:\n%s", uri, handle->outputBuffer);
     return sendRequest(handle, uri);
 }
 

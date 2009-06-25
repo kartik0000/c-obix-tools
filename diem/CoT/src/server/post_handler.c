@@ -37,25 +37,25 @@
 void handlerError(Response* response,
                   const char* uri,
                   IXML_Document* input);
-void handlerWatchServiceMake(Response* respTail,
+void handlerWatchServiceMake(Response* response,
                              const char* uri,
                              IXML_Document* input);
-void handlerWatchAdd(Response* respTail,
+void handlerWatchAdd(Response* response,
                      const char* uri,
                      IXML_Document* input);
-void handlerWatchRemove(Response* respTail,
+void handlerWatchRemove(Response* response,
                         const char* uri,
                         IXML_Document* input);
-void handlerWatchPollChanges(Response* respTail,
+void handlerWatchPollChanges(Response* response,
                              const char* uri,
                              IXML_Document* input);
-void handlerWatchPollRefresh(Response* respTail,
+void handlerWatchPollRefresh(Response* response,
                              const char* uri,
                              IXML_Document* input);
-void handlerWatchDelete(Response* respTail,
+void handlerWatchDelete(Response* response,
                         const char* uri,
                         IXML_Document* input);
-void handlerSignUp(Response* respTail,
+void handlerSignUp(Response* response,
                    const char* uri,
                    IXML_Document* input);
 //void handlerBatch(Response* response, const char* uri, IXML_Document* input);
@@ -127,7 +127,7 @@ static void sendErrorMessage(Response* response,
     (*_responseListener)(response);
 }
 
-void handlerWatchServiceMake(Response* respTail,
+void handlerWatchServiceMake(Response* response,
                              const char* uri,
                              IXML_Document* input)
 {
@@ -157,13 +157,13 @@ void handlerWatchServiceMake(Response* respTail,
             break;
         }
         log_warning("Unable to create Watch object.");
-        sendErrorMessage(respTail, uri, "Watch Make", message);
+        sendErrorMessage(response, uri, "Watch Make", message);
         return;
     }
 
     const char* watchUri = ixmlElement_getAttribute(watchDOM, OBIX_ATTR_HREF);
 
-    obix_server_generateResponse(respTail,
+    obix_server_generateResponse(response,
                                  watchDOM,
                                  watchUri,
                                  TRUE,
@@ -175,7 +175,7 @@ void handlerWatchServiceMake(Response* respTail,
     ixmlElement_freeOwnerDocument(watchDOM);
 
     // send answer
-    (*_responseListener)(respTail);
+    (*_responseListener)(response);
 }
 
 /**
@@ -264,7 +264,7 @@ static int processWatchIn(IXML_Document* input, const char*** uriSet)
     return length;
 }
 
-void handlerWatchAdd(Response* respTail, const char* uri, IXML_Document* input)
+void handlerWatchAdd(Response* response, const char* uri, IXML_Document* input)
 {
     log_debug("Handling Watch.add \"%s\".", uri);
 
@@ -272,7 +272,7 @@ void handlerWatchAdd(Response* respTail, const char* uri, IXML_Document* input)
     oBIX_Watch* watch = obixWatch_getByUri(uri);
     if (watch == NULL)
     {
-        sendErrorMessage(respTail,
+        sendErrorMessage(response,
                          uri,
                          "Watch.add",
                          "Watch object does not exist.");
@@ -283,7 +283,7 @@ void handlerWatchAdd(Response* respTail, const char* uri, IXML_Document* input)
     obixWatch_resetLeaseTimer(watch, OBIX_WATCH_LEASE_NO_CHANGE);
 
     // prepare response header
-    obixResponse_setText(respTail, WATCH_OUT_PREFIX, TRUE);
+    obixResponse_setText(response, WATCH_OUT_PREFIX, TRUE);
 
     // iterate through all URIs which should be added to the watch
     const char** uriSet = NULL;
@@ -295,15 +295,15 @@ void handlerWatchAdd(Response* respTail, const char* uri, IXML_Document* input)
         {
         case -1:
             sendErrorMessage(
-                respTail,
+                response,
                 uri,
                 "Watch.add",
                 "Input data is corrupted. "
                 "An implementation of obix:WatchIn contract is expected.");
         case -2:
-            sendErrorMessage(respTail, uri, "Watch.add", "Not enough memory.");
+            sendErrorMessage(response, uri, "Watch.add", "Not enough memory.");
         default:
-            sendErrorMessage(respTail,
+            sendErrorMessage(response,
                              uri,
                              "Watch.add",
                              "Internal server error.");
@@ -312,7 +312,7 @@ void handlerWatchAdd(Response* respTail, const char* uri, IXML_Document* input)
         return;
     }
 
-    Response* rItem = respTail;
+    Response* rItem = response;
 
     for (i = 0; i < length; i++)
     {
@@ -334,7 +334,7 @@ void handlerWatchAdd(Response* respTail, const char* uri, IXML_Document* input)
         if (rItem == NULL)
         {
             log_error("Unable to create multipart response object.");
-            sendErrorMessage(respTail,
+            sendErrorMessage(response,
                              uri,
                              "Watch.add",
                              "Internal server error.");
@@ -387,14 +387,14 @@ void handlerWatchAdd(Response* respTail, const char* uri, IXML_Document* input)
     if (rItem == NULL)
     {
         log_error("Unable to create multipart response object.");
-        sendErrorMessage(respTail, uri, "Watch.add", "Internal server error.");
+        sendErrorMessage(response, uri, "Watch.add", "Internal server error.");
         return;
     }
 
-    (*_responseListener)(respTail);
+    (*_responseListener)(response);
 }
 
-void handlerWatchRemove(Response* respTail,
+void handlerWatchRemove(Response* response,
                         const char* uri,
                         IXML_Document* input)
 {
@@ -404,7 +404,7 @@ void handlerWatchRemove(Response* respTail,
     oBIX_Watch* watch = obixWatch_getByUri(uri);
     if (watch == NULL)
     {
-        sendErrorMessage(respTail,
+        sendErrorMessage(response,
                          uri,
                          "Watch.remove",
                          "Watch object does not exist.");
@@ -424,18 +424,18 @@ void handlerWatchRemove(Response* respTail,
         {
         case -1:
             sendErrorMessage(
-                respTail,
+                response,
                 uri,
                 "Watch.remove",
                 "Input data is corrupted. "
                 "An implementation of obix:WatchIn contract is expected.");
         case -2:
-            sendErrorMessage(respTail,
+            sendErrorMessage(response,
                              uri,
                              "Watch.remove",
                              "Not enough memory.");
         default:
-            sendErrorMessage(respTail,
+            sendErrorMessage(response,
                              uri,
                              "Watch.remove",
                              "Internal server error.");
@@ -456,12 +456,12 @@ void handlerWatchRemove(Response* respTail,
     free(uriSet);
 
     // return empty answer
-    obixResponse_setText(respTail, OBIX_OBJ_NULL_TEMPLATE, TRUE);
-    (*_responseListener)(respTail);
+    obixResponse_setText(response, OBIX_OBJ_NULL_TEMPLATE, TRUE);
+    (*_responseListener)(response);
 }
 
 static void completeWatchPollResponse(const char* functionName,
-									  Response* respHead,
+                                      Response* respHead,
                                       Response* respTail,
                                       const char* uri)
 {
@@ -535,7 +535,7 @@ void handlerWatchLongPoll(oBIX_Watch* watch,
                           Response* response,
                           const char* uri)
 {
-	log_debug("Handling long poll request.");
+    log_debug("Handling long poll request.");
     //iterate through all watch items and generate response
     Response* respTail = pollWatchItemIterator(
                              "Watch.pollChanges",
@@ -591,69 +591,86 @@ static void handlerWatchPollHelper(Response* response,
 
     if (respTail == NULL)
     {	// error is already handled
-    	return;
+        return;
     }
 
-    // if we are processing long poll request...
-    if (obixWatch_isLongPoll(watch) && changedOnly)
+    // if we are not processing long poll request of Watch.pollChanges...
+    if (!obixWatch_isLongPoll(watch) || !changedOnly)
     {
-        int error;
-        // if we didn't add anything to the response except header
-        if (respTail == response)
+        // complete and send response
+        completeWatchPollResponse(functionName, response, respTail, uri);
+        return;
+    }
+
+    // process long poll request
+    int error;
+    // if we didn't add anything to the response except header...
+    if (respTail == response)
+    {
+        // hold the response for max time (or until something happens)
+        error = obixWatch_holdPoll(&handlerWatchLongPoll,
+                                   watch,
+                                   response,
+                                   uri,
+                                   TRUE);
+    }
+    else
+    {
+        // we do have something to send, but we still have to wait
+        // for pollWaitInterval/min.
+        // clean everything from response except header, because delayed
+        // poll handler will create the rest of the answer again
+        obixResponse_free(response->next);
+        error = obixWatch_holdPoll(&handlerWatchLongPoll,
+                                   watch,
+                                   response,
+                                   uri,
+                                   FALSE);
+    }
+
+    if (error != 0)
+    {
+        if (error == -2)
         {
-            // hold the response for max time (or until something happens)
-            error = obixWatch_holdPoll(&handlerWatchLongPoll,
-                                       watch,
-                                       response,
-                                       uri,
-                                       TRUE);
+            // we can't hold the request, because all request objects are
+            // already reserved.
+            sendErrorMessage(response,
+                             uri,
+                             functionName,
+                             "Unable to hold long poll request: "
+                             "Maximum number of requests on hold is reached. "
+                             "Ask server administrator to increase "
+                             "hold-request-max parameter or use traditional "
+                             "polling.");
         }
         else
         {
-            // we do have something to send, but we still have to wait
-            // for pollWaitInterval/min.
-            // clean everything from response except header, because delayed
-            // poll handler will create the rest of the answer again
-            obixResponse_free(response->next);
-            error = obixWatch_holdPoll(&handlerWatchLongPoll,
-                                       watch,
-                                       response,
-                                       uri,
-                                       FALSE);
-        }
-
-        if (error != 0)
-        {
-            // attempt to hold a poll failed
+            // attempt to hold a poll failed - reason unknown
             sendErrorMessage(response,
                              uri,
                              functionName,
                              "Unable to hold long poll request: "
                              "Internal server error.");
         }
-        // answer will be sent by scheduled task, so we don't need to do it now
-        return;
     }
-
-    // complete and send response
-    completeWatchPollResponse(functionName, response, respTail, uri);
+    // answer will be sent by scheduled task, so we don't need to do it now
 }
 
-void handlerWatchPollChanges(Response* respTail,
+void handlerWatchPollChanges(Response* response,
                              const char* uri,
                              IXML_Document* input)
 {
-    handlerWatchPollHelper(respTail, uri, input, TRUE);
+    handlerWatchPollHelper(response, uri, input, TRUE);
 }
 
-void handlerWatchPollRefresh(Response* respTail,
+void handlerWatchPollRefresh(Response* response,
                              const char* uri,
                              IXML_Document* input)
 {
-    handlerWatchPollHelper(respTail, uri, input, FALSE);
+    handlerWatchPollHelper(response, uri, input, FALSE);
 }
 
-void handlerWatchDelete(Response* respTail,
+void handlerWatchDelete(Response* response,
                         const char* uri,
                         IXML_Document* input)
 {
@@ -663,7 +680,7 @@ void handlerWatchDelete(Response* respTail,
     oBIX_Watch* watch = obixWatch_getByUri(uri);
     if (watch == NULL)
     {
-        sendErrorMessage(respTail,
+        sendErrorMessage(response,
                          uri,
                          "Watch.delete",
                          "Watch object doesn't exist.");
@@ -677,18 +694,18 @@ void handlerWatchDelete(Response* respTail,
     case 0:
         {	// everything was OK
             // return empty object
-            obixResponse_setText(respTail, OBIX_OBJ_NULL_TEMPLATE, TRUE);
-            (*_responseListener)(respTail);
+            obixResponse_setText(response, OBIX_OBJ_NULL_TEMPLATE, TRUE);
+            (*_responseListener)(response);
         }
         break;
     case -1:
-        sendErrorMessage(respTail,
+        sendErrorMessage(response,
                          uri,
                          "Watch.delete",
                          "Unable to delete watch from the storage.");
         break;
     case -2:
-        sendErrorMessage(respTail,
+        sendErrorMessage(response,
                          uri,
                          "Watch.delete",
                          "Internal server error. "
@@ -696,7 +713,7 @@ void handlerWatchDelete(Response* respTail,
         break;
     case -3:
     default:
-        sendErrorMessage(respTail, uri, "Watch.delete", "Internal server error.");
+        sendErrorMessage(response, uri, "Watch.delete", "Internal server error.");
     }
 }
 
@@ -739,8 +756,8 @@ static int putDeviceReference(IXML_Element* newDevice)
     // copy attribute name
     error = ixmlElement_copyAttributeWithLog(newDevice, ref,
             OBIX_ATTR_NAME,
-            TRUE);
-    if (error != IXML_SUCCESS)
+            FALSE);
+    if ((error != IXML_SUCCESS) && (error != IXML_NOT_FOUND_ERR))
     {
         ixmlElement_free(ref);
         return -1;
@@ -826,11 +843,11 @@ static const char* checkHrefAttribute(IXML_Element* element)
     return ixmlElement_getAttribute(element, OBIX_ATTR_HREF);
 }
 
-void handlerSignUp(Response* respTail, const char* uri, IXML_Document* input)
+void handlerSignUp(Response* response, const char* uri, IXML_Document* input)
 {
     if (input == NULL)
     {
-        sendErrorMessage(respTail, uri, "Sign Up", "Device data is corrupted.");
+        sendErrorMessage(response, uri, "Sign Up", "Device data is corrupted.");
         return;
     }
 
@@ -841,7 +858,7 @@ void handlerSignUp(Response* respTail, const char* uri, IXML_Document* input)
     if (element == NULL)
     {
         // input document had no element in the beginning
-        sendErrorMessage(respTail,
+        sendErrorMessage(response,
                          uri,
                          "Sign Up",
                          "Input data has bad format.");
@@ -852,9 +869,9 @@ void handlerSignUp(Response* respTail, const char* uri, IXML_Document* input)
     const char* href = checkHrefAttribute(element);
     if (href == NULL)
     {
-        sendErrorMessage(respTail,
+        sendErrorMessage(response,
                          uri,
-                         "Sign Up Error",
+                         "Sign Up",
                          "Object must have a valid href attribute.");
         return;
     }
@@ -872,7 +889,7 @@ void handlerSignUp(Response* respTail, const char* uri, IXML_Document* input)
         {
             // it means that object with the same URI already exists in the
             // database. return specific error
-            sendErrorMessage(respTail,
+            sendErrorMessage(response,
                              href,
                              "Sign Up",
                              "Unable to save device data: "
@@ -881,7 +898,7 @@ void handlerSignUp(Response* respTail, const char* uri, IXML_Document* input)
         }
         else
         {
-            sendErrorMessage(respTail,
+            sendErrorMessage(response,
                              uri,
                              "Sign Up",
                              "Unable to save device data.");
@@ -894,7 +911,7 @@ void handlerSignUp(Response* respTail, const char* uri, IXML_Document* input)
     if (error != 0)
     {
         xmldb_delete(href);
-        sendErrorMessage(respTail,
+        sendErrorMessage(response,
                          uri,
                          "Sign Up",
                          "Unable to add device to the device list.");
@@ -903,7 +920,7 @@ void handlerSignUp(Response* respTail, const char* uri, IXML_Document* input)
 
     log_debug("New object is successfully registered at \"%s\"", href);
     // return saved object
-    obix_server_generateResponse(respTail,
+    obix_server_generateResponse(response,
                                  element,
                                  NULL,
                                  TRUE,
@@ -911,7 +928,7 @@ void handlerSignUp(Response* respTail, const char* uri, IXML_Document* input)
                                  FALSE,
                                  TRUE);
     // TODO what about removing this isError at all?
-    if (obixResponse_isError(respTail))
+    if (obixResponse_isError(response))
     {
         // we return error, thus we need to roll back all changes
         xmldb_delete(href);
@@ -919,5 +936,5 @@ void handlerSignUp(Response* respTail, const char* uri, IXML_Document* input)
     }
 
     // send response
-    (*_responseListener)(respTail);
+    (*_responseListener)(response);
 }

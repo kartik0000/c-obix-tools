@@ -217,7 +217,23 @@ IXML_Element* config_loadFile(const char* filename)
 
     if (error != IXML_SUCCESS)
     {
-        log_error("Error reading the configuration file \'%s\' (code %i)", path, error);
+        switch(error)
+        {
+        case IXML_NO_SUCH_FILE:
+            log_error("Error reading the configuration file \'%s\': "
+                      "File is not found.", path);
+            break;
+        case IXML_SYNTAX_ERR:
+        case IXML_FAILED:
+            log_error("Error reading the configuration file \'%s\': "
+                      "XML syntax error.", path);
+            break;
+        default:
+            log_error("Error reading the configuration file \'%s\': "
+                      "ixmlLoadDocumentEx returned %d.", path, error);
+            break;
+        }
+
         free(path);
         return NULL;
     }
@@ -300,7 +316,7 @@ void config_setResourceDir(char* path)
     }
     else
     {
-    	log_debug("Resource folder path is set to \"%s\".", resourceFolder);
+        log_debug("Resource folder path is set to \"%s\".", resourceFolder);
     }
 }
 

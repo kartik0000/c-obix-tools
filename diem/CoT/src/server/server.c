@@ -15,8 +15,6 @@
 #define LISTENSOCK_FILENO 0
 #define LISTENSOCK_FLAGS 0
 
-static const char* CONFIG_FILE = "server_config.xml";
-
 static const char* CT_SERVER_ADDRESS = "server-address";
 
 static const char* OBIX_META_ATTR_OP = "op";
@@ -24,16 +22,8 @@ static const char* OBIX_META_ATTR_OP = "op";
 // method which handles server responses is stored here
 obix_server_response_listener _responseListener = NULL;
 
-static int loadConfigFile()
+int obix_server_init(IXML_Element* settings)
 {
-    IXML_Element* settings = config_loadFile(CONFIG_FILE);
-
-    if (settings == NULL)
-    {
-        // failed to load settings
-        return -1;
-    }
-
     // get the server address from settings
     const char* servAddr = config_getTagAttributeValue(
                                config_getChildTag(settings, CT_SERVER_ADDRESS, TRUE),
@@ -41,8 +31,7 @@ static int loadConfigFile()
                                TRUE);
     if (servAddr == NULL)
     {
-        // no server address available shut down
-        config_finishInit(FALSE);
+        // no server address available - shut down
         return -1;
     }
 
@@ -51,8 +40,6 @@ static int loadConfigFile()
     if (error != 0)
     {
         log_error("Unable to start the server. xmldb_init returned: %d", error);
-
-        config_finishInit(FALSE);
         return -1;
     }
 
@@ -62,28 +49,8 @@ static int loadConfigFile()
     if (error != 0)
     {
         log_error("Unable to start the server. obixWatch_init returned: %d", error);
-
-        config_finishInit(FALSE);
         return -1;
     }
-
-
-    return 0;
-}
-
-int obix_server_init(char* resourceDir)
-{
-    config_setResourceDir(resourceDir);
-
-    // load settings from file
-    if (loadConfigFile() != 0)
-    {
-        // config failed
-        return -1;
-    }
-
-    // finalize initialization
-    config_finishInit(TRUE);
 
     return 0;
 }

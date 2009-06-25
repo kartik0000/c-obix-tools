@@ -215,7 +215,7 @@ int main(int argc, char** argv)
     // shutdown gracefully
 
     // stop timer task
-    if (ptask_cancel(taskThread, timerTaskId))
+    if (ptask_cancel(taskThread, timerTaskId, TRUE))
     {
         printf("Unable to stop timer task.\n");
         return -1;

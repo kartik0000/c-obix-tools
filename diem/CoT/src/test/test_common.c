@@ -17,7 +17,7 @@ void testLog()
     log_warning("testing warning 5=%d;", 5);
     log_error("testing %s 4=%d;", "error", 4);
     config_loadFile("server_config.xml");
-    config_finishInit();
+    config_finishInit(TRUE);
     log_debug("testing debug 4=%d;", 4);
     log_warning("testing warning 5=%d;", 5);
     log_error("testing %s 4=%d;", "error", 4);

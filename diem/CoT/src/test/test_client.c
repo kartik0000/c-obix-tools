@@ -180,20 +180,20 @@ static int testObixLoadConfigFile()
         return 1;
     }
 
-    error = obix_dispose();
-    if (error != OBIX_SUCCESS)
-    {
-        printf("obix_dispose() returned %d\n", error);
-        printTestResult(testName, FALSE);
-        return 1;
-    }
+//    error = obix_dispose();
+//    if (error != OBIX_SUCCESS)
+//    {
+//        printf("obix_dispose() returned %d\n", error);
+//        printTestResult(testName, FALSE);
+//        return 1;
+//    }
 
 
     printTestResult(testName, TRUE);
     return 0;
 }
 
-int testConnectionAndDevicesByHands()
+int testConnectionAndDevices()
 {
     const char* testName = "test obix_client common utils";
 
@@ -203,6 +203,7 @@ int testConnectionAndDevicesByHands()
         printTestResult(testName, FALSE);
         return 1;
     }
+
     error = obix_openConnection(0);
     if (error != OBIX_SUCCESS)
     {
@@ -217,14 +218,14 @@ int testConnectionAndDevicesByHands()
         printTestResult(testName, FALSE);
         return 1;
     }
-    int id1 = obix_registerDevice(0, "some data");
+    int id1 = obix_registerDevice(0, "<obj href=\"/test1/\" />");
     if (id1 < 0)
     {
         printf("obix_registerDevice(0) returned %d\n", id1);
         printTestResult(testName, FALSE);
         return 1;
     }
-    int id2 = obix_registerDevice(0, "some data 2");
+    int id2 = obix_registerDevice(0, "<obj href=\"/test2/\" />");
     if (id2 < 0)
     {
         printf("obix_registerDevice(0) returned %d\n", id2);
@@ -238,7 +239,7 @@ int testConnectionAndDevicesByHands()
         printTestResult(testName, FALSE);
         return 1;
     }
-    error = obix_registerDevice(0, "some data 3");
+    error = obix_registerDevice(0, "<obj href=\"/test3/\" />");
     if (error != id1)
     {
         printf("obix_registerDevice(0) returned %d\n", error);
@@ -262,7 +263,10 @@ int test_client()
 {
     int result = 0;
 
-    result += testObixLoadConfigFile();
+    // this is already tested in testConnectionAndDevices
+//    result += testObixLoadConfigFile();
+
+    result += testConnectionAndDevices();
 
     result += testCurlExt();
 
@@ -271,5 +275,5 @@ int test_client()
 
 void test_client_byHands()
 {
-    testConnectionAndDevicesByHands();
+    testConnectionAndDevices();
 }

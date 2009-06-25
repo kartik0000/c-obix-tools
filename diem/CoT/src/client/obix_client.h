@@ -2,7 +2,7 @@
  * Contains definitions for oBIX client library.
  *
  * @author Andrey Litvinov
- * @version 1.0.0
+ * @version 0.0.0
  */
 
 /**@mainpage
@@ -14,7 +14,7 @@
  * @n
  * The following string will compile application which uses oBIX Client Library:
  * @code
- * gcc -I<cot_headers> -L<cot_lib> -lcot-client <sources>
+ * gcc -I<cot_headers> -L<cot_lib> -lcot-client <source> -o <output_name>
  * @endcode
  * where
  * - @a \<cot_headers> - Path to header files of libcot (usually it is
@@ -22,6 +22,7 @@
  * - @a \<cot_lib>	  - Path to library binaries of libcot (usually it is
  * 						\<installation_prefix>/lib).
  * - @a \<sources>	  - Your source files to be compiled.
+ * - @a \<output_name> - Name of the output binary.
  *
  * @n
  * The typical usage of library (see example at example_timer.c):

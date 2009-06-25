@@ -21,6 +21,8 @@ typedef struct _Http_Connection
 	char* lobbyUri;
 	long pollInterval;
 	long watchLease;
+	long pollWaitMin;
+	long pollWaitMax;
 
 	char* signUpUri;
 	char* watchMakeUri;
@@ -30,7 +32,7 @@ typedef struct _Http_Connection
 	char* watchDeleteUri;
 
 	Table* watchTable;
-	pthread_mutex_t* watchMutex;
+	pthread_mutex_t watchMutex;
 	int watchPollTaskId;
 
 //	char*

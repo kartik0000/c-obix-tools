@@ -22,7 +22,7 @@ pthread_cond_t _responseReceived = PTHREAD_COND_INITIALIZER;
 
 void dummyResponseListener(Response* response)
 {
-	pthread_mutex_lock(&_responseMutex);
+    pthread_mutex_lock(&_responseMutex);
     _responseIsSent = TRUE;
     _lastResponse = response;
     pthread_cond_signal(&_responseReceived);
@@ -44,14 +44,14 @@ static BOOL isResponseSent()
 
 static Response* waitForResponse()
 {
-	pthread_mutex_lock(&_responseMutex);
-	struct timespec time;
-	clock_gettime(CLOCK_REALTIME, &time);
-	time.tv_sec++;
-	pthread_cond_timedwait(&_responseReceived, &_responseMutex, &time);
-	Response* response = _lastResponse;
-	pthread_mutex_unlock(&_responseMutex);
-	return response;
+    pthread_mutex_lock(&_responseMutex);
+    struct timespec time;
+    clock_gettime(CLOCK_REALTIME, &time);
+    time.tv_sec++;
+    pthread_cond_timedwait(&_responseReceived, &_responseMutex, &time);
+    Response* response = _lastResponse;
+    pthread_mutex_unlock(&_responseMutex);
+    return response;
 }
 
 int testSearch(const char* testName, const char* href, const char* checkStr, BOOL exists)
@@ -226,7 +226,7 @@ int testGenerateResponse(const char* testName, const char* uri, const char* newU
         return 1;
     }
 
-    Response* response = obixResponse_create((Request*)1);
+    Response* response = obixResponse_create((Request*)1, FALSE);
     obix_server_generateResponse(response, oBIXdoc, newUrl, TRUE, FALSE, 0, TRUE, FALSE);
 
     if ((response == NULL) || (response->body == NULL))
@@ -245,7 +245,7 @@ int testGenerateResponse(const char* testName, const char* uri, const char* newU
         return 1;
     }
 
-    response = obixResponse_create((Request*)1);
+    response = obixResponse_create((Request*)1, FALSE);
     obix_server_generateResponse(response, oBIXdoc, newUrl, TRUE, FALSE, 0, FALSE, TRUE);
     if ((response == NULL) || (response->body == NULL))
     {
@@ -644,11 +644,11 @@ int testWatchPollChanges(const char* testName,
                          BOOL waitResponse)
 {
     obix_server_setResponseListener(&dummyResponseListener);
-    Response* response = obixResponse_create((Request*)1);
+    Response* response = obixResponse_create((Request*)1, FALSE);
     obix_server_handlePOST(response, uri, NULL);
     if (waitResponse)
     {
-    	response = waitForResponse();
+        response = waitForResponse();
     }
     if (checkResponse(response, FALSE) != 0)
     {
@@ -677,7 +677,7 @@ int testWatchRemove()
 {
     const char* testName = "Watch.remove test";
     obix_server_setResponseListener(&dummyResponseListener);
-    Response* response = obixResponse_create((Request*)1);
+    Response* response = obixResponse_create((Request*)1, FALSE);
     obix_server_handlePOST(
         response,
         "/obix/watchService/watch1/remove",
@@ -697,7 +697,7 @@ int testWatchRemove()
 
     // now try to poll refresh and check that we do not receive object which
     // we've just removed from the watch list
-    response = obixResponse_create((Request*)1);
+    response = obixResponse_create((Request*)1, FALSE);
     obix_server_handlePOST(response,
                            "/obix/watchService/watch1/pollRefresh",
                            NULL);
@@ -731,7 +731,7 @@ int testWatchRemove()
 
 int testPutHandler(const char* testName, const char* uri, const char* data)
 {
-    Response* response = obixResponse_create((Request*)1);
+    Response* response = obixResponse_create((Request*)1, FALSE);
     obix_server_handlePUT(response, uri, data);
     if (checkResponse(response, FALSE) != 0)
     {
@@ -748,7 +748,7 @@ int testWatch()
     const char* testName = "oBIX Watch test";
     // create new Watch object
     obix_server_setResponseListener(&dummyResponseListener);
-    Response* response = obixResponse_create((Request*)1);
+    Response* response = obixResponse_create((Request*)1, FALSE);
     obix_server_handlePOST(response, "/obix/watchService/make", NULL);
     if (checkResponse(response, FALSE) != 0)
     {
@@ -773,7 +773,7 @@ int testWatch()
     // + one with wrong trailing slash, one <op/> object,
     // one comment and one wrong object.
     // TODO check duplicate request for same object
-    response = obixResponse_create((Request*)1);
+    response = obixResponse_create((Request*)1, FALSE);
     obix_server_handlePOST(
         response,
         "/obix/watchService/watch1/add",
@@ -883,7 +883,7 @@ int testWatch()
 
     // let's try to write once again to the same object, but write the same
     // value as it already has
-    response = obixResponse_create((Request*)1);
+    response = obixResponse_create((Request*)1, FALSE);
     obix_server_handlePUT(
         response,
         "/obix/kitchen/temperature/",
@@ -929,7 +929,7 @@ int testSignUpHelper(const char* testName,
 {
     // invoke signup operation
     obix_server_setResponseListener(&dummyResponseListener);
-    Response* response = obixResponse_create((Request*)1);
+    Response* response = obixResponse_create((Request*)1, FALSE);
     obix_server_handlePOST(response, "/obix/signUp/", inputData);
     if (checkResponse(response, !shouldPass) != 0)
     {
@@ -965,16 +965,22 @@ int testSignUp()
                                "Signed Device 2",
                                TRUE);
 
-    result += testSignUpHelper("SignUp test: storing with no name",
+    result += testSignUpHelper("SignUp test: storing with no attributes except href",
                                "<obj href=\"/signedDevice3/\" />",
                                "/obix/signedDevice3/",
                                "signedDevice3",
+                               TRUE);
+
+    result += testSignUpHelper("SignUp test: no attributes at all",
+                               "<obj />",
+                               "/obix/signedDevice4/",
+                               "signedDevice4",
                                FALSE);
 
     result += testSignUpHelper("SignUp test: storing with wrong URI",
-                               "<obj href=\"signedDevice3/\" />",
-                               "/obixsignedDevice3/",
-                               "signedDevice3",
+                               "<obj href=\"signedDevice4/\" />",
+                               "/obixsignedDevice4/",
+                               "signedDevice4",
                                FALSE);
     return result;
 }

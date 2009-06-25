@@ -55,7 +55,7 @@ long config_getTagLongAttrValue(IXML_Element* tag, const char* attrName, BOOL ob
  */
 int config_getTagBoolAttrValue(IXML_Element* tag, const char* attrName, BOOL obligatory);
 
-void config_finishInit();
+void config_finishInit(BOOL successful);
 
 void config_dispose();
 

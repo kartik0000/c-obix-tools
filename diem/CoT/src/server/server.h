@@ -12,7 +12,7 @@ typedef void (*obix_server_response_listener)(Response* response);
 // method which handles server responses is stored here
 extern obix_server_response_listener _responseListener;
 
-int obix_server_init(char* resourceDir);
+int obix_server_init(IXML_Element* settings);
 
 void obix_server_shutdown();
 

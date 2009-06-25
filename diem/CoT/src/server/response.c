@@ -13,7 +13,7 @@
 #include <obix_utils.h>
 #include "response.h"
 
-Response* obixResponse_create(Request* request)
+Response* obixResponse_create(Request* request, BOOL canWait)
 {
     Response* response = (Response*) malloc(sizeof(Response));
     if (response == NULL)
@@ -22,6 +22,7 @@ Response* obixResponse_create(Request* request)
     }
     // init all values with default values;
     response->request = request;
+    response->canWait = canWait;
     response->body = NULL;
     response->uri = NULL;
     response->next = NULL;
@@ -34,7 +35,7 @@ Response* obixResponse_add(Response* response)
 {
     // create new response part. Request object is stored only in the head
     // element
-    Response* newPart = obixResponse_create(NULL);
+    Response* newPart = obixResponse_create(NULL, FALSE);
 
     response->next = newPart;
     return newPart;

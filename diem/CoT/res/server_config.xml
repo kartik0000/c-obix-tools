@@ -6,6 +6,15 @@
     so don't forget to change it to the real server address. 
   -->
   <server-address val="http://localhost"/>
+  
+  <!--
+  	 Optional tag, defining maximum number of long poll requests which can be 
+  	 handled by the server in parallel. (Long poll request is requesting 
+  	 Watch.pollChanges with Watch.pollWaitTime set - see README for more info).
+  	 Note that all other requests are handled consequently so far. Default value 
+  	 is 10.   
+  -->
+  <hold-request-max val="20"/>
 
   <!--
     Configuration of the logging system. The only 

@@ -115,9 +115,12 @@ int ptask_reset(Task_Thread* thread, int taskId);
  *
  * @param thread Thread in which task is scheduled.
  * @param id ID of the task to be removed.
+ * @param wait If @a TRUE and the task with provided id is executed right now,
+ *             then the method will wait before task execution is completed and
+ *             task is canceled.
  * @return @li 0 on success;
  *         @li -1 if task with provided ID is not found.
  */
-int ptask_cancel(Task_Thread* thread, int taskId);
+int ptask_cancel(Task_Thread* thread, int taskId, BOOL wait);
 
 #endif /* PTASK_H_ */

@@ -159,6 +159,9 @@ static int obixWatch_free(oBIX_Watch* watch)
         obixWatchItem_freeRecursive(watch->items);
     }
 
+    pthread_cond_destroy(&(watch->pollTaskCompleted));
+    pthread_mutex_destroy(&(watch->pollTaskMutex));
+
     free(watch);
     _watchesCount--;
     _watches[watchId - 1] = NULL;
@@ -180,6 +183,29 @@ static int obixWatch_deleteHelper(oBIX_Watch* watch)
         return -1;
     }
 
+    // cancel waiting poll request handler if any
+    pthread_mutex_lock(&(watch->pollTaskMutex));
+    if (watch->pollTaskId > 0)
+    {
+        int error = ptask_reschedule(_threadLongPoll,
+                                     watch->pollTaskId,
+                                     0,
+                                     1,
+                                     FALSE);
+        if (error != 0)
+        {
+            log_error("Unable to call last long poll request handler: "
+                      "ptask_reschedule returned %d.", error);
+        }
+        else
+        {
+            // wait until the poll handler completes before proceeding
+            pthread_cond_wait(&(watch->pollTaskCompleted),
+                              &(watch->pollTaskMutex));
+        }
+    }
+    pthread_mutex_unlock(&(watch->pollTaskMutex));
+
     // clean watch object
     if (obixWatch_free(watch) != 0)
     {
@@ -193,18 +219,12 @@ static int obixWatch_deleteHelper(oBIX_Watch* watch)
 int obixWatch_delete(oBIX_Watch* watch)
 {
     // remove watch deleting task
-    int error = ptask_cancel(_threadLease, watch->leaseTimerId);
+    int error = ptask_cancel(_threadLease, watch->leaseTimerId, TRUE);
     if (error != 0)
     {
         log_error("Unable to cancel watch lease timer: "
                   "ptask_cancel() returned %d.", error);
         return -3;
-    }
-
-    if (watch->pollTaskId > 0)
-    {
-        ptask_cancel(_threadLease, watch->pollTaskId);
-        // ignore error because poll task can be already completed
     }
 
     return obixWatch_deleteHelper(watch);
@@ -337,6 +357,8 @@ int obixWatch_create(IXML_Element** watchDOM)
     watch->pollWaitMax = 0;
     // zero value of pollTaskId says that no task was scheduled
     watch->pollTaskId = 0;
+    pthread_mutex_init(&(watch->pollTaskMutex), NULL);
+    pthread_cond_init(&(watch->pollTaskCompleted), NULL);
     watch->isPollWaitingMax = FALSE;
     // save watch reference
     _watches[watchId] = watch;
@@ -478,7 +500,7 @@ int obixWatch_createWatchItem(oBIX_Watch* watch, const char* uri, oBIX_Watch_Ite
     int error = sprintf(attrName, OBIX_META_ATTR_WATCH_TEMPLATE, watch->id);
     if (error < 0)
     {
-        log_error("Unable to create meta attribute. sprintf() returned %d",
+        log_error("Unable to create meta attribute. sprintf() returned %d.",
                   error);
         return -3;
     }
@@ -669,6 +691,8 @@ static void obixWatch_notifyPollTask(IXML_Element* meta)
                   tagName);
         return;
     }
+
+    pthread_mutex_lock(&(watch->pollTaskMutex));
     // if poll response is scheduled to execute with maximum delay, than
     // reduce delay to the minimum
     if ((watch->pollTaskId > 0) && (watch->isPollWaitingMax))
@@ -680,6 +704,7 @@ static void obixWatch_notifyPollTask(IXML_Element* meta)
                          1,
                          TRUE);
     }
+    pthread_mutex_unlock(&(watch->pollTaskMutex));
 }
 
 void obixWatch_updateMeta(IXML_Element* meta)
@@ -839,9 +864,13 @@ BOOL obixWatch_isLongPoll(oBIX_Watch* watch)
 void obixWatch_longPollTask(void* arg)
 {
     PollTaskParams* params = (PollTaskParams*) arg;
-    // 0 poll task id means that it is not scheduled
+    pthread_mutex_lock(&(params->watch->pollTaskMutex));
+    // 0 poll task id means that it is not scheduled anymore
     params->watch->pollTaskId = 0;
     (*(params->pollHandler))(params->watch, params->response, params->uri);
+    // notify that task is completed
+    pthread_cond_signal(&(params->watch->pollTaskCompleted));
+    pthread_mutex_unlock(&(params->watch->pollTaskMutex));
     free(params);
 }
 
@@ -852,11 +881,12 @@ int obixWatch_holdPoll(obixWatch_pollHandler pollHandler,
                        BOOL maxWait)
 {
     // check whether there is already scheduled poll response for this watch
-    // TODO this is not completely thread safe
+    pthread_mutex_lock(&(watch->pollTaskMutex));
     if (watch->pollTaskId > 0)
     {
         log_error("Unable to hold Watch poll request: Previous request is not "
                   "yet answered.");
+        pthread_mutex_unlock(&(watch->pollTaskMutex));
         return -1;
     }
 
@@ -867,7 +897,15 @@ int obixWatch_holdPoll(obixWatch_pollHandler pollHandler,
     {
         // we can execute poll handler right now
         (*pollHandler)(watch, response, uri);
+        pthread_mutex_unlock(&(watch->pollTaskMutex));
         return 0;
+    }
+
+    // check that we are able to hold this request
+    if (!(response->canWait))
+    {
+        pthread_mutex_unlock(&(watch->pollTaskMutex));
+        return -2;
     }
 
     // remember for how long poll is suspended
@@ -879,6 +917,7 @@ int obixWatch_holdPoll(obixWatch_pollHandler pollHandler,
     if (params == NULL)
     {
         log_error("Unable to hold Watch poll request: Not enough memory.");
+        pthread_mutex_unlock(&(watch->pollTaskMutex));
         return -1;
     }
 
@@ -892,6 +931,7 @@ int obixWatch_holdPoll(obixWatch_pollHandler pollHandler,
                                        (void*) params,
                                        delay,
                                        1);
+    pthread_mutex_unlock(&(watch->pollTaskMutex));
     if (watch->pollTaskId < 0)
     {
         log_error("Unable to hold Watch poll request: "

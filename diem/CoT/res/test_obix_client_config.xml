@@ -2,11 +2,11 @@
 <config>  
 
   <connection id="1" type="http">
-  	<server-address val="http://server2" lobby="/obix/"/>
+  	<server-address val="http://localhost/" lobby="/obix/"/>
   </connection>
   
   <connection id="0" type="http">
-  	<server-address val="http://server1/" lobby="/obix/"/>
+  	<server-address val="http://localhost" lobby="/obix/"/>
   	<max-devices val="2"/>
   	<max-listeners val="2"/>
   </connection>  

@@ -289,7 +289,7 @@ int checkTargets()
             // check whether removing of the task is scheduled
             if (target->removeTask != 0)
             {
-                ptask_cancel(_taskThread, target->removeTask);
+                ptask_cancel(_taskThread, target->removeTask, FALSE);
                 target->removeTask = 0;
             }
 
@@ -713,7 +713,7 @@ int main(int argc, char** argv)
     obix_dispose();
     ixmlDocument_free(_deviceData);
 
-    ptask_cancel(_taskThread, taskId);
+    ptask_cancel(_taskThread, taskId, TRUE);
     ptask_dispose(_taskThread);
 
     return 0;

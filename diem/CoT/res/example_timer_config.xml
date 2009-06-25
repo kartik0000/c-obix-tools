@@ -27,7 +27,33 @@
 			on the oBIX server and polls changes from it in order to monitor
 			subscribed values. Default value is 500 ms.
 		-->
-		<poll-interval val="5000" />
+		<poll-interval val="2000" />
+		<!-- 
+			This tag, if presents, says the library to use long poll requests
+			instead of classing polling. In long poll mode server holds request
+			from client and sends answer only when watching data is updated.
+			<long-poll/> has two child tags which define minimum and maximum
+			time for which server will wait before sending an answer. 
+			
+			TODO Add reference to long poll description here. 
+			Note: Long poll request feature is not in oBIX specification and 
+			currently available only at C oBIX Server.			
+		-->
+		<long-poll>
+			<!-- 
+				Minimum time after which server will reply (even if there is 
+				something to send). It is used to reduce network traffic if data
+				is changed rapidly.
+			-->
+			<min-interval val="200" />
+			<!--
+				Maximum time for which server will wait before answering. If
+				watching data is updated during waiting interval, then server 
+				will answer immediately, otherwise server will return empty 
+				answer after max-interval. 
+			-->
+			<max-interval val="60000" />
+		</long-poll>
 		<!--
 			Optional tag, specifying Watch.lease time in milliseconds. It defines
 			for how long a Watch object will be kept on the server if nobody
@@ -36,10 +62,10 @@
 			guaranteed that this will make any effect (oBIX servers can prevent
 			lease time from changing or it can be not implemented at all). If the
 			tag is not provided than the lease time will be calculated as 
-			(polling interval + 10 seconds). Obviously, Watch.lease should be 
+			(polling interval + 20 seconds). Obviously, Watch.lease should be 
 			longer than <poll-interval/>.
 		-->
-		<!--watch-lease val="10000" /-->
+		<!--watch-lease val="50000" /-->
 		<!--
 			Optional tag, specifying number of devices which will be registered
 			at the oBIX server using this connection. Can be used for better
