@@ -23,11 +23,11 @@
 		<!--server-address val="http://andrey-desktop:1234" lobby="/obix" /-->
 		<!--
 			Optional tag, specifying period of polling changes from server in
-			milliseconds. When using HTTP connection library creates Watch object
-			on the oBIX server and polls changes from it in order to monitor
-			subscribed values. Default value is 500 ms.
+			milliseconds. When using HTTP connection library creates Watch 
+			object on the oBIX server and polls changes from it in order to 
+			monitor	subscribed values. Default value is 500 ms.
 		-->
-		<poll-interval val="2000" />
+		<poll-interval val="1000" />
 		<!-- 
 			This tag, if presents, says the library to use long poll requests
 			instead of classing polling. In long poll mode server holds request
@@ -55,15 +55,15 @@
 			<max-interval val="60000" />
 		</long-poll>
 		<!--
-			Optional tag, specifying Watch.lease time in milliseconds. It defines
-			for how long a Watch object will be kept on the server if nobody
-			accesses it. If presents than the library tries to set Watch.lease
-			value after creating Watch object on the oBIX server, but it is not
-			guaranteed that this will make any effect (oBIX servers can prevent
-			lease time from changing or it can be not implemented at all). If the
-			tag is not provided than the lease time will be calculated as 
-			(polling interval + 20 seconds). Obviously, Watch.lease should be 
-			longer than <poll-interval/>.
+			Optional tag, specifying Watch.lease time in milliseconds. It 
+			defines	for how long a Watch object will be kept on the server if 
+			nobody accesses it. If presents than the library tries to set 
+			Watch.lease	value after creating Watch object on the oBIX server, 
+			but it is not guaranteed that this will make any effect (oBIX 
+			servers can prevent	lease time from changing or it can be not 
+			implemented at all). If the	tag is not provided than the lease time
+			will be calculated as (polling interval + 20 seconds). Obviously, 
+			Watch.lease should be longer than <poll-interval/>.
 		-->
 		<!--watch-lease val="50000" /-->
 		<!--
@@ -99,9 +99,9 @@
 		-->
 		<!--<file val="obix_client.log" />-->
 		<!--
-			Format of the log messages. The tag itself and all its attributes are
-			optional. In case if some attribute is missing, corresponding option
-			is disabled by default. 
+			Format of the log messages. The tag itself and all its attributes 
+			are	optional. In case if some attribute is missing, corresponding 
+			option is disabled by default. 
 			Attributes: 
 			- prefix:   Common prefix for each message;
 			- date:     Write date of the message ("true" or "false"); 
@@ -112,8 +112,8 @@
 		-->
 		<format date="true" time="true" priority="true" locale="true" />		
 		<!--
-			If the tag presents, than the log file will not be flushed after each
-			message.
+			If the tag presents, than the log file will not be flushed after 
+			each message.
 		-->
 		<!--no-flush/-->
 	</log>	

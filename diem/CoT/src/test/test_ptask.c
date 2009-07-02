@@ -4,6 +4,7 @@
  *  Created on: Mar 20, 2009
  *      Author: andrey
  */
+#include <stdio.h>
 #include <unistd.h>
 #include "test_main.h"
 #include <lwl_ext.h>

@@ -5,6 +5,9 @@
  * @author Andrey Litvinov
  * @version 1.0
  */
+// TODO remove me
+#include <stdarg.h>
+#include <stdio.h>
 
 #include <stdlib.h>
 #include <pthread.h>
@@ -38,7 +41,27 @@ struct _Task_Thread
     pthread_mutex_t taskListMutex;
     pthread_cond_t taskListUpdated;
     pthread_cond_t taskExecuted;
+    char* buff;
+    char* pos;
 };
+
+// TODO remove me
+static long getcurrmillis()
+{
+    struct timespec time;
+    clock_gettime(CLOCK_REALTIME, &time);
+    return time.tv_nsec;
+}
+
+void buffered_log(Task_Thread* thread, char* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    thread->pos += sprintf(thread->pos, "%ld: ", getcurrmillis());
+    thread->pos += vsprintf(thread->pos, fmt, args);
+    va_end(args);
+    thread->pos += sprintf(thread->pos, "\n");
+}
 
 /**@name Utility methods for work with @a timespec structure @{*/
 static void timespec_fromMillis(struct timespec* time, long millis)
@@ -182,6 +205,7 @@ static void periodicTask_removeFromList(Task_Thread* thread, Periodic_Task* ptas
 static void periodicTask_execute(Task_Thread* thread, Periodic_Task* ptask)
 {
     ptask->isExecuting = TRUE;
+    buffered_log(thread, "%p: task %p started.", thread, ptask->task);
     // release mutex, because execution may take considerable time
     pthread_mutex_unlock(&(thread->taskListMutex));
     (ptask->task)(ptask->arg);
@@ -189,11 +213,13 @@ static void periodicTask_execute(Task_Thread* thread, Periodic_Task* ptask)
     // check whether this task was already deleted
     if (ptask->isCancelled == TRUE)
     {
+        buffered_log(thread, "%p: task %p finished and canceled.", thread, ptask->task);
         // no need update the task, because it is already cancelled
         periodicTask_free(ptask);
         return;
     }
     ptask->isExecuting = FALSE;
+    buffered_log(thread, "%p: task %p finished.", thread, ptask->task);
 
     // check whether we need to schedule next execution time
     if (ptask->executeTimes > 0)
@@ -214,6 +240,7 @@ static void periodicTask_execute(Task_Thread* thread, Periodic_Task* ptask)
         periodicTask_generateNextExecTime(ptask);
     }
     // notify that task execution is completed
+    buffered_log(thread, "%p: condition task executed!", thread);
     pthread_cond_broadcast(&(thread->taskExecuted));
 }
 
@@ -385,21 +412,25 @@ int ptask_cancel(Task_Thread* thread, int taskId, BOOL wait)
     }
 
     periodicTask_removeFromList(thread, ptask);
-
+    log_error("%ld: cancel task %p at %p: task is removed from list.", getcurrmillis(), ptask->task, thread);
     // task list is updated, notify taskThread
     pthread_cond_signal(&(thread->taskListUpdated));
 
     if (ptask->isExecuting)
-    {   // can't delete the task right now, mark it as cancelled
+    {   // can't delete the task right now, mark it as canceled
+        log_error("%ld: cancel task %p at %p: it is executing.", getcurrmillis(), ptask->task, thread);
         ptask->isCancelled = TRUE;
+        log_error("%ld: cancel task %p at %p: marked as canceled.", getcurrmillis(), ptask->task, thread);
         if (wait)
         {	// wait until the task is completed and really removed.
+            log_error("%ld: cancel task %p at %p: waiting.", getcurrmillis(), ptask->task, thread);
             pthread_cond_wait(&(thread->taskExecuted),
                               &(thread->taskListMutex));
         }
     }
     else
     {	// delete the task
+        log_error("%ld: cancel task %p at %p: task is freed.", getcurrmillis(), ptask->task, thread);
         periodicTask_free(ptask);
     }
     pthread_mutex_unlock(&(thread->taskListMutex));
@@ -456,6 +487,8 @@ static void* threadCycle(void* arg)
 
         // wait for the time when task should be executed
         //        log_debug("wait for the time when the task should be executed");
+        buffered_log(thread, "%p: start waiting to execute %p.", thread, task->task);
+//        periodic_task t = task->task;
         waitState = pthread_cond_timedwait(&(thread->taskListUpdated),
                                            &(thread->taskListMutex),
                                            &(task->nextScheduledTime));
@@ -467,10 +500,12 @@ static void* threadCycle(void* arg)
             // condition _taskListUpdated is reached
             // it means that we need to check once again for the closest task
             // thus do nothing
+//            buffered_log(thread, "%p: woke up because task list is updated (waited for %p).", thread, t);
             break;
         case ETIMEDOUT:
             // Nothing happened when we waited for the task to be executed
             // so let's execute it now
+//            buffered_log(thread, "%p: woke up to execute %p.", thread, t);
             periodicTask_execute(thread, task);
             break;
         case EINVAL:
@@ -492,7 +527,7 @@ static void* threadCycle(void* arg)
             break;
         }
     }
-    // this line actually is never reached
+    // this line actually is never reached, see stopTask
     return NULL;
 }
 
@@ -554,6 +589,10 @@ Task_Thread* ptask_init()
     thread->id_gen = 1;
     thread->taskList = NULL;
 
+    // TODO remove me
+    thread->buff = (char*) malloc(16384);
+    thread->pos = thread->buff;
+
     // start the thread
     error = pthread_create(&(thread->thread), &(thread->threadAttr), &threadCycle, thread);
     if (error != 0)
@@ -586,6 +625,10 @@ static void stopTask(void* arg)
     periodicTask_deleteRecursive(thread->taskList);
     thread->taskList = NULL;
     pthread_mutex_unlock(&(thread->taskListMutex));
+
+    // TODO remove me
+    log_error("%s", thread->buff);
+    free(thread->buff);
 
     // stop the thread
     pthread_attr_destroy(&(thread->threadAttr));

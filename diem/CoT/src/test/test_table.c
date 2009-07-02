@@ -4,7 +4,8 @@
  * @author Andrey Litvinov
  * @version 1.0
  */
-
+#include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include <table.h>
 #include "test_main.h"

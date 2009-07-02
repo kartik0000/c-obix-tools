@@ -12,8 +12,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <pthread.h>
+
 #include <ptask.h>
+#include <obix_utils.h>
 #include <obix_client.h>
 //TODO think about changing printf calls to lwl_ext library
 
@@ -28,8 +31,7 @@ const char* DEVICE_DATA =
 
 /** Elapsed time is stored here. */
 unsigned long _time;
-/** Used for string representation of the timer value. */
-char _time_str[32];
+
 /**
  * Need mutex for synchronization, because _time variable is accessed
  * from two threads.
@@ -64,8 +66,14 @@ int resetListener(int connectionId,
     pthread_mutex_unlock(&_time_mutex);
     printf("Timer is set to 0.\n");
 
+    // write zero value to the server
+    int error = obix_writeValue(connectionId, deviceId, "time", "PT0S", OBIX_T_RELTIME);
+    if (error != OBIX_SUCCESS)
+    {
+        printf("Unable to set timer to zero at the server.\n");
+    }
     // reset also "reset" field of the timer at the oBIX server
-    int error = obix_writeValue(connectionId, deviceId, "reset", "false", OBIX_T_BOOL);
+    error = obix_writeValue(connectionId, deviceId, "reset", "false", OBIX_T_BOOL);
     if (error != OBIX_SUCCESS)
     {
         printf("Unable to set \"reset\" field at the oBIX server "
@@ -74,29 +82,6 @@ int resetListener(int connectionId,
     }
 
     return OBIX_SUCCESS;
-}
-
-/**
- * Generates string representation of elapsed time
- * according to @a xs:duration XML data type.
- */
-void generateTimeString()
-{
-    unsigned long hours = _time / 3600;
-    int minutes = (_time % 3600) / 60;
-    int seconds = _time % 60;
-
-    int length = sprintf(_time_str, "PT");
-    if (hours != 0)
-    {
-        length += sprintf(_time_str + length, "%luH", hours);
-    }
-    if (minutes != 0)
-    {
-        length += sprintf(_time_str + length, "%dM", minutes);
-    }
-
-    sprintf(_time_str + length, "%dS", seconds);
 }
 
 /**
@@ -115,24 +100,31 @@ void timerTask(void* arg)
     // lock mutex in order to prevent other threads
     // from accessing _time variable while we update it
     pthread_mutex_lock(&_time_mutex);
-    _time++;
-    generateTimeString();
+    // increase time by one second
+    _time += 1000;
+    // if time is bigger than 10 days - reset timer.
+    if (_time > 864000000)
+    {
+        _time = 0;
+    }
+    char* reltime = obix_reltime_fromLong(_time, RELTIME_DAY);
     pthread_mutex_unlock(&_time_mutex);
 
     // send updated time to the server
     int deviceId = *((int*) arg);
-    int error = obix_writeValue(CONNECTION_ID, deviceId, "time", _time_str, OBIX_T_RELTIME);
+    int error = obix_writeValue(CONNECTION_ID, deviceId, "time", reltime, OBIX_T_RELTIME);
     if (error != OBIX_SUCCESS)
     {
-        printf("Unable to update elapsed time at the server.\n");
+        printf("Unable to update timer value at the server.\n");
     }
+    free(reltime);
 }
 
 char* getDeviceData(char* deviceUri)
 {
     // length of data template +
     // 3 * (length of device URI - length of '%s' which is substituted) +
-	// 1 for end character
+    // 1 for end character
     char* data = (char*) malloc(strlen(DEVICE_DATA)
                                 + (strlen(deviceUri) - 2)*3 + 1);
     sprintf(data, DEVICE_DATA, deviceUri, deviceUri, deviceUri);
@@ -150,10 +142,10 @@ int main(int argc, char** argv)
 {
     if (argc != 3)
     {
-        printf("Usage: example_clock <config_file> <device_uri>\n"
+        printf("Usage: %s <config_file> <device_uri>\n"
                " where <config_file> - Address of the configuration file;\n"
                "       <device_uri>  - URI at which device will be "
-               "registered.\n");
+               "registered.\n", argv[0]);
         return -1;
     }
 

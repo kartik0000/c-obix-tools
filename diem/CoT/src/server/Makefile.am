@@ -5,6 +5,7 @@ obix_fcgi_SOURCES = obix_fcgi.h obix_fcgi.c \
                     xml_storage.h xml_storage.c \
                     watch.h watch.c \
                     response.h response.c \
+                    request.h \
                     post_handler.h post_handler.c
                     
 obix_fcgi_CFLAGS  = $(WARN_FLAGS) -I$(top_srcdir)/src/common 

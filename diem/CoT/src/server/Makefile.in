@@ -91,10 +91,6 @@ CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CURL_CFLAGS = @CURL_CFLAGS@
 CURL_LIBS = @CURL_LIBS@
-CXX = @CXX@
-CXXCPP = @CXXCPP@
-CXXDEPMODE = @CXXDEPMODE@
-CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
@@ -153,7 +149,6 @@ abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
 ac_ct_CC = @ac_ct_CC@
-ac_ct_CXX = @ac_ct_CXX@
 ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
 am__include = @am__include@
 am__leading_dot = @am__leading_dot@
@@ -205,6 +200,7 @@ obix_fcgi_SOURCES = obix_fcgi.h obix_fcgi.c \
                     xml_storage.h xml_storage.c \
                     watch.h watch.c \
                     response.h response.c \
+                    request.h \
                     post_handler.h post_handler.c
 
 obix_fcgi_CFLAGS = $(WARN_FLAGS) -I$(top_srcdir)/src/common 

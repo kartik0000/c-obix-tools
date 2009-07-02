@@ -1,4 +1,4 @@
-
+#include <stdio.h>
 #include "test_client.h"
 #include "test_server.h"
 #include "test_common.h"

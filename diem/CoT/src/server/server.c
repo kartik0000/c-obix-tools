@@ -2,6 +2,7 @@
  * @todo add description there
  */
 #include <stdlib.h>
+#include <string.h>
 
 #include <obix_utils.h>
 #include <xml_config.h>

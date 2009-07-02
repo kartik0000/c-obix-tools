@@ -4,7 +4,7 @@
  * @author Andrey Litvinov
  * @version 1.0
  */
-
+#include <string.h>
 #include <obix_client.h>
 #include <curl_ext.h>
 #include <xml_config.h>

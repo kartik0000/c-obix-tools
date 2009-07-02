@@ -9,6 +9,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 //#include <syslog.h>
 #include <xml_config.h>
 #include <lwl.h>

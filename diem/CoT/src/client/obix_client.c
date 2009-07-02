@@ -6,6 +6,7 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
 #include <ixml_ext.h>
 #include <lwl_ext.h>
 #include <xml_config.h>

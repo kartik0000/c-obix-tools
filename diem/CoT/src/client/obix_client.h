@@ -238,7 +238,11 @@ int obix_unregisterDevice(int connectionId, int deviceId);
  *                 registration, or relative to the server root if changing
  *                 parameter doesn't belong to devices registered by this
  *                 client.
- * @param newValue Text representation of the new value to be written.
+ * @param newValue Text representation of the new value to be written. It should
+ *                 be a new value for the @a val attribute of the oBIX object on
+ *                 the server, not the whole object.
+ * @note  Only value of an object (@a val attribute) can be written using this
+ * 		  method. It's not possible to overwrite a piece of XML on the server.
  * @param dataType Type of data which is written to the server.
  * @return @a #OBIX_SUCCESS on success, negative error code otherwise.
  */
