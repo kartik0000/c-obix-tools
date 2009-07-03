@@ -909,7 +909,7 @@ static int removeWatch(Http_Connection* c)
 
     // stop polling task and wait for it if it is executing right now
     // ignore error - we just want make sure that the task is canceled
-    // but it can be cancelled earlier
+    // but it can be canceled earlier
     ptask_cancel(_watchThread, c->watchPollTaskId, TRUE);
 
     // reset all Watch related variables, because they are no longer valid
@@ -1030,8 +1030,9 @@ int http_init()
     return OBIX_SUCCESS;
 }
 
-void http_dispose()
+int http_dispose()
 {
+	int retVal = OBIX_SUCCESS;
     if (_initialized)
     {
         // destroy curl handles
@@ -1040,10 +1041,11 @@ void http_dispose()
         // stop curl library
         curl_ext_dispose();
         // stop Periodic Task thread
-        ptask_dispose(_watchThread);
+        retVal = ptask_dispose(_watchThread, TRUE);
     }
 
     _initialized = FALSE;
+    return retVal;
 }
 
 int http_initConnection(IXML_Element* connItem, Connection** connection)

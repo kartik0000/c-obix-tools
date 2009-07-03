@@ -106,11 +106,11 @@ int obixWatch_dispose()
     // stop threads
     if (_threadLease != NULL)
     {
-        ptask_dispose(_threadLease);
+        ptask_dispose(_threadLease, TRUE);
     }
     if (_threadLongPoll != NULL)
     {
-        ptask_dispose(_threadLongPoll);
+        ptask_dispose(_threadLongPoll, TRUE);
     }
 
     return error;

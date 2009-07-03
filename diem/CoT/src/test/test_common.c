@@ -137,6 +137,10 @@ int testObix_reltime_fromLong()
                  RELTIME_DAY,
                  "P1D");
     error += testObix_reltime_fromLongHelper(
+                 65 * 1000,
+                 RELTIME_DAY,
+                 "PT1M5S");
+    error += testObix_reltime_fromLongHelper(
                  60 * 60 * 1000 + 100,
                  RELTIME_DAY,
                  "PT1H0.1S");

@@ -45,7 +45,7 @@ void taskStopThread(void* arg)
 {
     time_t now = time(NULL);
     printf("%sScheduling stop of the thread.\n", ctime(&now));
-    ptask_dispose((Task_Thread*) arg);
+    ptask_dispose((Task_Thread*) arg, TRUE);
 }
 
 void test_ptask_byHands()

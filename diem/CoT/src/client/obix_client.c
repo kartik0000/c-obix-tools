@@ -705,10 +705,10 @@ int obix_writeValue(int connectionId,
 int obix_dispose()
 {
     int retVal = OBIX_SUCCESS;
+    int error;
     if (_connections != NULL)
     {
         int i;
-        int error;
         for (i = 0; i < _connectionCount; i++)
         {
             if (_connections[i] != NULL)
@@ -716,13 +716,13 @@ int obix_dispose()
                 if (_connections[i]->isConnected)
                 {
                     error = obix_closeConnection(i);
-                    if (error != OBIX_SUCCESS)
+                    if ((error != OBIX_SUCCESS) && (retVal == OBIX_SUCCESS))
                     {
                         retVal = error;
                     }
                 }
                 error = connection_free(_connections[i]);
-                if (error != OBIX_SUCCESS)
+                if ((error != OBIX_SUCCESS) && (retVal == OBIX_SUCCESS))
                 {
                     retVal = error;
                 }
@@ -730,10 +730,15 @@ int obix_dispose()
         }
     }
     free(_connections);
-    http_dispose();
+    error = http_dispose();
+    if ((error != OBIX_SUCCESS) && (retVal == OBIX_SUCCESS))
+    {
+        retVal = error;
+    }
 
-    if (_logConfigured) {
-    	config_dispose();
+    if (_logConfigured)
+    {
+        config_dispose();
     }
 
     return retVal;

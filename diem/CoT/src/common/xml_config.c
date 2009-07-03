@@ -18,11 +18,6 @@ static char* resourceFolder;
 
 static IXML_Document* xmlConfigDoc;
 
-//static IXML_Element* getElement(IXML_NodeList* list, BOOL obligatory)
-//{
-//	ixml
-//}
-
 IXML_Element* config_getChildTag(IXML_Element* conf, const char* tagName, BOOL obligatory)
 {
     IXML_NodeList* list = ixmlElement_getElementsByTagName(conf, tagName);

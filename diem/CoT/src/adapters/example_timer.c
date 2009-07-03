@@ -30,7 +30,7 @@ const char* DEVICE_DATA =
     "</obj>";
 
 /** Elapsed time is stored here. */
-unsigned long _time;
+long _time;
 
 /**
  * Need mutex for synchronization, because _time variable is accessed
@@ -212,12 +212,10 @@ int main(int argc, char** argv)
         printf("Unable to stop timer task.\n");
         return -1;
     }
-    ptask_dispose(taskThread);
+    ptask_dispose(taskThread, TRUE);
 
     // release all resources allocated by oBIX client library.
     // No need to close connection or unregister listener explicitly - it is
     // done automatically.
-    obix_dispose();
-
-    return 0;
+    return obix_dispose();
 }

@@ -714,8 +714,8 @@ int main(int argc, char** argv)
     obix_dispose();
     ixmlDocument_free(_deviceData);
 
-    ptask_cancel(_taskThread, taskId, TRUE);
-    ptask_dispose(_taskThread);
+    ptask_cancel(_taskThread, taskId, FALSE);
+    ptask_dispose(_taskThread, TRUE);
 
     return 0;
 }

@@ -48,9 +48,12 @@ Task_Thread* ptask_init();
  * All scheduled tasks are canceled.
  *
  * @param thread Pointer to the #Task_Thread to be freed.
+ * @param wait   If @a TRUE than the method will block and wait until specified
+ *               thread is really disposed. Otherwise, method will only schedule
+ *               asynchronous disposing of the thread.
  * @return @a 0 on success, negative error code otherwise.
  */
-int ptask_dispose(Task_Thread* thread);
+int ptask_dispose(Task_Thread* thread, BOOL wait);
 
 /**
  * Schedules new task for execution.

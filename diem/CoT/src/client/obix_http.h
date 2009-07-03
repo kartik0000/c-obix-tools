@@ -57,7 +57,7 @@ int http_init();
 /**
  * Calls when HTTP stack is not initialized have no effect.
  */
-void http_dispose();
+int http_dispose();
 
 int http_initConnection(IXML_Element* connItem, Connection** connection);
 int http_openConnection(Connection* connection);
