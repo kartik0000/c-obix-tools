@@ -1,6 +1,6 @@
 /** @file
- * Simplest implementation of XML storage.
- * All data is stored in DOM structure in memory.
+ * Simple implementation of XML storage.
+ * All data is stored in one DOM structure in memory.
  */
 #include <stdlib.h>
 #include <stdio.h>
@@ -10,6 +10,9 @@
 #include <xml_config.h>
 #include <lwl_ext.h>
 #include "xml_storage.h"
+
+const char* DEVICE_URI_PREFIX = "/obix";
+const int DEVICE_URI_PREFIX_LENGTH = 5;
 
 const char* OBIX_SYS_WATCH_STUB = "/sys/watch-stub/";
 const char* OBIX_SYS_ERROR_STUB = "/sys/error-stub/";
@@ -29,7 +32,7 @@ static const char* OBIX_STORAGE_FILES[] =
 static const int OBIX_STORAGE_FILES_COUNT = 7;
 
 /**The place where all data is stored.*/
-static IXML_Document* storage = NULL;
+static IXML_Document* _storage = NULL;
 
 /**Address of the current server.*/
 char* _serverAddress = NULL;
@@ -42,105 +45,16 @@ static void printXMLContents(IXML_Node* node, const char* title)
     ixmlFreeDOMString(str);
 }
 
-//static int loadServerAddress(IXML_Node* lobby)
-//{
-//    //TODO: get the server address from settings file and write it to the lobby object
-//    const char* lobbyUri = ixmlElement_getAttribute(ixmlNode_convertToElement(lobby), OBIX_ATTR_HREF);
-//    if (lobbyUri == NULL)
-//    {
-//        ixmlElement_setAttribute(NULL, NULL, NULL);
-//        logError("Unable to initialize the storage. Unable to find URI in the Lobby object.");
-//        return -1;
-//    }
-//
-//    // check that uri is absolute
-//    if (strncmp(lobbyUri, "http://", 7) != 0)
-//    {
-//        logError("Unable to initialize the storage. Lobby object contains wrong URI.");
-//        return -1;
-//    }
-//
-//    // extract server name
-//    char* relativeUri = strchr(lobbyUri + 8, '/');
-//    if (relativeUri == NULL)
-//    {
-//        logError("Unable to initialize the storage. Lobby object contains wrong URI.");
-//        return -1;
-//    }
-//
-//    _serverAddressLength = relativeUri - lobbyUri;
-//    _serverAddress = (char*) malloc(_serverAddressLength + 1);
-//    strncpy(_serverAddress, lobbyUri, _serverAddressLength);
-//    _serverAddress[_serverAddressLength] = '\0';
-//
-//    return 0;
-//}
-
-int xmldb_loadFile(const char* filename)
-{
-    char* xmlFile = config_getResFullPath(filename);
-
-    // open the file
-    FILE* file = fopen(xmlFile, "rb");
-    if (file == NULL)
-    {
-        log_error("Unable to access file \"%s\".", xmlFile);
-        free(xmlFile);
-        return -1;
-    }
-
-    // check the file size
-    int error = fseek(file, 0, SEEK_END);
-    if (error != 0)
-    {
-        log_error("Error reading file \'%s\' (%d).", xmlFile, error);
-        free(xmlFile);
-        return error;
-    }
-    int size = ftell(file);
-    if (size <= 0)
-    {
-        log_error("Error reading file \"%s\".", xmlFile);
-        free(xmlFile);
-        return -1;
-    }
-    rewind(file);
-
-    // read the file to the buffer
-    char* data = (char*) malloc(size + 1);
-    if (data == NULL)
-    {
-        log_error("Error reading file \"%s\". File is too big.", xmlFile);
-        free(xmlFile);
-        return -1;
-    }
-    int bytesRead = fread(data, 1, size, file);
-    data[bytesRead] = '\0';
-
-    // put data to the storage
-    error = xmldb_put(data);
-    free(data);
-    if (error != 0)
-    {
-        log_error("Unable to update storage. File \"%s\" is corrupted (error %d).", xmlFile, error);
-        free(xmlFile);
-        return error;
-    }
-
-    free(xmlFile);
-    return 0;
-}
-
 int xmldb_init(const char* serverAddr)
 {
-    if (storage != NULL)
+    if (_storage != NULL)
     {
         //TODO: replace with mega log
         log_error("Storage has been already initialized!");
         return -1;
     }
 
-    int error = ixmlDocument_createDocumentEx(&storage);
+    int error = ixmlDocument_createDocumentEx(&_storage);
     if (error != IXML_SUCCESS)
     {
         log_error("Unable to initialize the storage. (error %d).", error);
@@ -177,8 +91,8 @@ int xmldb_init(const char* serverAddr)
 
 void xmldb_dispose()
 {
-    ixmlDocument_free(storage);
-    storage = NULL;
+    ixmlDocument_free(_storage);
+    _storage = NULL;
     if (_serverAddress != NULL)
     {
         free(_serverAddress);
@@ -197,12 +111,12 @@ static int getLastSlashPosition(const char* str, int startPosition)
     return temp - str;
 }
 
-static int _lastUriCompSlashMatch = 0;
-
-int xmldb_getLastUriCompSlashFlag()
-{
-    return _lastUriCompSlashMatch;
-}
+//static int _lastUriCompSlashMatch = 0;
+//
+//int xmldb_getLastUriCompSlashFlag()
+//{
+//    return _lastUriCompSlashMatch;
+//}
 
 //BOOL xmldb_compareUri(const char* uri1, const char* uri2)
 //{
@@ -250,7 +164,10 @@ int xmldb_getLastUriCompSlashFlag()
  *                   checked in requiredUri.
  *         @li @b <0 If currentUri doesn't match with requiredUri.
  */
-static int compare_uri(const char* currentUri, const char* requiredUri, int checked)
+static int compare_uri(const char* currentUri,
+                       const char* requiredUri,
+                       int checked,
+                       int* slashFlag)
 {
     //    log_debug("comparing: \"%s\" and \"%s\"", currentUri, requiredUri + checked);
     if (xmldb_compareServerAddr(currentUri) == 0)
@@ -272,7 +189,7 @@ static int compare_uri(const char* currentUri, const char* requiredUri, int chec
     }
 
     //clear last comparison flag
-    _lastUriCompSlashMatch = 0;
+    *slashFlag = 0;
 
     int currLength = strlen(currentUri);
     BOOL currUriHasRemaining;
@@ -283,7 +200,7 @@ static int compare_uri(const char* currentUri, const char* requiredUri, int chec
         currUriHasRemaining = FALSE;
         currLength--;
         // see xmldb_getLastUriCompSlashFlag for explanation
-        _lastUriCompSlashMatch++;
+        (*slashFlag)++;
     }
     else
     {
@@ -319,7 +236,7 @@ static int compare_uri(const char* currentUri, const char* requiredUri, int chec
     {
         requiredLength--;
         // see xmldb_getLastUriCompSlashFlag for explanation
-        _lastUriCompSlashMatch--;
+        (*slashFlag)--;
     }
     //    log_debug("checked %d, required %d, requiredUri ends with \'%c\'", currLength, requiredLength, requiredUri[checked + requiredLength]);
     if ((currLength == requiredLength) && !currUriHasRemaining)
@@ -356,7 +273,7 @@ static int compare_uri(const char* currentUri, const char* requiredUri, int chec
  * checked (and match) in parent node.
  */
 static IXML_Node* getNodeByHrefRecursive(IXML_Node* node, const char* href,
-        int checked)
+        int checked, int* slashFlag)
 {
     if (node == NULL)
     {
@@ -375,7 +292,7 @@ static IXML_Node* getNodeByHrefRecursive(IXML_Node* node, const char* href,
             && ((currentUri = ixmlElement_getAttribute(element, OBIX_ATTR_HREF)) != NULL))
     {
 
-        compareResult = compare_uri(currentUri, href, checked);
+        compareResult = compare_uri(currentUri, href, checked, slashFlag);
         if (compareResult == 0)
         {
             // we found the required node
@@ -388,25 +305,25 @@ static IXML_Node* getNodeByHrefRecursive(IXML_Node* node, const char* href,
     // were not compared at all
     if (compareResult == 0)
     {
-        match = getNodeByHrefRecursive(ixmlNode_getFirstChild(node), href, checked);
+        match = getNodeByHrefRecursive(ixmlNode_getFirstChild(node), href, checked, slashFlag);
     }
     else if (compareResult > 0)
     {
         // we found part of the uri on this step
         // continue search in children the remaining address
-        match = getNodeByHrefRecursive(ixmlNode_getFirstChild(node), href, compareResult);
+        match = getNodeByHrefRecursive(ixmlNode_getFirstChild(node), href, compareResult, slashFlag);
     }
     // do not check children if compareResult < 0
 
     if (match == NULL)
     {
-        match = getNodeByHrefRecursive(ixmlNode_getNextSibling(node), href, checked);
+        match = getNodeByHrefRecursive(ixmlNode_getNextSibling(node), href, checked, slashFlag);
     }
 
     return match;
 }
 
-static IXML_Node* getNodeByHref(IXML_Document* doc, const char* href)
+static IXML_Node* getNodeByHref(IXML_Document* doc, const char* href, int* slashFlag)
 {
     // TODO think whether leave it here and remove checks in other places
     // or remove it from here and make a special method which will be
@@ -415,17 +332,25 @@ static IXML_Node* getNodeByHref(IXML_Document* doc, const char* href)
     {
         href += _serverAddressLength;
     }
-    return getNodeByHrefRecursive(ixmlDocument_getNode(doc), href, 0);
+
+    // in case if no slash flag is required, provide a temp variable to the
+    // further methods.
+    int temp;
+    if (slashFlag == NULL)
+    {
+        slashFlag = &temp;
+    }
+    return getNodeByHrefRecursive(ixmlDocument_getNode(doc), href, 0, slashFlag);
 }
 
-IXML_Element* xmldb_getDOM(const char* href)
+IXML_Element* xmldb_getDOM(const char* href, int* slashFlag)
 {
-    return ixmlNode_convertToElement(getNodeByHref(storage, href));
+    return ixmlNode_convertToElement(getNodeByHref(_storage, href, slashFlag));
 }
 
-char* xmldb_get(const char* href)
+char* xmldb_get(const char* href, int* slashFlag)
 {
-    return ixmlPrintNode(getNodeByHref(storage, href));
+    return ixmlPrintNode(getNodeByHref(_storage, href, slashFlag));
 }
 
 /**
@@ -457,16 +382,69 @@ static IXML_Node* processInputData(const char* data)
     return node;
 }
 
+// checks for all href attributes in the provided piece of XML and inserts
+// server address (and /obix/ prefix if necessary) to all URI's which are
+// absolute
+static void insertServerAddress(IXML_Node* node, BOOL checkPrefix)
+{
+    if (node == NULL)
+        return;	// exit point for the recursion
+
+    // if this node is element and has 'href' attribute than check it:
+    IXML_Element* element = ixmlNode_convertToElement(node);
+    if (element != NULL)
+    {
+        const char* href = ixmlElement_getAttribute(element, OBIX_ATTR_HREF);
+        if ((href != NULL) && (*href == '/'))
+        {
+            // href attribute points to the server root
+            // check that it starts with /obix/
+            int additionalSpace = 0;
+            if (checkPrefix && (strncmp(href,
+                                        DEVICE_URI_PREFIX,
+                                        DEVICE_URI_PREFIX_LENGTH) != 0))
+            {
+                additionalSpace = DEVICE_URI_PREFIX_LENGTH;
+            }
+            // add server address to it
+            char newHref[strlen(href) + _serverAddressLength
+                         + additionalSpace + 1];
+            strcpy(newHref, _serverAddress);
+            if (additionalSpace > 0)
+            {
+                strcpy(newHref + _serverAddressLength, DEVICE_URI_PREFIX);
+            }
+            strcpy(newHref + _serverAddressLength + additionalSpace, href);
+            int error = ixmlElement_setAttribute(element,
+                                                 OBIX_ATTR_HREF,
+                                                 newHref);
+            if (error != IXML_SUCCESS)
+            {
+                log_warning("Unable to update \"%s\" attribute of the object "
+                            "before storing it: ixmlElement_setAttribute "
+                            "returned %d.", OBIX_ATTR_HREF, error);
+            }
+        }
+    }
+
+    // search also in child and neighbor tags
+    insertServerAddress(ixmlNode_getFirstChild(node), checkPrefix);
+    insertServerAddress(ixmlNode_getNextSibling(node), checkPrefix);
+}
+
 /**
  * Checks the node to comply with storage standards.
  * @todo Check that all objects in the input document have required attributes
  * and correct URI's.
  *
  * @param node Node to check
+ * @param checkPrefix If @a TRUE than all nodes with absolute URIs will be also
+ *                    checked to have /obix prefix.
  * @return @a href attribute of the parent node, or @a NULL if check fails.
  */
-static const char* checkNode(IXML_Node* node)
+static const char* checkNode(IXML_Node* node, BOOL checkPrefix)
 {
+    // so far it only checks the href attribute from of the parent object :)
     IXML_Element* element = ixmlNode_convertToElement(node);
     if (element == NULL)
     {
@@ -478,48 +456,40 @@ static const char* checkNode(IXML_Node* node)
 
     if (href == NULL)
     {
-        log_warning("Unable to write to the storage. No \'href\' attribute found.");
+        log_warning("Unable to write to the storage: "
+                    "No \'href\' attribute found.");
         return NULL;
     }
 
     if (*href != '/')
     {
-        log_warning("Unable to write to the storage. \'href\' attribute should have absolute URI (without server address).");
+        log_warning("Unable to write to the storage: "
+                    "\'href\' attribute should have absolute URI (without "
+                    "server address).");
         return NULL;
     }
 
-    return href;
+    insertServerAddress(node, checkPrefix);
+
+    // the href could be changed so we need to get it once more
+    return ixmlElement_getAttribute(element, OBIX_ATTR_HREF);
 }
 
-/**
- * Adds XML node to the storage.
- * The data is stored in the root of the document.
- */
-int xmldb_put(const char* data)
+static int xmldb_putDOMHelper(IXML_Element* data, BOOL checkPrefix)
 {
-    IXML_Node* node = NULL;
+    IXML_Node* node = ixmlElement_getNode(data);
     IXML_Node* newNode = NULL;
 
-    // shortcut for cleaning all resources if error occurres.
+    // shortcut for cleaning all resources if error occurs.
     void onError()
     {
-        if (node != NULL)
-        {
-            ixmlDocument_free(ixmlNode_getOwnerDocument(node));
-        }
         if (newNode != NULL)
         {
             ixmlNode_free(newNode);
         }
     }
 
-    node = processInputData(data);
-    if (node == NULL)
-    {
-        return -1;
-    }
-
-    const char* href = checkNode(node);
+    const char* href = checkNode(node, checkPrefix);
     if (href == NULL)
     {
         // error is already logged.
@@ -528,7 +498,7 @@ int xmldb_put(const char* data)
     }
 
     // append node to the storage
-    int error = ixmlDocument_importNode(storage, node, TRUE, &newNode);
+    int error = ixmlDocument_importNode(_storage, node, TRUE, &newNode);
     if (error != IXML_SUCCESS)
     {
         log_warning("Unable to write to the storage (error %d).", error);
@@ -537,7 +507,7 @@ int xmldb_put(const char* data)
     }
 
     // look for available node with the same href
-    IXML_Node* nodeInStorage = getNodeByHref(storage, href);
+    IXML_Node* nodeInStorage = getNodeByHref(_storage, href, NULL);
     if (nodeInStorage != NULL)
     {
         log_warning("Unable to write to the storage: The object with the same URI (%s) already exists.", href);
@@ -549,7 +519,7 @@ int xmldb_put(const char* data)
     }
 
     // append as a new node
-    error = ixmlNode_appendChild(ixmlDocument_getNode(storage), newNode);
+    error = ixmlNode_appendChild(ixmlDocument_getNode(_storage), newNode);
     if (error != IXML_SUCCESS)
     {
         log_warning("Unable to write to the storage (error %d).", error);
@@ -557,35 +527,48 @@ int xmldb_put(const char* data)
         return error;
     }
 
-    // add server address to the node's href attribute
-    char* fullHref = xmldb_getFullUri(href, 0);
-    if (fullHref == NULL)
-    {
-        log_error("Unable to write to the storage. Unable to allocate enough memory.");
-        ixmlNode_removeChild(ixmlDocument_getNode(storage), newNode, &newNode);
-        onError();
-        return -1;
-    }
-
-    error = ixmlElement_setAttributeWithLog(ixmlNode_convertToElement(newNode),
-                                            OBIX_ATTR_HREF,
-                                            fullHref);
-    free(fullHref);
-    if (error != 0)
-    {
-        log_error("Unable to write to the storage.");
-        ixmlNode_removeChild(ixmlDocument_getNode(storage), newNode, &newNode);
-        onError();
-        return -1;
-    }
-
-    // delete old node
-    ixmlDocument_free(ixmlNode_getOwnerDocument(node));
-
     return 0;
 }
 
-int xmldb_update(const char* data, const char* href, IXML_Element** updatedNode)
+int xmldb_putDOM(IXML_Element* data)
+{
+    return xmldb_putDOMHelper(data, TRUE);
+}
+
+/**
+ * Adds XML node to the storage.
+ * The data is stored in the root of the document.
+ */
+static int xmldb_putHelper(const char* data, BOOL checkPrefix)
+{
+    IXML_Node* node = processInputData(data);
+    if (node == NULL)
+    {
+        return -1;
+    }
+    IXML_Element* element = ixmlNode_convertToElement(node);
+    if (element == NULL)
+    {
+        log_error("Input data is not an XML element! "
+                  "This should never happen.");
+        return -1;
+    }
+
+    int error = xmldb_putDOMHelper(element, checkPrefix);
+    ixmlDocument_free(ixmlNode_getOwnerDocument(node));
+
+    return error;
+}
+
+int xmldb_put(const char* data)
+{
+	return xmldb_putHelper(data, TRUE);
+}
+
+int xmldb_update(const char* data,
+                 const char* href,
+                 IXML_Element** updatedNode,
+                 int* slashFlag)
 {
     IXML_Node* node = processInputData(data);
     if (node == NULL)
@@ -605,7 +588,7 @@ int xmldb_update(const char* data, const char* href, IXML_Element** updatedNode)
     }
 
     // get the object from the storage
-    IXML_Element* nodeInStorage = xmldb_getDOM(href);
+    IXML_Element* nodeInStorage = xmldb_getDOM(href, slashFlag);
     if (nodeInStorage == NULL)
     {
         log_warning("Unable to update the storage: "
@@ -658,7 +641,7 @@ int xmldb_update(const char* data, const char* href, IXML_Element** updatedNode)
 
 int xmldb_delete(const char* href)
 {
-    IXML_Node* node = getNodeByHref(storage, href);
+    IXML_Node* node = getNodeByHref(_storage, href, NULL);
     if (node == NULL)
     {
         log_warning("Unable to delete data. Provided URI (%s) doesn't exist.", href);
@@ -676,19 +659,74 @@ int xmldb_delete(const char* href)
     return 0;
 }
 
+int xmldb_loadFile(const char* filename)
+{
+    char* xmlFile = config_getResFullPath(filename);
+
+    // open the file
+    FILE* file = fopen(xmlFile, "rb");
+    if (file == NULL)
+    {
+        log_error("Unable to access file \"%s\".", xmlFile);
+        free(xmlFile);
+        return -1;
+    }
+
+    // check the file size
+    int error = fseek(file, 0, SEEK_END);
+    if (error != 0)
+    {
+        log_error("Error reading file \'%s\' (%d).", xmlFile, error);
+        free(xmlFile);
+        return error;
+    }
+    int size = ftell(file);
+    if (size <= 0)
+    {
+        log_error("Error reading file \"%s\".", xmlFile);
+        free(xmlFile);
+        return -1;
+    }
+    rewind(file);
+
+    // read the file to the buffer
+    char* data = (char*) malloc(size + 1);
+    if (data == NULL)
+    {
+        log_error("Error reading file \"%s\". File is too big.", xmlFile);
+        free(xmlFile);
+        return -1;
+    }
+    int bytesRead = fread(data, 1, size, file);
+    data[bytesRead] = '\0';
+
+    // put data to the storage
+    error = xmldb_putHelper(data, FALSE);
+    free(data);
+    if (error != 0)
+    {
+        log_error("Unable to update storage. File \"%s\" is corrupted (error %d).", xmlFile, error);
+        free(xmlFile);
+        return error;
+    }
+
+    free(xmlFile);
+    return 0;
+}
+
 void xmldb_printDump()
 {
-    printXMLContents(ixmlDocument_getNode(storage), "Storage Dump");
+    printXMLContents(ixmlDocument_getNode(_storage), "Storage Dump");
 }
 
 char* xmldb_getDump()
 {
-    return ixmlPrintNode(ixmlDocument_getNode(storage));
+    return ixmlPrintNode(ixmlDocument_getNode(_storage));
 }
 
 IXML_Element* xmldb_getObixSysObject(const char* objType)
 {
-    return ixmlElement_cloneWithLog(xmldb_getDOM(objType));
+    return ixmlElement_cloneWithLog(xmldb_getDOM(objType, NULL));
 }
 
 /**
@@ -748,7 +786,7 @@ const char* xmldb_getServerAddress()
     return _serverAddress;
 }
 
-int xmldb_getServerAddressLength()
+const int xmldb_getServerAddressLength()
 {
     return _serverAddressLength;
 }
@@ -760,7 +798,7 @@ IXML_Node* xmldb_putMeta(IXML_Element* element, const char* name, const char* va
     if (meta == NULL)
     {
         // create a new meta tag
-        error = ixmlDocument_createElementEx(storage, OBIX_META, &meta);
+        error = ixmlDocument_createElementEx(_storage, OBIX_META, &meta);
         if (error != IXML_SUCCESS)
         {
             log_error("Unable to create meta tag. "
@@ -779,7 +817,7 @@ IXML_Node* xmldb_putMeta(IXML_Element* element, const char* name, const char* va
 
     // create new meta item
     IXML_Element* metaItem;
-    error = ixmlDocument_createElementEx(storage, name, &metaItem);
+    error = ixmlDocument_createElementEx(_storage, name, &metaItem);
     if (error != IXML_SUCCESS)
     {
         log_error("Unable to create meta item. "

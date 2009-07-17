@@ -473,7 +473,8 @@ int obixWatch_createWatchItem(oBIX_Watch* watch, const char* uri, oBIX_Watch_Ite
     }
 
     // try to find the corresponding object in the storage
-    IXML_Element* element = xmldb_getDOM(uri);
+    int slashFlag = 0;
+    IXML_Element* element = xmldb_getDOM(uri, &slashFlag);
     if (element == NULL)
     {
         // no such element in the storage
@@ -483,7 +484,7 @@ int obixWatch_createWatchItem(oBIX_Watch* watch, const char* uri, oBIX_Watch_Ite
     // check that URI is exactly the same as the object has
     // (trailing slash issue)
     // see oBIX spec 1.0-cs-01, paragraph 12.2.1 Watch.add
-    if (xmldb_getLastUriCompSlashFlag() != 0)
+    if (slashFlag != 0)
     {
         // forbid subscribing
         return -1;

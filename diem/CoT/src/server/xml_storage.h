@@ -10,9 +10,6 @@
 // TODO global refactor - think wether we can use only DOM structures and no char arrays
 //TODO add description
 
-//extern char* _serverAddress;
-//extern int _serverAddressLength;
-
 extern const char* OBIX_SYS_WATCH_STUB;
 extern const char* OBIX_SYS_ERROR_STUB;
 extern const char* OBIX_SYS_WATCH_OUT_STUB;
@@ -42,7 +39,7 @@ void xmldb_dispose();
  * @param href address of the XML node to be retrieved.
  * @return XML data in plain text format or NULL on error.
  */
-char* xmldb_get(const char* href);
+char* xmldb_get(const char* href, int* slashFlag);
 
 /**
  * Retrieves DOM structure of XML node with specified URI from the storage.
@@ -50,7 +47,7 @@ char* xmldb_get(const char* href);
  * @param href address of the XML node to be retrieved.
  * @return XML data as a DOM structure NULL on error.
  */
-IXML_Element* xmldb_getDOM(const char* href);
+IXML_Element* xmldb_getDOM(const char* href, int* slashFlag);
 
 IXML_Element* xmldb_getObixSysObject(const char* objType);
 
@@ -75,7 +72,7 @@ IXML_Element* xmldb_getObixSysObject(const char* objType);
  *                  URI hadn't;
  *         @li @b -1 if requested URI had ending slash, but the object hadn't.
  */
-int xmldb_getLastUriCompSlashFlag();
+//int xmldb_getLastUriCompSlashFlag();
 
 /**
  * Compares two URI ignoring ending slash ('/').
@@ -98,7 +95,7 @@ int xmldb_getLastUriCompSlashFlag();
  */
 int xmldb_put(const char* data);
 
-int xmldb_putChild(IXML_Element* parent, IXML_Element* child);
+int xmldb_putDOM(IXML_Element* data);
 
 /**
  * Updates XML node to the storage. Only @a val attribute is
@@ -118,7 +115,10 @@ int xmldb_putChild(IXML_Element* parent, IXML_Element* child);
  * 		   @li @b -3 if object is not writable;
  * 		   @li @b -4 if request failed because of internal server error.
  */
-int xmldb_update(const char* data, const char* href, IXML_Element** updatedNode);
+int xmldb_update(const char* data,
+                 const char* href,
+                 IXML_Element** updatedNode,
+                 int* slashFlag);
 
 /**
  * Removes XML node from the storage.
@@ -148,7 +148,7 @@ char* xmldb_getFullUri(const char* absUri, int slashFlag);
 
 const char* xmldb_getServerAddress();
 
-int xmldb_getServerAddressLength();
+const int xmldb_getServerAddressLength();
 
 
 //TODO rename and describe

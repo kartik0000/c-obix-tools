@@ -49,7 +49,6 @@ struct _Request
     struct _Request* next;
 };
 
-//TODO read max request number from array
 static Request* _requestList;
 static int _requestsInUse;
 static int _requestMaxCount = MAX_PARALLEL_REQUEST_DEFAULT + 1;

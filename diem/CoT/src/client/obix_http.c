@@ -1355,9 +1355,9 @@ int http_registerDevice(Connection* connection, Device** device, const char* dat
     char signUpFullUri[c->serverUriLength + strlen(c->signUpUri) + 1];
     strcpy(signUpFullUri, c->serverUri);
     strcat(signUpFullUri, c->signUpUri);
-    IXML_Document* response;
-    curl_ext_postDOM(_curl_handle, signUpFullUri, &response);
-    if (response == NULL)
+    IXML_Document* response = NULL;
+    int error = curl_ext_postDOM(_curl_handle, signUpFullUri, &response);
+    if (error != 0 || response == NULL)
     {
         log_error("Unable to register device using service at \"%s\".",
                   signUpFullUri);
@@ -1366,7 +1366,7 @@ int http_registerDevice(Connection* connection, Device** device, const char* dat
 
     // check response
     IXML_Element* element;
-    int error = parseResponse(response, &element);
+    error = parseResponse(response, &element);
     if (error != OBIX_SUCCESS)
     {
         if (error != OBIX_ERR_INVALID_STATE)

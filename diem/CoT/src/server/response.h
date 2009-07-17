@@ -36,4 +36,8 @@ BOOL obixResponse_isError(Response* response);
 
 void obixResponse_free(Response* response);
 
+void obixResponse_setRightUri(Response* response,
+                              const char* requestUri,
+                              int slashFlag);
+
 #endif /* RESPONSE_H_ */

@@ -95,7 +95,7 @@ int obixResponse_setError(Response* response, char* description)
 
 void obixResponse_setErrorFlag(Response* response, BOOL error)
 {
-	response->error = error;
+    response->error = error;
 }
 
 BOOL obixResponse_isError(Response* response)
@@ -124,7 +124,7 @@ int obixResponse_setText(Response* response, const char* text, BOOL copy)
 
     if (!copy)
     {
-    	response->body = (char*) text;
+        response->body = (char*) text;
     }
     else
     {
@@ -141,4 +141,25 @@ int obixResponse_setText(Response* response, const char* text, BOOL copy)
     }
 
     return 0;
+}
+
+void obixResponse_setRightUri(Response* response,
+                              const char* requestUri,
+                              int slashFlag)
+{
+    int uriLength = strlen(requestUri) + slashFlag;
+    char* uri = (char*) malloc(uriLength + 1);
+    if (uri == NULL)
+    {
+        log_error("Unable to set right URI to the response: "
+                  "Not enough memory.");
+        return;
+    }
+    strncpy(uri, requestUri, uriLength);
+    if (slashFlag == 1)
+    {
+    	uri[uriLength - 1] = '/';
+    }
+    uri[uriLength] = '\0';
+    response->uri = uri;
 }

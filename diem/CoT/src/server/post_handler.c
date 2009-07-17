@@ -30,9 +30,6 @@
 
 #define DEVICE_LIST_URI "/obix/devices/"
 
-#define DEVICE_URI_PREFIX "/obix"
-#define DEVICE_URI_PREFIX_LENGTH 5
-
 // handler definitions
 void handlerError(Response* response,
                   const char* uri,
@@ -87,7 +84,9 @@ obix_server_postHandler obix_server_getPostHandler(int id)
     }
 }
 
-void handlerError(Response* response, const char* uri, IXML_Document* input)
+void handlerError(Response* response,
+                  const char* uri,
+                  IXML_Document* input)
 {
     log_debug("Requested operation \"%s\" exists but not implemented.", uri);
     obix_server_generateObixErrorMessage(response, uri, OBIX_HREF_ERR_UNSUPPORTED,
@@ -264,7 +263,9 @@ static int processWatchIn(IXML_Document* input, const char*** uriSet)
     return length;
 }
 
-void handlerWatchAdd(Response* response, const char* uri, IXML_Document* input)
+void handlerWatchAdd(Response* response,
+                     const char* uri,
+                     IXML_Document* input)
 {
     log_debug("Handling Watch.add \"%s\".", uri);
 
@@ -578,7 +579,7 @@ static void handlerWatchPollHelper(Response* response,
     // reset lease timer
     obixWatch_resetLeaseTimer(watch, OBIX_WATCH_LEASE_NO_CHANGE);
 
-    //prepare response header
+    // prepare response header
     obixResponse_setText(response, WATCH_OUT_PREFIX, TRUE);
 
     //iterate through all watch items and generate response
@@ -719,7 +720,8 @@ void handlerWatchDelete(Response* response,
 
 static int putDeviceReference(IXML_Element* newDevice)
 {
-    IXML_Node* devices = ixmlElement_getNode(xmldb_getDOM("/obix/devices/"));
+    IXML_Node* devices = ixmlElement_getNode(
+                             xmldb_getDOM("/obix/devices/", NULL));
 
     if (devices == NULL)
     {
@@ -795,54 +797,6 @@ static int putDeviceReference(IXML_Element* newDevice)
     return 0;
 }
 
-static const char* checkHrefAttribute(IXML_Element* element)
-{
-    const char* href = ixmlElement_getAttribute(element, OBIX_ATTR_HREF);
-    if (href == NULL)
-    {
-        // href is obligatory attribute
-        return NULL;
-    }
-
-    if (xmldb_compareServerAddr(href) == 0)
-    {
-        href += xmldb_getServerAddressLength();
-        char newHref[strlen(href) + 1];
-        strcpy(newHref, href);
-
-        int error = ixmlElement_setAttribute(element, OBIX_ATTR_HREF, newHref);
-        if (error != IXML_SUCCESS)
-        {
-            log_error("Unable to generate URI for input object: "
-                      "ixmlElement_setAttribute() returned %d.", error);
-            return NULL;
-        }
-    }
-
-    if (*href != '/')
-    {
-        // wrong address format
-        return NULL;
-    }
-
-    if (strncmp(href, DEVICE_URI_PREFIX, DEVICE_URI_PREFIX_LENGTH) != 0)
-    {
-        // object address should always has such a prefix
-        char newHref[strlen(href) + DEVICE_URI_PREFIX_LENGTH + 1];
-        memcpy(newHref, DEVICE_URI_PREFIX, DEVICE_URI_PREFIX_LENGTH);
-        strcpy(newHref + DEVICE_URI_PREFIX_LENGTH, href);
-        int error = ixmlElement_setAttribute(element, OBIX_ATTR_HREF, newHref);
-        if (error != IXML_SUCCESS)
-        {
-            log_error("Unable to generate URI for input object: "
-                      "ixmlElement_setAttribute() returned %d.", error);
-            return NULL;
-        }
-    }
-
-    return ixmlElement_getAttribute(element, OBIX_ATTR_HREF);
-}
-
 void handlerSignUp(Response* response, const char* uri, IXML_Document* input)
 {
     if (input == NULL)
@@ -865,23 +819,11 @@ void handlerSignUp(Response* response, const char* uri, IXML_Document* input)
         return;
     }
 
-    // do not allow storing objects with URI not starting with /obix/
-    const char* href = checkHrefAttribute(element);
-    if (href == NULL)
-    {
-        sendErrorMessage(response,
-                         uri,
-                         "Sign Up",
-                         "Object must have a valid href attribute.");
-        return;
-    }
-
-    char* deviceData = ixmlPrintNode(ixmlElement_getNode(element));
-    int error = xmldb_put(deviceData);
-    if (deviceData != 0)
-    {
-        free(deviceData);
-    }
+    int error = xmldb_putDOM(element);
+    const char* href = ixmlElement_getAttribute(element, OBIX_ATTR_HREF);
+    // in stored object href attribute contains server address, but we don't
+    // need it
+    href += xmldb_getServerAddressLength();
     if (error != 0)
     {
         // TODO return different description of different errors

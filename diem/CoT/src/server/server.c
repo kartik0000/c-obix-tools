@@ -174,8 +174,8 @@ void obix_server_setResponseListener(obix_server_response_listener listener)
 void obix_server_handleGET(Response* response, const char* uri)
 {
     // try to get requested URI from the database
-    IXML_Element* oBIXdoc = xmldb_getDOM(uri);
-    int slashFlag = xmldb_getLastUriCompSlashFlag();
+    int slashFlag = 0;
+    IXML_Element* oBIXdoc = xmldb_getDOM(uri, &slashFlag);
     if (oBIXdoc == NULL)
     {
         log_warning("Requested URI \"%s\" is not found in the storage", uri);
@@ -250,8 +250,8 @@ void obix_server_handlePUT(Response* response,
 
     // update node in the storage
     IXML_Element* element = NULL;
-    int error = xmldb_update(input, uri, &element);
-    int slashFlag = xmldb_getLastUriCompSlashFlag();
+    int slashFlag = 0;
+    int error = xmldb_update(input, uri, &element, &slashFlag);
 
     // parse error code
     switch(error)
@@ -265,8 +265,8 @@ void obix_server_handlePUT(Response* response,
             error = obixWatch_processTimeUpdates(uri, element);
             if (error < 0)
             {
-            	// it was new value for some Watch parameter which failed to
-            	// be processed
+                // it was new value for some Watch parameter which failed to
+                // be processed
                 obix_server_generateObixErrorMessage(
                     response,
                     uri,
@@ -356,7 +356,8 @@ void obix_server_handlePOST(Response* response,
                             const char* input)
 {
     // try to get requested URI from the database
-    IXML_Element* oBIXdoc = xmldb_getDOM(uri);
+    int slashFlag = 0;
+    IXML_Element* oBIXdoc = xmldb_getDOM(uri, &slashFlag);
     if (oBIXdoc == NULL)
     {
         log_debug("Requested URI \"%s\" is not found in the storage.", uri);
@@ -369,8 +370,6 @@ void obix_server_handlePOST(Response* response,
         (*_responseListener)(response);
         return;
     }
-    //TODO move it to the handler
-    //    int slashFlag = xmldb_getLastUriCompSlashFlag();
 
     // check that the <op/> object is requested.
     if (strcmp(ixmlElement_getTagName(oBIXdoc), OBIX_OBJ_OP) != 0)
@@ -398,6 +397,13 @@ void obix_server_handlePOST(Response* response,
         {
             handlerId = atoi(handlerStr);
         }
+    }
+
+    // and check whether we need to return also correct URI of the requested
+    // operation
+    if (slashFlag != 0)
+    {
+        obixResponse_setRightUri(response, uri, slashFlag);
     }
 
     obix_server_postHandler handler = obix_server_getPostHandler(handlerId);
@@ -457,17 +463,19 @@ static char* normalizeUri(const char* requestUri, IXML_Element* doc, int slashFl
             return NULL;
         }
 
-        if (*origUri == '/')
-        {
-            // original URI is absolute so we can use it
-            // instead of requested URI
-            return xmldb_getFullUri(origUri, 0);
-        }
+        // this check can be commented because all hrefs starting from server
+        // root should have server address included during storing in database
+        //        if (*origUri == '/')
+        //        {
+        //            // original URI is absolute so we can use it
+        //            // instead of requested URI
+        //            return xmldb_getFullUri(origUri, 0);
+        //        }
     }
 
     if (origUri == NULL)
     {
-        // no need to consider trailing '/' of original URI
+        // no need to consider trailing '/' of original the URI
         // so simply add server address to the request URI
         return xmldb_getFullUri(requestUri, 0);
     }

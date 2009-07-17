@@ -57,7 +57,7 @@ static Response* waitForResponse()
 
 int testSearch(const char* testName, const char* href, const char* checkStr, BOOL exists)
 {
-    char* node = xmldb_get(href);
+    char* node = xmldb_get(href, NULL);
     printf("\nnode uri=%s: %s\n", href, node);
     BOOL success = FALSE;
 
@@ -107,7 +107,7 @@ int testWriteToDatabase(const char* testName,
     }
     else
     {
-        error = xmldb_update(newData, href, NULL);
+        error = xmldb_update(newData, href, NULL, NULL);
     }
     if (error == 1)
     {
@@ -126,7 +126,7 @@ int testWriteToDatabase(const char* testName,
     }
 
     // check that the data is really added
-    char* node = xmldb_get(href);
+    char* node = xmldb_get(href, NULL);
     if (node == NULL)
     {
         printf("no node returned\n");
@@ -204,7 +204,7 @@ int testDelete(const char* testName, const char* href, BOOL exists)
 
 
     // check that we deleted the node
-    char* node = xmldb_get(href);
+    char* node = xmldb_get(href, NULL);
     if (node != NULL)
     {
         free(node);
@@ -218,7 +218,7 @@ int testDelete(const char* testName, const char* href, BOOL exists)
 
 int testGenerateResponse(const char* testName, const char* uri, const char* newUrl)
 {
-    IXML_Element* oBIXdoc = xmldb_getDOM(uri);
+    IXML_Element* oBIXdoc = xmldb_getDOM(uri, NULL);
     if (oBIXdoc == NULL)
     {
         printf("Uri \"%s\" is not found in storage.\n", uri);
@@ -645,7 +645,7 @@ int testWatchPollChanges(const char* testName,
                          BOOL waitResponse)
 {
     obix_server_setResponseListener(&dummyResponseListener);
-    Response* response = obixResponse_create((Request*)1, FALSE);
+    Response* response = obixResponse_create((Request*)1, TRUE);
     obix_server_handlePOST(response, uri, NULL);
     if (waitResponse)
     {
@@ -986,6 +986,30 @@ int testSignUp()
     return result;
 }
 
+int testResponse_setRightUri(const char* testName,
+                             const char* requestUri,
+                             int slashFlag,
+                             const char* rightUri)
+{
+    Response* response = obixResponse_create(NULL, FALSE);
+    obixResponse_setRightUri(response, requestUri, slashFlag);
+
+    if ((response->uri == NULL) || (strcmp(response->uri, rightUri) != 0))
+    {
+        printf("Response URI after "
+               "obixResponse_setRightUri(response, \"%s\", %d); is \"%s\", "
+               "but should be \"%s\".\n",
+               requestUri, slashFlag, response->uri, rightUri);
+        obixResponse_free(response);
+        printTestResult(testName, FALSE);
+        return 1;
+    }
+
+    obixResponse_free(response);
+    printTestResult(testName, TRUE);
+    return 0;
+}
+
 int test_server(char* resFolder)
 {
     config_setResourceDir(resFolder);
@@ -994,19 +1018,19 @@ int test_server(char* resFolder)
 
     if (xmldb_init("http://localhost"))
     {
-        printf("Unable to start tests. database init failed.\n");
+        printf("FAILED: Unable to start tests. database init failed.\n");
         return 1;
     }
 
     if (xmldb_loadFile("test_devices.xml") != 0)
     {
-        printf("Unable to start tests. Check the test data set.\n");
+        printf("FAILED: Unable to start tests. Check the test data set.\n");
         return 1;
     }
 
     if (obixWatch_init() != 0)
     {
-        printf("Unable to start tests. Watches initialization failed.\n");
+        printf("FAILED: Unable to start tests. Watches initialization failed.\n");
         return 1;
     }
 
@@ -1173,6 +1197,16 @@ int test_server(char* resFolder)
     result += testSignUp();
 
     result += testWatch();
+
+    result += testResponse_setRightUri("obixResponse_setRightUri 1",
+                                       "/obix/test/",
+                                       -1,
+                                       "/obix/test");
+
+    result += testResponse_setRightUri("obixResponse_setRightUri 2",
+                                       "/obix/test",
+                                       1,
+                                       "/obix/test/");
 
     // restart database to clean everything which is broken by previous tests
     //    xmldb_dispose();
