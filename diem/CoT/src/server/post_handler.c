@@ -33,29 +33,31 @@
 // handler definitions
 void handlerError(Response* response,
                   const char* uri,
-                  IXML_Document* input);
+                  IXML_Element* input);
 void handlerWatchServiceMake(Response* response,
                              const char* uri,
-                             IXML_Document* input);
+                             IXML_Element* input);
 void handlerWatchAdd(Response* response,
                      const char* uri,
-                     IXML_Document* input);
+                     IXML_Element* input);
 void handlerWatchRemove(Response* response,
                         const char* uri,
-                        IXML_Document* input);
+                        IXML_Element* input);
 void handlerWatchPollChanges(Response* response,
                              const char* uri,
-                             IXML_Document* input);
+                             IXML_Element* input);
 void handlerWatchPollRefresh(Response* response,
                              const char* uri,
-                             IXML_Document* input);
+                             IXML_Element* input);
 void handlerWatchDelete(Response* response,
                         const char* uri,
-                        IXML_Document* input);
+                        IXML_Element* input);
 void handlerSignUp(Response* response,
                    const char* uri,
-                   IXML_Document* input);
-//void handlerBatch(Response* response, const char* uri, IXML_Document* input);
+                   IXML_Element* input);
+void handlerBatch(Response* response,
+                  const char* uri,
+                  IXML_Element* input);
 
 static const obix_server_postHandler POST_HANDLER[] =
     {
@@ -66,8 +68,8 @@ static const obix_server_postHandler POST_HANDLER[] =
         &handlerWatchPollChanges,	//4 Watch.pollChanges
         &handlerWatchPollRefresh,	//5 Watch.pollRefresh
         &handlerWatchDelete,		//6 Watch.delete
-        &handlerSignUp				//7 signUp
-        //&handlerBatch				//8 Batch
+        &handlerSignUp,				//7 signUp
+        &handlerBatch				//8 Batch
     };
 
 static const int POST_HANDLERS_COUNT = 8;
@@ -86,13 +88,16 @@ obix_server_postHandler obix_server_getPostHandler(int id)
 
 void handlerError(Response* response,
                   const char* uri,
-                  IXML_Document* input)
+                  IXML_Element* input)
 {
     log_debug("Requested operation \"%s\" exists but not implemented.", uri);
-    obix_server_generateObixErrorMessage(response, uri, OBIX_HREF_ERR_UNSUPPORTED,
-                                         "Unsupported Request",
-                                         "The requested operation is not yet implemented.");
-    (_responseListener)(response);
+    obix_server_generateObixErrorMessage(
+        response,
+        uri,
+        OBIX_HREF_ERR_UNSUPPORTED,
+        "Unsupported Request",
+        "The requested operation is not yet implemented.");
+    obixResponse_send(response);
 }
 
 /**
@@ -123,12 +128,12 @@ static void sendErrorMessage(Response* response,
         response->next = NULL;
     }
     // send the error message
-    (*_responseListener)(response);
+    obixResponse_send(response);
 }
 
 void handlerWatchServiceMake(Response* response,
                              const char* uri,
-                             IXML_Document* input)
+                             IXML_Element* input)
 {
     log_debug("Creating new watch object.");
 
@@ -168,13 +173,12 @@ void handlerWatchServiceMake(Response* response,
                                  TRUE,
                                  FALSE,
                                  0,
-                                 TRUE,
                                  TRUE);
     // free Watch DOM structure
     ixmlElement_freeOwnerDocument(watchDOM);
 
     // send answer
-    (*_responseListener)(response);
+    obixResponse_send(response);
 }
 
 /**
@@ -233,7 +237,7 @@ static int getUriSet(IXML_NodeList* nodeList, const char*** uriSet)
     return length;
 }
 
-static int processWatchIn(IXML_Document* input, const char*** uriSet)
+static int processWatchIn(IXML_Element* input, const char*** uriSet)
 {
     // check input
     if (input == NULL)
@@ -265,7 +269,7 @@ static int processWatchIn(IXML_Document* input, const char*** uriSet)
 
 void handlerWatchAdd(Response* response,
                      const char* uri,
-                     IXML_Document* input)
+                     IXML_Element* input)
 {
     log_debug("Handling Watch.add \"%s\".", uri);
 
@@ -351,7 +355,6 @@ void handlerWatchAdd(Response* response,
                                          uriSet[i],
                                          FALSE,
                                          FALSE, 0,
-                                         FALSE,
                                          FALSE);
             break;
         case -1:
@@ -392,12 +395,12 @@ void handlerWatchAdd(Response* response,
         return;
     }
 
-    (*_responseListener)(response);
+    obixResponse_send(response);
 }
 
 void handlerWatchRemove(Response* response,
                         const char* uri,
-                        IXML_Document* input)
+                        IXML_Element* input)
 {
     log_debug("Handling Watch.remove \"%s\".", uri);
 
@@ -458,7 +461,7 @@ void handlerWatchRemove(Response* response,
 
     // return empty answer
     obixResponse_setText(response, OBIX_OBJ_NULL_TEMPLATE, TRUE);
-    (*_responseListener)(response);
+    obixResponse_send(response);
 }
 
 static void completeWatchPollResponse(const char* functionName,
@@ -477,7 +480,7 @@ static void completeWatchPollResponse(const char* functionName,
     obixResponse_setText(respTail, WATCH_OUT_POSTFIX, TRUE);
 
     // send response
-    (*_responseListener)(respHead);
+    obixResponse_send(respHead);
 }
 
 static Response* pollWatchItemIterator(const char* functionName,
@@ -517,7 +520,6 @@ static Response* pollWatchItemIterator(const char* functionName,
                                          watchItem->uri,
                                          FALSE,
                                          FALSE, 0,
-                                         TRUE,
                                          FALSE);
 
         }
@@ -557,7 +559,6 @@ void handlerWatchLongPoll(oBIX_Watch* watch,
  */
 static void handlerWatchPollHelper(Response* response,
                                    const char* uri,
-                                   IXML_Document* input,
                                    BOOL changedOnly)
 {
     char* functionName = changedOnly ?
@@ -659,21 +660,23 @@ static void handlerWatchPollHelper(Response* response,
 
 void handlerWatchPollChanges(Response* response,
                              const char* uri,
-                             IXML_Document* input)
+                             IXML_Element* input)
 {
-    handlerWatchPollHelper(response, uri, input, TRUE);
+    // ignore input
+    handlerWatchPollHelper(response, uri, TRUE);
 }
 
 void handlerWatchPollRefresh(Response* response,
                              const char* uri,
-                             IXML_Document* input)
+                             IXML_Element* input)
 {
-    handlerWatchPollHelper(response, uri, input, FALSE);
+    // ignore input
+    handlerWatchPollHelper(response, uri, FALSE);
 }
 
 void handlerWatchDelete(Response* response,
                         const char* uri,
-                        IXML_Document* input)
+                        IXML_Element* input)
 {
     log_debug("Handling Watch.delete of watch \"%s\".", uri);
 
@@ -696,7 +699,7 @@ void handlerWatchDelete(Response* response,
         {	// everything was OK
             // return empty object
             obixResponse_setText(response, OBIX_OBJ_NULL_TEMPLATE, TRUE);
-            (*_responseListener)(response);
+            obixResponse_send(response);
         }
         break;
     case -1:
@@ -797,7 +800,7 @@ static int putDeviceReference(IXML_Element* newDevice)
     return 0;
 }
 
-void handlerSignUp(Response* response, const char* uri, IXML_Document* input)
+void handlerSignUp(Response* response, const char* uri, IXML_Element* input)
 {
     if (input == NULL)
     {
@@ -805,22 +808,8 @@ void handlerSignUp(Response* response, const char* uri, IXML_Document* input)
         return;
     }
 
-    //extract obix:obj element which we are going to store
-    IXML_Element* element = ixmlNode_convertToElement(
-                                ixmlNode_getFirstChild(
-                                    ixmlDocument_getNode(input)));
-    if (element == NULL)
-    {
-        // input document had no element in the beginning
-        sendErrorMessage(response,
-                         uri,
-                         "Sign Up",
-                         "Input data has bad format.");
-        return;
-    }
-
-    int error = xmldb_putDOM(element);
-    const char* href = ixmlElement_getAttribute(element, OBIX_ATTR_HREF);
+    int error = xmldb_putDOM(input);
+    const char* href = ixmlElement_getAttribute(input, OBIX_ATTR_HREF);
     // in stored object href attribute contains server address, but we don't
     // need it
     href += xmldb_getServerAddressLength();
@@ -849,7 +838,7 @@ void handlerSignUp(Response* response, const char* uri, IXML_Document* input)
     }
 
     // add reference to the new device
-    error = putDeviceReference(element);
+    error = putDeviceReference(input);
     if (error != 0)
     {
         xmldb_delete(href);
@@ -863,11 +852,10 @@ void handlerSignUp(Response* response, const char* uri, IXML_Document* input)
     log_debug("New object is successfully registered at \"%s\"", href);
     // return saved object
     obix_server_generateResponse(response,
-                                 element,
+                                 input,
                                  NULL,
                                  TRUE,
                                  TRUE, 0,
-                                 FALSE,
                                  TRUE);
     // TODO what about removing this isError at all?
     if (obixResponse_isError(response))
@@ -878,5 +866,44 @@ void handlerSignUp(Response* response, const char* uri, IXML_Document* input)
     }
 
     // send response
-    (*_responseListener)(response);
+    obixResponse_send(response);
+}
+
+void handlerBatch(Response* response,
+                  const char* uri,
+                  IXML_Element* input)
+{
+    // check input
+    if (input == NULL)
+    {
+        return -1;
+    }
+
+    // iterate through the list of commands
+    IXML_Node* node = ixmlNode_getFirstChild(input);
+
+    while (node != NULL)
+    {
+        IXML_Element* command = ixmlNode_convertToElement(node);
+        if (command == NULL)
+        {
+            // this is not a tag, go to the next node in batch command
+            node = ixmlNode_getNextSibling(node);
+            continue;
+        }
+
+        // find out type of command (read, write or invoke)
+        if (obix_obj_implementsContract(command, "Read"))
+        {
+            obix_server_handleGET();
+        }
+
+        if (obix_obj_implementsContract(command, "Write"))
+        {}
+
+        if (obix_obj_implementsContract(command, "Invoke"))
+        {}
+
+        node = ixmlNode_getNextSibling(node);
+    }
 }

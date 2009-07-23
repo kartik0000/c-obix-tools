@@ -22,6 +22,8 @@ typedef struct Response
 }
 Response;
 
+typedef void (*obix_response_listener)(Response* response);
+
 Response* obixResponse_create(Request* request, BOOL canWait);
 
 Response* obixResponse_add(Response* response);
@@ -39,5 +41,11 @@ void obixResponse_free(Response* response);
 void obixResponse_setRightUri(Response* response,
                               const char* requestUri,
                               int slashFlag);
+
+void obixResponse_setListener(obix_response_listener listener);
+
+BOOL obixResponse_isHead(Response* response);
+
+int obixResponse_send(Response* response);
 
 #endif /* RESPONSE_H_ */

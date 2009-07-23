@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 	<!-- Place where the list of registered devices is stored. -->
-<list href="/obix/devices/" displayName="Device List" of="obix:ref"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://obix.org/ns/schema/1.0" xmlns="http://obix.org/ns/schema/1.0">
+<list href="/obix/devices/" displayName="Device List" of="obix:ref">
 	<ref href="/obix/TestDevice/" name="TestDevice" displayName="Device for tests" />
 </list>
 

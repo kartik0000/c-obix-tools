@@ -103,4 +103,24 @@ int ixmlElement_copyAttributeWithLog(IXML_Element* source,
 
 IXML_Element* ixmlAttr_getOwnerElement(IXML_Attr* attr);
 
+/**
+ * Parses an XML text buffer and returns the parent node of the generated DOM
+ * structure.
+ * @note Don't forget to free memory allocated for the parsed document.
+ *
+ * @param data Text buffer to be parsed.
+ * @return Node representing parent tag of the parsed XML.
+ */
+IXML_Node* ixmlNode_parseBuffer(const char* data);
+
+/**
+ * Parses an XML text buffer and returns the parent element of the generated DOM
+ * structure.
+ * @note Don't forget to free memory allocated for the parsed document.
+ *
+ * @param data Text buffer to be parsed.
+ * @return Element representing parent tag of the parsed XML.
+ */
+IXML_Element* ixmlElement_parseBuffer(const char* data);
+
 #endif /* IXML_EXT_H_ */

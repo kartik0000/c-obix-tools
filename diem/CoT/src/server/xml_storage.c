@@ -353,35 +353,6 @@ char* xmldb_get(const char* href, int* slashFlag)
     return ixmlPrintNode(getNodeByHref(_storage, href, slashFlag));
 }
 
-/**
- * Parses input data.
- * @note Don't forget to free memory allocated for the parsed document.
- *
- * @param data input data in plain text format.
- * @return a parsed DOM structure, or @a NULL if parsing fails.
- */
-static IXML_Node* processInputData(const char* data)
-{
-    IXML_Document* doc;
-
-    if (data == NULL)
-    {
-        return NULL;
-    }
-
-    int error = ixmlParseBufferEx(data, &doc);
-    if (error != IXML_SUCCESS)
-    {
-        log_warning("Unable to write to the storage. Data is corrupted (error %d).\n"
-                    "Data:\n%s\n", error, data);
-        return NULL;
-    }
-
-    IXML_Node* node = ixmlNode_getFirstChild(ixmlDocument_getNode(doc));
-    printXMLContents(node, "Node to add");
-    return node;
-}
-
 // checks for all href attributes in the provided piece of XML and inserts
 // server address (and /obix/ prefix if necessary) to all URI's which are
 // absolute
@@ -541,7 +512,7 @@ int xmldb_putDOM(IXML_Element* data)
  */
 static int xmldb_putHelper(const char* data, BOOL checkPrefix)
 {
-    IXML_Node* node = processInputData(data);
+    IXML_Node* node = ixmlNode_parseBuffer(data);
     if (node == NULL)
     {
         return -1;
@@ -562,28 +533,20 @@ static int xmldb_putHelper(const char* data, BOOL checkPrefix)
 
 int xmldb_put(const char* data)
 {
-	return xmldb_putHelper(data, TRUE);
+    return xmldb_putHelper(data, TRUE);
 }
 
-int xmldb_update(const char* data,
-                 const char* href,
-                 IXML_Element** updatedNode,
-                 int* slashFlag)
+int xmldb_updateDOM(IXML_Element* input,
+                    const char* href,
+                    IXML_Element** updatedNode,
+                    int* slashFlag)
 {
-    IXML_Node* node = processInputData(data);
-    if (node == NULL)
-    {
-        return -1;
-    }
-
-    const char* newValue = ixmlElement_getAttribute(
-                               ixmlNode_convertToElement(node), OBIX_ATTR_VAL);
+    const char* newValue = ixmlElement_getAttribute(input, OBIX_ATTR_VAL);
     if (newValue == NULL)
     {
         log_warning("Unable to update the storage: "
                     "Input data doesn't contain \'%s\' attribute.",
                     OBIX_ATTR_VAL);
-        ixmlDocument_free(ixmlNode_getOwnerDocument(node));
         return -1;
     }
 
@@ -593,7 +556,6 @@ int xmldb_update(const char* data,
     {
         log_warning("Unable to update the storage: "
                     "No object with the URI \"%s\" is found.", href);
-        ixmlDocument_free(ixmlNode_getOwnerDocument(node));
         return -2;
     }
 
@@ -604,7 +566,6 @@ int xmldb_update(const char* data,
     {
         log_warning("Unable to update the storage: "
                     "The object with the URI \"%s\" is not writable.", href);
-        ixmlDocument_free(ixmlNode_getOwnerDocument(node));
         return -3;
     }
 
@@ -619,18 +580,19 @@ int xmldb_update(const char* data,
         {
             *updatedNode = nodeInStorage;
         }
-        ixmlDocument_free(ixmlNode_getOwnerDocument(node));
         return 1;
     }
 
     // overwrite 'val' attribute
-    if (ixmlElement_setAttributeWithLog(nodeInStorage, OBIX_ATTR_VAL, newValue) != 0)
+    int error = ixmlElement_setAttributeWithLog(
+                    nodeInStorage,
+                    OBIX_ATTR_VAL,
+                    newValue);
+    if (error != 0)
     {
-        ixmlDocument_free(ixmlNode_getOwnerDocument(node));
         return -4;
     }
 
-    ixmlDocument_free(ixmlNode_getOwnerDocument(node));
     // return address of updated node
     if (updatedNode != NULL)
     {

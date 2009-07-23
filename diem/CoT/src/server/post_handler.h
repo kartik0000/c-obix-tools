@@ -14,7 +14,7 @@
 /**@todo describe me*/
 typedef void (*obix_server_postHandler)(Response* response,
                                         const char* uri,
-                                        IXML_Document* input);
+                                        IXML_Element* input);
 
 obix_server_postHandler obix_server_getPostHandler(int id);
 

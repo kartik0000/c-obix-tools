@@ -2,9 +2,7 @@
 	<!--
 		Test device with contains various control values which can be changed.
 	-->
-<obj name="TestDevice" href="/obix/TestDevice/" displayName="Device for tests"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://obix.org/ns/schema/1.0" xmlns="http://obix.org/ns/schema/1.0">
+<obj name="TestDevice" href="/obix/TestDevice/" displayName="Device for tests">
 	<str name="strValue" href="str/" displayName="Custom String" val="test string"
 		writable="true" />
 	<bool name="boolSwitch" href="bool/" displayName="Power Switch"

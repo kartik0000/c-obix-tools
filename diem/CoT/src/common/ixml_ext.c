@@ -302,3 +302,29 @@ IXML_Element* ixmlDocument_getElementByAttrValue(
                attrName,
                attrValue);
 }
+
+IXML_Node* ixmlNode_parseBuffer(const char* data)
+{
+    IXML_Document* doc;
+
+    if (data == NULL)
+    {
+        return NULL;
+    }
+
+
+    int error = ixmlParseBufferEx(data, &doc);
+    if (error != IXML_SUCCESS)
+    {
+        log_warning("Unable to parse XML (error %d). Input "
+                    "data:\n%s", error, data);
+        return NULL;
+    }
+
+    return ixmlNode_getFirstChild(ixmlDocument_getNode(doc));
+}
+
+IXML_Element* ixmlElement_parseBuffer(const char* data)
+{
+	return ixmlNode_convertToElement(ixmlNode_parseBuffer(data));
+}

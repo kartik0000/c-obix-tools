@@ -7,7 +7,7 @@
 
 #include <ixml_ext.h>
 
-// TODO global refactor - think wether we can use only DOM structures and no char arrays
+// TODO global refactor - think whether we can use only DOM structures and no char arrays
 //TODO add description
 
 extern const char* OBIX_SYS_WATCH_STUB;
@@ -115,10 +115,10 @@ int xmldb_putDOM(IXML_Element* data);
  * 		   @li @b -3 if object is not writable;
  * 		   @li @b -4 if request failed because of internal server error.
  */
-int xmldb_update(const char* data,
-                 const char* href,
-                 IXML_Element** updatedNode,
-                 int* slashFlag);
+int xmldb_updateDOM(IXML_Element* input,
+                    const char* href,
+                    IXML_Element** updatedNode,
+                    int* slashFlag);
 
 /**
  * Removes XML node from the storage.

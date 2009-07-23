@@ -13,6 +13,14 @@
 #include <obix_utils.h>
 #include "response.h"
 
+// method which handles server responses is stored here
+static obix_response_listener _responseListener = NULL;
+
+void obixResponse_setListener(obix_response_listener listener)
+{
+	_responseListener = listener;
+}
+
 Response* obixResponse_create(Request* request, BOOL canWait)
 {
     Response* response = (Response*) malloc(sizeof(Response));
@@ -162,4 +170,21 @@ void obixResponse_setRightUri(Response* response,
     }
     uri[uriLength] = '\0';
     response->uri = uri;
+}
+
+BOOL obixResponse_isHead(Response* response)
+{
+	return (response->request != NULL) ? TRUE : FALSE;
+}
+
+int obixResponse_send(Response* response)
+{
+	// if it is not a response head than it should not be sent.
+	if (obixResponse_isHead(response))
+	{
+		(*_responseListener)(response);
+		return 0;
+	}
+
+	return -1;
 }

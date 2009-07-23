@@ -143,7 +143,7 @@ IXML_Element* obix_fcgi_loadConfig(char* resourceDir)
 int obix_fcgi_init(char* resourceDir)
 {
     // register callback for handling responses
-    obix_server_setResponseListener(&obix_fcgi_sendResponse);
+    obixResponse_setListener(&obix_fcgi_sendResponse);
 
     IXML_Element* settings = obix_fcgi_loadConfig(resourceDir);
     if (settings == NULL)
@@ -257,7 +257,6 @@ void obix_fcgi_handleRequest(Request* request)
     }
     else
     {
-        //TODO fix me
         // unknown HTTP request
         log_error("Unknown request type: %s. Request is ignored.", requestType);
         char* message = (char*) malloc(strlen(requestType) + 42);
@@ -399,7 +398,7 @@ void obix_fcgi_dumpEnvironment(Response* response)
     if (buffer == NULL)
     {
         // can't dump environment - return empty response
-        (*_responseListener)(response);
+        obixResponse_send(response);
         return;
     }
 
@@ -424,7 +423,7 @@ void obix_fcgi_dumpEnvironment(Response* response)
     if (nextPart == NULL)
     {
         log_error("Unable to create multipart response. Answer is not complete.");
-        (*_responseListener)(response);
+        obixResponse_send(response);
         return;
     }
 
@@ -437,7 +436,7 @@ void obix_fcgi_dumpEnvironment(Response* response)
         if (nextPart->next == NULL)
         {
             log_error("Unable to create multipart response. Answer is not complete.");
-            (*_responseListener)(response);
+            obixResponse_send(response);
             return;
         }
         nextPart = nextPart->next;
@@ -447,14 +446,14 @@ void obix_fcgi_dumpEnvironment(Response* response)
     if (obixResponse_setText(nextPart, "\r\n  </obj>\r\n</obj>", TRUE) != 0)
     {
         log_error("Unable to create multipart response. Answer is not complete.");
-        (*_responseListener)(response);
+        obixResponse_send(response);
         return;
     }
 
     log_debug("Dump request completed.");
 
     // send response
-    (*_responseListener)(response);
+    obixResponse_send(response);
 }
 
 // put request to the head of the list

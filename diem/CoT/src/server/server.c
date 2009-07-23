@@ -20,9 +20,6 @@ static const char* CT_SERVER_ADDRESS = "server-address";
 
 static const char* OBIX_META_ATTR_OP = "op";
 
-// method which handles server responses is stored here
-obix_server_response_listener _responseListener = NULL;
-
 int obix_server_init(IXML_Element* settings)
 {
     // get the server address from settings
@@ -56,64 +53,6 @@ int obix_server_init(IXML_Element* settings)
     return 0;
 }
 //TODO create global function for memory allocation with error logging
-
-//void obix_server_sendObixMessage(FCGX_Request* request,
-//                                 IXML_Element* doc,
-//                                 const char* requestUri,
-//                                 BOOL useObjectUri,
-//                                 int slashFlag)
-//{
-//    if (doc == NULL)
-//    {
-//        // some big error occurred on the previous step
-//        // TODO handle error
-//        return;
-//    }
-//
-//    // get the full URI
-//    char* fullUri;
-//    if (useObjectUri)
-//    {
-//        fullUri = normalizeUri(requestUri, doc, slashFlag);
-//    }
-//    else
-//    {
-//        fullUri = normalizeUri(requestUri, NULL, 0);
-//    }
-//
-//    char* text = normalizeObixDocument(doc, fullUri, FALSE);
-//    if (text == NULL)
-//    {
-//        log_error("Unable to normalize the oBIX document.");
-//        // TODO: send error message
-//        return;
-//    }
-//
-//    log_debug("Replying with the following message:\n%s\n", text);
-//    // send HTTP reply
-//    FCGX_FPrintF(request->out, HTTP_STATUS_OK);
-//    // check whether we should specify the correct address of the object
-//    if (slashFlag != 0)
-//    {
-//        // if no URI is generated than we should take it from the object
-//        if (fullUri == NULL)
-//        {
-//            FCGX_FPrintF(request->out,
-//                         HTTP_CONTENT_LOCATION,
-//                         ixmlElement_getAttribute(doc, OBIX_ATTR_HREF));
-//        }
-//        else // use generated URI
-//        {
-//            FCGX_FPrintF(request->out, HTTP_CONTENT_LOCATION, fullUri);
-//        }
-//    }
-//    FCGX_FPrintF(request->out, XML_HEADER);
-//    FCGX_FPrintF(request->out, text);
-//    FCGX_Finish_r(request);
-//
-//    free(fullUri);
-//    free(text);
-//}
 
 void obix_server_generateObixErrorMessage(
     Response* response,
@@ -158,20 +97,16 @@ void obix_server_generateObixErrorMessage(
     obix_server_generateResponse(response,
                                  errorDOM,
                                  uri,
-                                 TRUE, FALSE, 0,
                                  TRUE,
+                                 FALSE,
+                                 0,
                                  TRUE);
     obixResponse_setErrorFlag(response, TRUE);
 
     ixmlElement_freeOwnerDocument(errorDOM);
 }
 
-void obix_server_setResponseListener(obix_server_response_listener listener)
-{
-    _responseListener = listener;
-}
-
-void obix_server_handleGET(Response* response, const char* uri)
+void obix_server_read(Response* response, const char* uri)
 {
     // try to get requested URI from the database
     int slashFlag = 0;
@@ -185,7 +120,6 @@ void obix_server_handleGET(Response* response, const char* uri)
             OBIX_HREF_ERR_BAD_URI,
             "Bad URI Error",
             "Requested URI is not found on the server.");
-        (*_responseListener)(response);
         return;
     }
 
@@ -202,9 +136,13 @@ void obix_server_handleGET(Response* response, const char* uri)
                                  TRUE,
                                  TRUE,
                                  slashFlag,
-                                 TRUE,
                                  FALSE);
-    (*_responseListener)(response);
+}
+
+void obix_server_handleGET(Response* response, const char* uri)
+{
+    obix_server_read(response, uri);
+    obixResponse_send(response);
 }
 
 /**
@@ -231,27 +169,25 @@ static void updateMetaWatch(IXML_Node* node)
     }
 }
 
-void obix_server_handlePUT(Response* response,
-                           const char* uri,
-                           const char* input)
+void obix_server_write(Response* response,
+                       const char* uri,
+                       IXML_Element* input)
 {
-    // TODO add permission checking here
     if (input == NULL)
     {
-        log_warning("Unable to process PUT request. Input is empty.");
+        log_warning("Unable to process write request. Wrong input: %s", input);
         obix_server_generateObixErrorMessage(response,
                                              uri,
                                              NULL,
                                              "Write Error",
                                              "Unable to read request input.");
-        (*_responseListener)(response);
         return;
     }
 
     // update node in the storage
     IXML_Element* element = NULL;
     int slashFlag = 0;
-    int error = xmldb_update(input, uri, &element, &slashFlag);
+    int error = xmldb_updateDOM(input, uri, &element, &slashFlag);
 
     // parse error code
     switch(error)
@@ -274,9 +210,8 @@ void obix_server_handlePUT(Response* response,
                     "Write Error",
                     "Unable to update Watch parameter. Note: Value is updated "
                     "in storage, but did not affect the behavior of the Watch "
-                    "object. That is known issue. Please check that you "
+                    "object. That is a known issue. Please check that you have "
                     "provided correct reltime value and try again.");
-                (*_responseListener)(response);
                 return;
             }
 
@@ -287,7 +222,6 @@ void obix_server_handlePUT(Response* response,
                                          TRUE,
                                          TRUE,
                                          slashFlag,
-                                         TRUE,
                                          FALSE);
         }
         break;
@@ -319,41 +253,31 @@ void obix_server_handlePUT(Response* response,
                                              "Write Error",
                                              "Internal server error.");
     }
+}
+
+void obix_server_handlePUT(Response* response,
+                           const char* uri,
+                           const char* input)
+{
+
+    // parse request input
+    IXML_Element* element = ixmlElement_parseBuffer(input);
+
+    // process write request
+    obix_server_write(response, uri, element);
+    if (element != NULL)
+    {
+        ixmlElement_freeOwnerDocument(element);
+    }
 
     // send response
-    (*_responseListener)(response);
+    obixResponse_send(response);
     return;
 }
 
-/**
- * @todo don't forget to clean the document
- * @param input
- * @return
- */
-static IXML_Document* parseRequestInput(const char* input)
-{
-    // read and parse input
-    if (input == NULL)
-    {
-        return NULL;
-    }
-
-    IXML_Document* doc;
-
-    int error = ixmlParseBufferEx(input, &doc);
-    if (error != IXML_SUCCESS)
-    {
-        log_warning("Unable to parse request input. Data is corrupted (error %d).\n"
-                    "Data:\n%s\n", error, input);
-        return NULL;
-    }
-
-    return doc;
-}
-
-void obix_server_handlePOST(Response* response,
-                            const char* uri,
-                            const char* input)
+void obix_server_invoke(Response* response,
+                        const char* uri,
+                        IXML_Element* input)
 {
     // try to get requested URI from the database
     int slashFlag = 0;
@@ -367,7 +291,7 @@ void obix_server_handlePOST(Response* response,
             OBIX_HREF_ERR_BAD_URI,
             "Bad URI Error",
             "Requested URI is not found on the server.");
-        (*_responseListener)(response);
+        obixResponse_send(response);
         return;
     }
 
@@ -375,15 +299,13 @@ void obix_server_handlePOST(Response* response,
     if (strcmp(ixmlElement_getTagName(oBIXdoc), OBIX_OBJ_OP) != 0)
     {
         log_debug("Requested URI doesn't contain <op/> object");
-        obix_server_generateObixErrorMessage(response, uri, OBIX_HREF_ERR_BAD_URI,
-                                             "Bad URI Error",
-                                             "Requested URI is not an operation.");
-        (*_responseListener)(response);
+        obix_server_generateObixErrorMessage(
+            response, uri, OBIX_HREF_ERR_BAD_URI,
+            "Bad URI Error",
+            "Requested URI is not an operation.");
+        obixResponse_send(response);
         return;
     }
-
-    // prepare input object for the operation
-    IXML_Document* opIn = parseRequestInput(input);
 
     // get the corresponding operation handler
     // by default we use 0 handler which returns error message
@@ -392,7 +314,8 @@ void obix_server_handlePOST(Response* response,
 
     if (meta != NULL)
     {
-        const char* handlerStr = ixmlElement_getAttribute(meta, OBIX_META_ATTR_OP);
+        const char* handlerStr = ixmlElement_getAttribute(meta,
+                                 OBIX_META_ATTR_OP);
         if (handlerStr != NULL)
         {
             handlerId = atoi(handlerStr);
@@ -409,11 +332,21 @@ void obix_server_handlePOST(Response* response,
     obix_server_postHandler handler = obix_server_getPostHandler(handlerId);
 
     // execute corresponding request handler
-    (*handler)(response, uri, opIn);
+    (*handler)(response, uri, input);
+}
+
+void obix_server_handlePOST(Response* response,
+                            const char* uri,
+                            const char* input)
+{
+    // prepare input object for the operation
+    IXML_Element* opIn = ixmlElement_parseBuffer(input);
+
+    obix_server_invoke(response, uri, opIn);
 
     if (opIn != NULL)
     {
-        ixmlDocument_free(opIn);
+        ixmlElement_freeOwnerDocument(opIn);
     }
 }
 
@@ -557,7 +490,6 @@ void obix_server_generateResponse(Response* response,
                                   BOOL changeUri,
                                   BOOL useObjectUri,
                                   int slashFlag,
-                                  BOOL isMultipart,
                                   BOOL saveChanges)
 {
     if (doc == NULL)
@@ -588,7 +520,8 @@ void obix_server_generateResponse(Response* response,
         }
     }
 
-    char* text = normalizeObixDocument(doc, fullUri, !isMultipart, saveChanges);
+    BOOL responseIsHead = obixResponse_isHead(response);
+    char* text = normalizeObixDocument(doc, fullUri, responseIsHead, saveChanges);
     if (text == NULL)
     {
         log_error("Unable to normalize the output oBIX document.");
