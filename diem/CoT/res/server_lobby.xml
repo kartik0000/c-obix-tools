@@ -3,13 +3,17 @@
 <obj href="/obix/" is="obix:Lobby /obix/def/SignUpLobby">
 	<ref name="watchService" href="watchService/" is="obix:WatchService" />
 	<ref name="about" href="about/" is="obix:About" />
-	<op name="batch" href="batch/" in="obix:BatchIn" out="obix:BatchOut" />
+	<op name="batch" href="batch/" in="obix:BatchIn" out="obix:BatchOut">
+		<!--
+			op meta attribute is the index of operation handler in post_handler.c
+		-->
+		<meta op="8" />
+	</op>
 	<ref name="alarms" href="alarms/"
 		is="/obix/def/alarm:AlarmService obix:AlarmSubject" display="Alarm Service"
 		displayName="Alarm Service" />
 	<ref name="devices" href="devices/" display="Device Info" />
 	<op name="signUp" href="signUp/" in="obix:obj" out="obix:obj">
-		<!-- op is the index of operation handler in post_handler.c -->
 		<meta op="7" />
 	</op>
 </obj>

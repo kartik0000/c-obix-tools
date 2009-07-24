@@ -107,7 +107,9 @@ int testWriteToDatabase(const char* testName,
     }
     else
     {
-        error = xmldb_update(newData, href, NULL, NULL);
+    	IXML_Element* data = ixmlElement_parseBuffer(newData);
+        error = xmldb_updateDOM(data, href, NULL, NULL);
+        ixmlElement_freeOwnerDocument(data);
     }
     if (error == 1)
     {
@@ -228,7 +230,7 @@ int testGenerateResponse(const char* testName, const char* uri, const char* newU
     }
 
     Response* response = obixResponse_create((Request*)1, FALSE);
-    obix_server_generateResponse(response, oBIXdoc, newUrl, TRUE, FALSE, 0, TRUE, FALSE);
+    obix_server_generateResponse(response, oBIXdoc, newUrl, TRUE, FALSE, 0, FALSE);
 
     if ((response == NULL) || (response->body == NULL))
     {
@@ -247,7 +249,7 @@ int testGenerateResponse(const char* testName, const char* uri, const char* newU
     }
 
     response = obixResponse_create((Request*)1, FALSE);
-    obix_server_generateResponse(response, oBIXdoc, newUrl, TRUE, FALSE, 0, FALSE, TRUE);
+    obix_server_generateResponse(response, oBIXdoc, newUrl, TRUE, FALSE, 0, TRUE);
     if ((response == NULL) || (response->body == NULL))
     {
         printf("oBIX normalization with saving is failed.\n");
@@ -644,7 +646,7 @@ int testWatchPollChanges(const char* testName,
                          BOOL exists,
                          BOOL waitResponse)
 {
-    obix_server_setResponseListener(&dummyResponseListener);
+    obixResponse_setListener(&dummyResponseListener);
     Response* response = obixResponse_create((Request*)1, TRUE);
     obix_server_handlePOST(response, uri, NULL);
     if (waitResponse)
@@ -677,7 +679,7 @@ int testWatchPollChanges(const char* testName,
 int testWatchRemove()
 {
     const char* testName = "Watch.remove test";
-    obix_server_setResponseListener(&dummyResponseListener);
+    obixResponse_setListener(&dummyResponseListener);
     Response* response = obixResponse_create((Request*)1, FALSE);
     obix_server_handlePOST(
         response,
@@ -748,7 +750,7 @@ int testWatch()
 {
     const char* testName = "oBIX Watch test";
     // create new Watch object
-    obix_server_setResponseListener(&dummyResponseListener);
+    obixResponse_setListener(&dummyResponseListener);
     Response* response = obixResponse_create((Request*)1, FALSE);
     obix_server_handlePOST(response, "/obix/watchService/make", NULL);
     if (checkResponse(response, FALSE) != 0)
@@ -929,7 +931,7 @@ int testSignUpHelper(const char* testName,
                      BOOL shouldPass)
 {
     // invoke signup operation
-    obix_server_setResponseListener(&dummyResponseListener);
+	obixResponse_setListener(&dummyResponseListener);
     Response* response = obixResponse_create((Request*)1, FALSE);
     obix_server_handlePOST(response, "/obix/signUp/", inputData);
     if (checkResponse(response, !shouldPass) != 0)

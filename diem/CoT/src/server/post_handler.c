@@ -26,7 +26,10 @@
 
 
 #define WATCH_OUT_PREFIX "<obj is=\"obix:WatchOut\">\r\n  <list name=\"values\" of=\"obix:obj\">\r\n"
-#define WATCH_OUT_POSTFIX "\r\n  </list>\r\n</obj>"
+#define WATCH_OUT_POSTFIX "\r\n  </list>\r\n</obj>\r\n"
+
+#define BATCH_OUT_PREFIX "<list is=\"obix:BatchOut\" of=\"obix:obj\">\r\n"
+#define BATCH_OUT_POSTFIX "\r\n</list>\r\n"
 
 #define DEVICE_LIST_URI "/obix/devices/"
 
@@ -72,7 +75,7 @@ static const obix_server_postHandler POST_HANDLER[] =
         &handlerBatch				//8 Batch
     };
 
-static const int POST_HANDLERS_COUNT = 8;
+static const int POST_HANDLERS_COUNT = 9;
 
 obix_server_postHandler obix_server_getPostHandler(int id)
 {
@@ -246,13 +249,8 @@ static int processWatchIn(IXML_Element* input, const char*** uriSet)
     }
 
     // get list of uri
-    IXML_Element* listObj = ixmlDocument_getElementById(input, OBIX_OBJ_LIST);
-    if (listObj == NULL)
-    {
-        return -1;
-    }
     IXML_NodeList* uriList = ixmlElement_getElementsByTagName(
-                                 listObj,
+                                 input,
                                  OBIX_OBJ_URI);
     if (uriList == NULL)
     {
@@ -265,6 +263,36 @@ static int processWatchIn(IXML_Element* input, const char*** uriSet)
     ixmlNodeList_free(uriList);
 
     return length;
+}
+
+/**
+ * Adds new response part to the tail of the response and sends the error
+ * message if creation failed.
+ *
+ * @param respHead Head of the response (used when the error message is sent).
+ * @param respTail Tail of the response to which a new part will be added.
+ * @param uri Uri of the operation which invoked this function. It will be used
+ * 			  in the error message.
+ * @param handlerName Name of the operation handler which will appear in the
+ * 					  error message.
+ * @return New response object which is a next part of the provided response;
+ * 		   @a NULL on error.
+ */
+static Response* addResponsePart(Response* respHead,
+								 Response* respTail,
+                                 const char* uri,
+                                 const char* operationName)
+{
+    Response* newPart = obixResponse_add(respTail);
+    if (newPart == NULL)
+    {
+        log_error("Unable to create multipart response object.");
+        sendErrorMessage(respHead,
+                         uri,
+                         operationName,
+                         "Internal server error.");
+    }
+    return newPart;
 }
 
 void handlerWatchAdd(Response* response,
@@ -335,14 +363,9 @@ void handlerWatchAdd(Response* response,
         int error = obixWatch_createWatchItem(watch, uriSet[i], &watchItem);
 
         // Create new response part
-        rItem = obixResponse_add(rItem);
+        rItem = addResponsePart(response, rItem, uri, "Watch.add");
         if (rItem == NULL)
-        {
-            log_error("Unable to create multipart response object.");
-            sendErrorMessage(response,
-                             uri,
-                             "Watch.add",
-                             "Internal server error.");
+        {   // error message is already sent
             return;
         }
 
@@ -386,15 +409,12 @@ void handlerWatchAdd(Response* response,
     free(uriSet);
 
     // finally add WatchOut postfix
-    rItem = obixResponse_add(rItem);
-    obixResponse_setText(rItem, WATCH_OUT_POSTFIX, TRUE);
+    rItem = addResponsePart(response, rItem, uri, "Watch.add");
     if (rItem == NULL)
-    {
-        log_error("Unable to create multipart response object.");
-        sendErrorMessage(response, uri, "Watch.add", "Internal server error.");
+    {   // error message is already sent
         return;
     }
-
+    obixResponse_setText(rItem, WATCH_OUT_POSTFIX, TRUE);
     obixResponse_send(response);
 }
 
@@ -464,17 +484,15 @@ void handlerWatchRemove(Response* response,
     obixResponse_send(response);
 }
 
-static void completeWatchPollResponse(const char* functionName,
+static void completeWatchPollResponse(const char* operationName,
                                       Response* respHead,
                                       Response* respTail,
                                       const char* uri)
 {
     //complete response
-    respTail = obixResponse_add(respTail);
+    respTail = addResponsePart(respHead, respTail, uri, operationName);
     if (respTail == NULL)
-    {
-        log_error("Unable to create multipart response object.");
-        sendErrorMessage(respTail, uri, functionName, "Internal server error");
+    {   // error message is already sent
         return;
     }
     obixResponse_setText(respTail, WATCH_OUT_POSTFIX, TRUE);
@@ -483,7 +501,7 @@ static void completeWatchPollResponse(const char* functionName,
     obixResponse_send(respHead);
 }
 
-static Response* pollWatchItemIterator(const char* functionName,
+static Response* pollWatchItemIterator(const char* operationName,
                                        BOOL changedOnly,
                                        oBIX_Watch* watch,
                                        Response* response,
@@ -504,14 +522,9 @@ static Response* pollWatchItemIterator(const char* functionName,
             obixWatchItem_setUpdated(watchItem, FALSE);
 
             // create new response part
-            respPart = obixResponse_add(respPart);
+            respPart = addResponsePart(response, respPart, uri, operationName);
             if (respPart == NULL)
-            {
-                log_error("Unable to create multipart response object.");
-                sendErrorMessage(response,
-                                 uri,
-                                 functionName,
-                                 "Internal server error");
+            {   // error message is already sent
                 return NULL;
             }
 
@@ -561,10 +574,10 @@ static void handlerWatchPollHelper(Response* response,
                                    const char* uri,
                                    BOOL changedOnly)
 {
-    char* functionName = changedOnly ?
-                         "Watch.pollChanges" : "Watch.pollRefresh";
+    char* operationName = changedOnly ?
+                          "Watch.pollChanges" : "Watch.pollRefresh";
     // this produces to much of log
-    //    log_debug("Handling %s of watch \"%s\".", functionName, uri);
+    //    log_debug("Handling %s of watch \"%s\".", operationName, uri);
 
     // find the corresponding watch object
     oBIX_Watch* watch = obixWatch_getByUri(uri);
@@ -572,7 +585,7 @@ static void handlerWatchPollHelper(Response* response,
     {
         sendErrorMessage(response,
                          uri,
-                         functionName,
+                         operationName,
                          "Watch object doesn't exist.");
         return;
     }
@@ -585,7 +598,7 @@ static void handlerWatchPollHelper(Response* response,
 
     //iterate through all watch items and generate response
     Response* respTail = pollWatchItemIterator(
-                             functionName,
+                             operationName,
                              changedOnly,
                              watch,
                              response,
@@ -600,7 +613,7 @@ static void handlerWatchPollHelper(Response* response,
     if (!obixWatch_isLongPoll(watch) || !changedOnly)
     {
         // complete and send response
-        completeWatchPollResponse(functionName, response, respTail, uri);
+        completeWatchPollResponse(operationName, response, respTail, uri);
         return;
     }
 
@@ -638,19 +651,21 @@ static void handlerWatchPollHelper(Response* response,
             // already reserved.
             sendErrorMessage(response,
                              uri,
-                             functionName,
+                             operationName,
                              "Unable to hold long poll request: "
-                             "Maximum number of requests on hold is reached. "
-                             "Ask server administrator to increase "
-                             "hold-request-max parameter or use traditional "
-                             "polling.");
+                             "Check that you are not trying to call "
+                             "pollChanges from Batch request. If not, than "
+                             "maximum number of requests on hold is reached. "
+                             "Ask administrator to increase "
+                             "hold-request-max parameter in server settings or "
+                             "use traditional polling.");
         }
         else
         {
             // attempt to hold a poll failed - reason unknown
             sendErrorMessage(response,
                              uri,
-                             functionName,
+                             operationName,
                              "Unable to hold long poll request: "
                              "Internal server error.");
         }
@@ -876,11 +891,21 @@ void handlerBatch(Response* response,
     // check input
     if (input == NULL)
     {
-        return -1;
+        sendErrorMessage(response, uri, "Batch",
+                         "Input is empty or broken.");
+        return;
+    }
+
+    // prepare response
+    obixResponse_setText(response, BATCH_OUT_PREFIX, TRUE);
+    Response* rItem = addResponsePart(response, response, uri, "Batch");
+    if (rItem == NULL)
+    {   // error message is already sent
+        return;
     }
 
     // iterate through the list of commands
-    IXML_Node* node = ixmlNode_getFirstChild(input);
+    IXML_Node* node = ixmlNode_getFirstChild(ixmlElement_getNode(input));
 
     while (node != NULL)
     {
@@ -892,18 +917,62 @@ void handlerBatch(Response* response,
             continue;
         }
 
+        // get uri of the command
+        const char* commandUri = ixmlElement_getAttribute(command,
+                                 OBIX_ATTR_VAL);
+        if (commandUri == NULL)
+        {
+            // this is some error in the user command, because there should be
+            // always some uri
+            sendErrorMessage(response, uri, "Batch",
+                             "Input contains illegal tag(s).");
+            return;
+        }
+
         // find out type of command (read, write or invoke)
         if (obix_obj_implementsContract(command, "Read"))
         {
-            obix_server_handleGET();
+            obix_server_read(rItem, commandUri);
+
+        }
+        else if (obix_obj_implementsContract(command, "Write"))
+        {
+            obix_server_write(rItem,
+                              commandUri,
+                              ixmlNode_convertToElement(
+                                  ixmlNode_getFirstChild(node)));
+        }
+        else if (obix_obj_implementsContract(command, "Invoke"))
+        {
+            obix_server_invoke(rItem,
+                               commandUri,
+                               ixmlNode_convertToElement(
+                                   ixmlNode_getFirstChild(node)));
+        }
+        else
+        {
+            // unknown tag
+            sendErrorMessage(response, uri, "Batch",
+                             "Input contains illegal tag(s).");
+            return;
         }
 
-        if (obix_obj_implementsContract(command, "Write"))
-        {}
-
-        if (obix_obj_implementsContract(command, "Invoke"))
-        {}
-
+        // the command handler could generate more than one response part, find
+        // current response tail
+        while (rItem->next != NULL)
+        {
+        	rItem = rItem->next;
+        }
+        // create new response part for the next command response
+        rItem = addResponsePart(response, rItem, uri, "Batch");
+        if (rItem == NULL)
+        {   // error message is already sent
+            return;
+        }
         node = ixmlNode_getNextSibling(node);
     }
+
+    // finish and send the response object
+    obixResponse_setText(rItem, BATCH_OUT_POSTFIX, TRUE);
+    obixResponse_send(response);
 }
