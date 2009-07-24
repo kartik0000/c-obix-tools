@@ -68,7 +68,7 @@
  */
 typedef enum
 {
-	/**Operation is completed successfully.*/
+    /**Operation is completed successfully.*/
     OBIX_SUCCESS 				= 0,
     /**Function received wrong input argument.*/
     OBIX_ERR_INVALID_ARGUMENT 	= -1,
@@ -89,14 +89,14 @@ typedef enum
 
 typedef enum
 {
-	OBIX_T_BOOL,
-	OBIX_T_INT,
-	OBIX_T_REAL,
-	OBIX_T_STR,
-	OBIX_T_ENUM,
-	OBIX_T_ABSTIME,
-	OBIX_T_RELTIME,
-	OBIX_T_URI
+    OBIX_T_BOOL,
+    OBIX_T_INT,
+    OBIX_T_REAL,
+    OBIX_T_STR,
+    OBIX_T_ENUM,
+    OBIX_T_ABSTIME,
+    OBIX_T_RELTIME,
+    OBIX_T_URI
 } OBIX_DATA_TYPE;
 
 /**
@@ -138,9 +138,6 @@ int obix_loadConfigFile(const char* fileName);
  * Initializes library and loads connection setting from provided DOM
  * structure. Unlike #obix_loadConfigFile() it doesn't configure log system
  * of the library. Unconfigured log writes all messages to @a stdout.
- *
- * @todo Update description of obix_loadConfig() after adding log header to the
- * 		 library.
  *
  * @param config DOM structure representing a configuration XML.
  * @return #OBIX_SUCCESS if the library initialized successfully,
@@ -223,6 +220,52 @@ int obix_registerDevice(int connectionId, const char* obixData);
 int obix_unregisterDevice(int connectionId, int deviceId);
 
 /**
+ * Reads value of the specified parameter from the oBIX server.
+ *
+ * This function can be used to read value of any object on the server: It can
+ * be some parameter of device which was registered by the same client, or by
+ * any other device driver. It can be also any value of the server settings.
+ *
+ * @n @b Example: Server contains the following information:
+ * @code
+ * <obj name="device1" href="/obix/device1/">
+ *   <obj name="configure" href="conf/" />
+ *     <str name="name" href="name" val="My Device"/>
+ *   </obj>
+ * </obj>
+ * @endcode
+ * There are two options to read the value of @a "name" string of @a "device1":
+ * - If this device was registered by the same client earlier, than the client
+ *   should used device ID assigned to this device and provide parameter URI
+ *   relative to the root of device data (in current example it is @a
+ *   "conf/name").
+ * - In case if that device was registered by someone else, than @a 0 should be
+ *   used instead device ID + full URI of the required parameter (in this
+ *   example it is @a "/obix/device1/conf/name").
+ *
+ * @note This method is used to read only @a val attribute of some object, but
+ *       not the whole object itself. Use #obix_read instead.
+ *
+ * @param connectionId ID of the connection which should be used.
+ * @param deviceId ID of the device whose parameter should be read or @a 0
+ *                 if the parameter doesn't belong to devices registered by
+ *                 this client.
+ * @param paramUri URI of the parameter. It should be either relative to the
+ *                 device record like it was provided during device
+ *                 registration, or relative to the server root if the
+ *                 parameter doesn't belong to devices registered by this
+ *                 client.
+ *
+ * @param output If read command executed successfully the attribute value is
+ *               stored here.
+ * @return @a #OBIX_SUCCESS on success, negative error code otherwise.
+ */
+int obix_readValue(int connectionId,
+                   int deviceId,
+                   const char* paramUri,
+                   char** output);
+
+/**
  * Overwrites value of the specified device parameter at the oBIX server.
  *
  * This function can be also used to change a value of any @a writable object
@@ -245,12 +288,23 @@ int obix_unregisterDevice(int connectionId, int deviceId);
  * 		  method. It's not possible to overwrite a piece of XML on the server.
  * @param dataType Type of data which is written to the server.
  * @return @a #OBIX_SUCCESS on success, negative error code otherwise.
+ * @see #obix_readValue for the usage example.
  */
 int obix_writeValue(int connectionId,
                     int deviceId,
                     const char* paramUri,
                     const char* newValue,
                     OBIX_DATA_TYPE dataType);
+
+
+
+/**
+ * hello here is some description :)
+ */
+int obix_read(int connectionId,
+              int deviceId,
+              const char* paramUri,
+              IXML_Element** output);
 
 /**
  * Registers listener for device parameter updates.
@@ -296,5 +350,54 @@ int obix_registerListener(int connectionId,
 int obix_unregisterListener(int connectionId,
                             int deviceId,
                             int listenerId);
+
+typedef enum
+{
+    OBIX_READ,
+    OBIX_WRITE
+} OBIX_BATCH_CMD_TYPE;
+
+typedef struct _oBIX_BatchCmd
+{
+    OBIX_BATCH_CMD_TYPE type;
+    int deviceId;
+    char* paramUri;
+    char* newValue;
+    OBIX_DATA_TYPE dataType;
+    struct _oBIX_BatchCmd* next;
+}
+oBIX_BatchCmd;
+
+typedef struct _oBIX_BatchResult
+{
+    int status;
+    char* paramValue;
+}
+oBIX_BatchResult;
+
+typedef struct _oBIX_Batch
+{
+    int connectionId;
+    oBIX_BatchCmd* command;
+    oBIX_BatchResult* result;
+}
+oBIX_Batch;
+
+oBIX_Batch* obix_batch_create(int connectionId);
+
+int obix_batch_addRead(oBIX_Batch* batch,
+                       int deviceId,
+                       const char* paramUri);
+int obix_batch_addWrite(oBIX_Batch* batch,
+                        int deviceId,
+                        const char* paramUri,
+                        const char* newValue,
+                        OBIX_DATA_TYPE dataType);
+
+int obix_batch_send(oBIX_Batch* batch);
+
+oBIX_BatchResult* obix_batch_getResult(oBIX_Batch* batch, int index);
+
+int obix_batch_free(oBIX_Batch* batch);
 
 #endif /* OBIX_CLIENT_H_ */

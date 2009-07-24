@@ -743,3 +743,11 @@ int obix_dispose()
 
     return retVal;
 }
+
+int obix_readValue(int connectionId,
+                   int deviceId,
+                   const char* paramUri,
+                   char** value)
+{
+	return 0;
+}
