@@ -14,7 +14,8 @@
 #include <ptask.h>
 #include <obix_utils.h>
 // TODO is included only for error codes
-#include <obix_client.h>
+#include "obix_client.h"
+#include "obix_batch.h"
 #include "obix_http.h"
 
 #define DEFAULT_POLLING_INTERVAL 500
@@ -58,7 +59,10 @@ const Comm_Stack OBIX_HTTP_COMM_STACK =
         &http_unregisterDevice,
         &http_registerListener,
         &http_unregisterListener,
-        &http_writeValue
+        &http_read,
+        $http_readVale,
+        &http_writeValue,
+        &http_sendBatch
     };
 
 static const char* CT_SERVER_ADDRESS = "server-address";
@@ -264,7 +268,7 @@ static void resetWatchUris(Http_Connection* c)
     }
 }
 
-static char* getWatchInString(const char** paramUri, int count)
+static char* getStrWatchIn(const char** paramUri, int count)
 {
     // calculate size of WatchIn object
     int size = OBIX_WATCH_IN_TEMPLATE_HEADER_LENGTH;
@@ -356,7 +360,7 @@ static int addWatchItem(Http_Connection* c,
     char fullWatchAddUri[c->serverUriLength + strlen(c->watchAddUri) + 1];
     strcpy(fullWatchAddUri, c->serverUri);
     strcat(fullWatchAddUri, c->watchAddUri);
-    char *requestBody = getWatchInString(paramUri, count);
+    char *requestBody = getStrWatchIn(paramUri, count);
 
     if (requestBody == NULL)
     {
@@ -587,6 +591,11 @@ static int recreateWatch(Http_Connection* c,
 
 static int parseResponse(IXML_Document* respDoc, IXML_Element** respElem)
 {
+    if (respDoc == NULL)
+    {
+        return OBIX_ERR_BAD_CONNECTION;
+    }
+
     IXML_Node* node = ixmlNode_getFirstChild(ixmlDocument_getNode(respDoc));
     // iterate until we find first xml element
     while((node != NULL) && (ixmlNode_getNodeType(node) != eELEMENT_NODE))
@@ -615,7 +624,7 @@ static int parseResponse(IXML_Document* respDoc, IXML_Element** respElem)
         log_error("Server replied with error:\n"
                   "%s", text);
         free(text);
-        return OBIX_ERR_INVALID_STATE;
+        return OBIX_ERR_SERVER_ERROR;
     }
 
     return OBIX_SUCCESS;
@@ -632,7 +641,7 @@ static int parseWatchOut(IXML_Document* doc,
     int error = parseResponse(doc, &element);
     if (error != OBIX_SUCCESS)
     {
-        if (error != OBIX_ERR_INVALID_STATE)
+        if (error != OBIX_ERR_SERVER_ERROR)
         {
             return error;
         }
@@ -648,8 +657,8 @@ static int parseWatchOut(IXML_Document* doc,
         // it is badUri error which indicates (most probably it should :) that
         // the Watch object is unexpectedly deleted from oBIX server
         // (unfortunately it can happen :). Try to create new Watch.
-        log_warning("It seems like Watch object doesn't exist on oBIX server "
-                    "anymore.");
+        log_warning("It seems like Watch object doesn't exist on the oBIX "
+                    "server anymore.");
         error = recreateWatch(c, &doc, curlHandle);
         if (error != OBIX_SUCCESS)
         {
@@ -978,6 +987,84 @@ static int removeListener(Http_Connection* c, const char* paramUri)
     return retVal;
 }
 
+/**
+ * Combines device's URI and parameter's URI (one of them can be empty), thus
+ * obtaining URI relative to the server root.
+ */
+static char* getRelUri(Device* device, const char* paramUri)
+{
+    Http_Device* d = NULL;
+
+    int fullUriLength = 1;
+    if (paramUri != NULL)
+    {
+        fullUriLength += strlen(paramUri);
+    }
+    if (device != NULL)
+    {	// need to add device uri also
+        d = getHttpDevice(device);
+        fullUriLength += d->uriLength;
+    }
+
+    char* fullUri = (char*) malloc(fullUriLength);
+    if (fullUri == NULL)
+    {
+        return NULL;
+    }
+
+    fullUri = '\0';
+    if (d != NULL)
+    {
+        strcat(fullUri, d->uri);
+    }
+    if (paramUri != NULL)
+    {
+        strcat(fullUri, paramUri);
+    }
+
+    return fullUri;
+}
+
+/**
+ * Combines server's URI, device's URI and parameter's URI (one of the two last
+ * can be empty), thus obtaining full URL.
+ */
+static char* getAbsUri(Http_Connection* connection,
+                       Device* device,
+                       const char* paramUri)
+{
+    Http_Device* d = NULL;
+
+    int fullUriLength = connection->serverUriLength + 1;
+    if (paramUri != NULL)
+    {
+        fullUriLength += strlen(paramUri);
+    }
+    if (device != NULL)
+    {	// need to add device uri also
+        d = getHttpDevice(device);
+        fullUriLength += d->uriLength;
+    }
+
+    char* fullUri = (char*) malloc(fullUriLength);
+    if (fullUri == NULL)
+    {
+        return NULL;
+    }
+
+    strcpy(fullUri, connection->serverUri);
+    if (d != NULL)
+    {
+        strcat(fullUri, d->uri);
+    }
+    if (paramUri != NULL)
+    {
+        strcat(fullUri, paramUri);
+    }
+
+    return fullUri;
+}
+
 int http_init()
 {
     if (_initialized)
@@ -1032,7 +1119,7 @@ int http_init()
 
 int http_dispose()
 {
-	int retVal = OBIX_SUCCESS;
+    int retVal = OBIX_SUCCESS;
     if (_initialized)
     {
         // destroy curl handles
@@ -1071,12 +1158,16 @@ int http_initConnection(IXML_Element* connItem, Connection** connection)
     }
 
     // load server address
-    IXML_Element* element = config_getChildTag(connItem, CT_SERVER_ADDRESS, TRUE);
+    IXML_Element* element = config_getChildTag(connItem,
+                            CT_SERVER_ADDRESS,
+                            TRUE);
     if (element == NULL)
     {
         return OBIX_ERR_INVALID_ARGUMENT;
     }
-    const char* attrValue = config_getTagAttributeValue(element, CTA_VALUE, TRUE);
+    const char* attrValue = config_getTagAttributeValue(element,
+                            CTA_VALUE,
+                            TRUE);
     if (attrValue == NULL)
     {
         return OBIX_ERR_INVALID_ARGUMENT;
@@ -1218,6 +1309,7 @@ int http_initConnection(IXML_Element* connItem, Connection** connection)
 
     // initialize other values with zeros
     c->signUpUri = NULL;
+    c->batchUri = NULL;
     c->watchMakeUri = NULL;
     c->watchAddUri = NULL;
     c->watchDeleteUri = NULL;
@@ -1237,6 +1329,8 @@ void http_freeConnection(Connection* connection)
         free(c->lobbyUri);
     if (c->signUpUri != NULL)
         free(c->signUpUri);
+    if (c->batchUri != NULL)
+        free(c->batchUri);
     if (c->watchMakeUri != NULL)
         free(c->watchMakeUri);
     resetWatchUris(c);
@@ -1251,6 +1345,7 @@ int http_openConnection(Connection* connection)
 {
     char* signUpUri = NULL;
     char* watchServiceUri = NULL;
+    char* batchUri = NULL;
     IXML_Document* response = NULL;
 
     // helper function for releasing resources on error
@@ -1260,6 +1355,8 @@ int http_openConnection(Connection* connection)
             free(signUpUri);
         if (watchServiceUri != NULL)
             free(watchServiceUri);
+        if (batchUri != NULL)
+            free(batchUri);
         if (response != NULL)
             ixmlDocument_free(response);
     }
@@ -1271,18 +1368,22 @@ int http_openConnection(Connection* connection)
     strcpy(lobbyFullUri, c->serverUri);
     strcat(lobbyFullUri, c->lobbyUri);
     curl_ext_getDOM(_curl_handle, lobbyFullUri, &response);
-    if ((response == NULL) || (parseResponse(response, NULL) != OBIX_SUCCESS))
+    int error = parseResponse(response, NULL);
+    if (error != OBIX_SUCCESS)
     {
         log_error("Unable to get Lobby object from the oBIX server \"%s\".",
                   lobbyFullUri);
         cleanup();
-        return OBIX_ERR_BAD_CONNECTION;
+        return error;
     }
 
     // we need to save links to watchService.make and signUp operations.
     signUpUri = getObjectUri(response,
                              OBIX_NAME_SIGN_UP,
                              c, FALSE);
+    batchUri = getObjectUri(response,
+                            OBIX_NAME_BATCH,
+                            c, FALSE);
     watchServiceUri = getObjectUri(response,
                                    OBIX_NAME_WATCH_SERVICE,
                                    c, TRUE);
@@ -1298,12 +1399,13 @@ int http_openConnection(Connection* connection)
     ixmlDocument_free(response);
     response = NULL;
     curl_ext_getDOM(_curl_handle, watchServiceUri, &response);
-    if ((response == NULL) || (parseResponse(response, NULL) != OBIX_SUCCESS))
+    int error = parseResponse(response, NULL);
+    if (error != OBIX_SUCCESS)
     {
         log_error("Unable to get watchService object from the oBIX server "
                   "\"%s\".", watchServiceUri);
         cleanup();
-        return OBIX_ERR_BAD_CONNECTION;
+        return error;
     }
     // now get URI of watchService.make operation
     free(watchServiceUri);
@@ -1319,6 +1421,7 @@ int http_openConnection(Connection* connection)
     ixmlDocument_free(response);
 
     c->signUpUri = signUpUri;
+    c->batchUri = batchUri;
     c->watchMakeUri = watchServiceUri;
     return OBIX_SUCCESS;
 }
@@ -1398,8 +1501,8 @@ int http_registerDevice(Connection* connection, Device** device, const char* dat
         ixmlDocument_free(response);
         response = NULL;
         curl_ext_getDOM(_curl_handle, uri, &response);
-        if ((response == NULL) ||
-                (parseResponse(response, &element) != OBIX_SUCCESS))
+        int error = parseResponse(response, &element);
+        if (error != OBIX_SUCCESS)
         {
             // It's a pity but our hopes did not come true :) URI from the
             // error object did not contain any good data
@@ -1415,8 +1518,8 @@ int http_registerDevice(Connection* connection, Device** device, const char* dat
         // received object. But still there is a possibility that the received
         // object is not what we wanted to post on the server :)
         log_warning("signUp operation at oBIX server returned error, telling "
-                    "that the object with provided URI already exists. Trying to "
-                    "proceed with object with URI \"%s\".", uri);
+                    "that the object with provided URI already exists. Trying "
+                    "to proceed with object with URI \"%s\".", uri);
         free(uri);
     }
 
@@ -1470,30 +1573,23 @@ int http_unregisterDevice(Connection* connection, Device* device)
     return 0;
 }
 
-int http_registerListener(Connection* connection, Device* device, Listener** listener)
+int http_registerListener(Connection* connection,
+                          Device* device,
+                          Listener** listener)
 {
     Http_Connection* c = getHttpConnection(connection);
-    Http_Device* d = NULL;
+
+    // generate full URI for listening parameter
+    char* fullParamUri = getRelUri(device, (*listener)->paramUri);
+    if (fullParamUri == NULL)
+    {
+        log_error("Not enough memory.");
+        return OBIX_ERR_NO_MEMORY;
+    }
 
     log_debug("Registering listener of parameter \"%s\" at the server "
               "\"%s\"...", (*listener)->paramUri, c->serverUri);
-    // generate full URI for listening parameter
-    int fullParamUriLength = strlen((*listener)->paramUri) + 1;
-    if (device != NULL)
-    {	// need to add device URI
-        d = getHttpDevice(device);
-        fullParamUriLength += d->uriLength;
-    }
-    char fullParamUri[fullParamUriLength];
-    if (device == NULL)
-    {
-        strcpy(fullParamUri, (*listener)->paramUri);
-    }
-    else
-    {
-        strcpy(fullParamUri, d->uri);
-        strcat(fullParamUri, (*listener)->paramUri);
-    }
+
     int error = addListener(c, fullParamUri, *listener);
     if(error != OBIX_SUCCESS)
     {
@@ -1501,11 +1597,15 @@ int http_registerListener(Connection* connection, Device* device, Listener** lis
     }
 
     IXML_Document* response = NULL;
-    char* p = fullParamUri;
-    error = addWatchItem(c, (const char**) (&p), 1, &response, _curl_handle);
+    error = addWatchItem(c,
+                         (const char**) (&fullParamUri),
+                         1,
+                         &response,
+                         _curl_handle);
     if (error != OBIX_SUCCESS)
     {
         removeListener(c, fullParamUri);
+        free(fullParamUri);
         return error;
     }
 
@@ -1515,48 +1615,40 @@ int http_registerListener(Connection* connection, Device* device, Listener** lis
     {
         removeListener(c, fullParamUri);
     }
+    free(fullParamUri);
 
     return error;
 }
 
-int http_unregisterListener(Connection* connection, Device* device, Listener* listener)
+int http_unregisterListener(Connection* connection,
+                            Device* device,
+                            Listener* listener)
 {
     Http_Connection* c = getHttpConnection(connection);
     Http_Device* d = NULL;
 
     log_debug("Removing listener of parameter \"%s\" at the server \"%s\"...",
               listener->paramUri, c->serverUri);
-    int fullParamUriLength = strlen(listener->paramUri) + 1;
 
-    if (device != NULL)
-    {	// need to add device URI
-        d = getHttpDevice(device);
-        fullParamUriLength += d->uriLength;
-    }
-
-    // generate full listeners URI
-    char fullParamUri[fullParamUriLength];
-    if (device == NULL)
+    char* fullParamUri = getRelUri(device, listener->paramUri);
+    if (fullParamUri == NULL)
     {
-        strcpy(fullParamUri, listener->paramUri);
-    }
-    else
-    {
-        strcpy(fullParamUri, d->uri);
-        strcat(fullParamUri, listener->paramUri);
+        log_error("Not enough memory.");
+        return OBIX_ERR_NO_MEMORY;
     }
 
-    // remove that URI from the Watch object at the oBIX server
+    // remove generated URI from the Watch object at the oBIX server
+
     // get URI of Watch.remove operation
     char fullWatchRemoveUri[c->serverUriLength + strlen(c->watchRemoveUri) + 1];
     strcpy(fullWatchRemoveUri, c->serverUri);
     strcat(fullWatchRemoveUri, c->watchRemoveUri);
 
     // send request
-    char* p = fullParamUri;
-    char* requestBody = getWatchInString((const char**) (&p), 1);
+    char* requestBody = getStrWatchIn((const char**) (&fullParamUri), 1);
     if (requestBody == NULL)
     {
+        free(fullParamUri);
         log_error("Unable to unregister listener: Not enough memory.");
         return OBIX_ERR_NO_MEMORY;
     }
@@ -1566,6 +1658,7 @@ int http_unregisterListener(Connection* connection, Device* device, Listener* li
     free(requestBody);
     if (error != 0)
     {
+        free(fullParamUri);
         log_error("Unable to remove watch item from the server %s.",
                   fullWatchRemoveUri);
         return OBIX_ERR_BAD_CONNECTION;
@@ -1579,48 +1672,270 @@ int http_unregisterListener(Connection* connection, Device* device, Listener* li
     }
     else
     {
-    	IXML_Element* obixObj = NULL;
-    	// check server response
-    	error = parseResponse(response, &obixObj);
+        IXML_Element* obixObj = NULL;
+        // check server response
+        error = parseResponse(response, &obixObj);
         if (error != OBIX_SUCCESS)
         {
-        	// if server replied with Bad Uri error, than we can consider
-        	// that watch item is removed (actually all Watch object is
-        	// dropped by someone)
-        	if (!obix_obj_implementsContract(obixObj, OBIX_HREF_ERR_BAD_URI))
-        	{
-        		ixmlDocument_free(response);
-        		return OBIX_ERR_BAD_CONNECTION;
-        	}
+            // if server replied with Bad Uri error, than we can consider
+            // that watch item is removed (actually all Watch object is
+            // dropped by someone)
+            if (!obix_obj_implementsContract(obixObj, OBIX_HREF_ERR_BAD_URI))
+            {
+                free(fullParamUri);
+                ixmlDocument_free(response);
+                return OBIX_ERR_BAD_CONNECTION;
+            }
         }
         ixmlDocument_free(response);
     }
 
-    return removeListener(c, fullParamUri);
+    error = removeListener(c, fullParamUri);
+    free(fullParamUri);
+    return error;
 }
 
-int http_writeValue(Connection* connection, Device* device, const char* paramUri, const char* newValue, OBIX_DATA_TYPE dataType)
+int http_read(Connection* connection,
+              Device* device,
+              const char* paramUri,
+              IXML_Element** output)
 {
     Http_Connection* c = getHttpConnection(connection);
-    Http_Device* d = NULL;
+    IXML_Document* response = NULL;
 
-    log_debug("Writing new value for the object \"%s\" at the server %s...",
-              paramUri, c->serverUri);
+    char* fullUri = getAbsUri(c, device, paramUri);
 
-    int paramFullUriLength = c->serverUriLength + strlen(paramUri) + 1;
-    if (device != NULL)
-    {	// need to add device uri also
-        d = getHttpDevice(device);
-        paramFullUriLength += d->uriLength;
-    }
-
-
-    char paramFullUri[paramFullUriLength];
-    strcpy(paramFullUri, c->serverUri);
-    if (device != NULL)
+    if (fullUri == NULL)
     {
-        strcat(paramFullUri, d->uri);
+        log_error("Not enough memory.");
+        return OBIX_ERR_NO_MEMORY;
     }
-    strcat(paramFullUri, paramUri);
-    return writeValue(paramFullUri, newValue, dataType, _curl_handle);
+
+    curl_ext_getDOM(_curl_handle, fullUri, &response);
+    int error = parseResponse(response, NULL);
+    if (error != OBIX_SUCCESS)
+    {
+        log_error("Unable to get object \"%s\" from the oBIX server.",
+                  fullUri);
+        if (response != NULL)
+        {
+            ixmlDocument_free(response);
+        }
+        free(fullUri);
+        return error;
+    }
+
+    // return the output object
+    IXML_Element* element = ixmlDocument_getRootElement(response);
+    if (element == NULL)
+    {
+        log_error("Response from the server (\"%s\") doesn't contain any XML "
+                  "tags.", fullUri);
+        if (response != NULL)
+        {
+            ixmlDocument_free(response);
+        }
+        free(fullUri);
+        return OBIX_ERR_BAD_CONNECTION;
+    }
+
+    free(fullUri);
+    *output = element;
+    return OBIX_SUCCESS;
+}
+
+int http_readValue(Connection* connection,
+                   Device* device,
+                   const char* paramUri,
+                   char** output)
+{
+    IXML_Element* element;
+    int error = http_read(connection, device, paramUri, &element);
+    if (error != OBIX_SUCCESS)
+    {
+        return error;
+    }
+
+    const char* attr = ixmlElement_getAttribute(element, OBIX_ATTR_VAL);
+    if (attr == NULL)
+    {
+        char* temp = ixmlPrintNode(ixmlElement_getNode(element));
+        log_warning("Received object doesn't have \"%s\" attribute:\n%s",
+                    OBIX_ATTR_VAL, temp);
+        free(temp);
+        ixmlElement_freeOwnerDocument(element);
+        return OBIX_ERR_INVALID_ARGUMENT;
+    }
+
+    char* copy = (char*) malloc(strlen(attr) + 1);
+    if (copy == NULL)
+    {
+        log_error("Unable to allocate enough memory.");
+        ixmlElement_freeOwnerDocument(element);
+        return OBIX_ERR_NO_MEMORY;
+    }
+    strcpy(copy, attr);
+    *output = copy;
+    return OBIX_SUCCESS;
+}
+
+int http_writeValue(Connection* connection,
+                    Device* device,
+                    const char* paramUri,
+                    const char* newValue,
+                    OBIX_DATA_TYPE dataType)
+{
+    Http_Connection* c = getHttpConnection(connection);
+    char* fullUri = getAbsUri(c, device, paramUri);
+    if (fullUri == NULL)
+    {
+        log_error("Not enough memory.");
+        return OBIX_ERR_NO_MEMORY;
+    }
+
+    log_debug("Performing write operation...");
+    int error = writeValue(fullUri, newValue, dataType, _curl_handle);
+    free(fullUri);
+    return error;
+}
+
+#define OBIX_BATCH_TEMPLATE_HEADER "<list is=\"obix:BatchIn\" of=\"obix:uri\">\r\n"
+#define OBIX_BATCH_TEMPLATE_HEADER_LENGTH 40
+#define OBIX_BATCH_TEMPLATE_FOOTER "</list>"
+#define OBIX_BATCH_TEMPLATE_FOOTER_LENGTH 7;
+#define OBIX_BATCH_TEMPLATE_CMD_READ " <uri is=\"obix:Read\" val=\"%s\" />\r\n"
+#define OBIX_BATCH_TEMPLATE_CMD_READ_LENGTH 32
+#define OBIX_BATCH_TEMPLATE_CMD_WRITE (" <uri is=\"obix:Write\" val=\"%s\" >\r\n" \
+									   "  <%s name=\"in\" val=\"%s\"/>\r\n" \
+									   " </uri>\r\n")
+#define OBIX_BATCH_TEMPLATE_CMD_WRITE_LENGTH 65
+
+static char* getStrBatch(oBIX_Batch* batch)
+{
+    // generate batch message;
+    // start with forming correct URI's and calculating size of the final
+    // message
+    char* uri[batch->commandCounter];
+
+    void cleanup()
+    {
+        // free all generated URIs
+        int i;
+        for (i = 0; i < batch->commandCounter; i++)
+        {
+            if (uri[i] != NULL)
+            {
+                free(uri[i]);
+            }
+        }
+    }
+
+    oBIX_BatchCmd* command = batch->command;
+    int batchMessageSize = OBIX_BATCH_TEMPLATE_HEADER_LENGTH +
+                           OBIX_BATCH_TEMPLATE_FOOTER_LENGTH + 1;
+
+    int i;
+    for (i = 0; i < batch->commandCounter; i++)
+    {
+        uri[i] = NULL;
+    }
+
+    while (command != NULL)
+    {
+        char* fullUri = getRelUri(command->device, command->paramUri);
+        if (fullUri == NULL)
+        {
+            cleanup();
+            return NULL;
+        }
+        uri[batch->commandCounter] = fullUri;
+
+        // calculate length of this command
+        batchMessageSize += strlen(fullUri);
+        if (command->type == OBIX_BATCH_WRITE_VALUE)
+        {
+            batchMessageSize += OBIX_BATCH_TEMPLATE_CMD_WRITE_LENGTH +
+                                strlen(*(OBIX_DATA_TYPE_NAMES[
+                                             command->dataType])) +
+                                strlen(command->newValue);
+        }
+        else
+        {
+            batchMessageSize += OBIX_BATCH_TEMPLATE_CMD_READ_LENGTH;
+        }
+
+        command = command->next;
+    }
+
+    char* batchMessage = (char*) malloc(batchMessageSize);
+    if (batchMessage == NULL)
+    {
+        cleanup();
+        return NULL;
+    }
+
+    // print batch header
+    strcpy(batchMessage, OBIX_BATCH_TEMPLATE_HEADER);
+    int size = OBIX_BATCH_TEMPLATE_HEADER_LENGTH;
+
+    // print commands
+    command = batch->command;
+    while (command != NULL)
+    {
+        if (command->type == OBIX_BATCH_WRITE_VALUE)
+        {
+            size += sprintf(batchMessage + size,
+                            OBIX_BATCH_TEMPLATE_CMD_WRITE,
+                            uri[command->id],
+                            *(OBIX_DATA_TYPE_NAMES[command->dataType]),
+                            command->newValue);
+        }
+        else
+        {
+            size += sprintf(batchMessage + size,
+                            OBIX_BATCH_TEMPLATE_CMD_READ,
+                            uri[command->id]);
+        }
+        free(uri[command->id]);
+        command = command->next;
+    }
+
+    // print batch footer
+    strcpy(batchMessage + size, OBIX_BATCH_TEMPLATE_FOOTER);
+    return batchMessage;
+}
+
+int http_sendBatch(oBIX_Batch* batch)
+{
+    // generate batch request
+    char* requestBody = getStrBatch(batch);
+    if (requestBody == NULL)
+    {
+        log_error("Unable to generate the Batch object: "
+                  "Not enough memory.");
+        return OBIX_ERR_NO_MEMORY;
+    }
+
+    // get full URI of batch operation
+    Http_Connection* c = getHttpConnection(batch->connection);
+    char fullBatchUri[c->serverUriLength + strlen(c->batchUri) + 1];
+    strcpy(fullBatchUri, c->serverUri);
+    strcat(fullBatchUri, c->batchUri);
+
+    // send the batch request
+    _curlHandle->outputBuffer = requestBody;
+    IXML_Document* response;
+    int error = curl_ext_postDOM(curlHandle, fullBatchUri, &response);
+    free(requestBody);
+    if (error != 0)
+    {
+        return OBIX_ERR_BAD_CONNECTION;
+    }
+
+    // parse response message
+    IXML_Element* list = ixmlDocument_getRootElement(response);
+
+    IXML_Node* node = ixmlNode_getFirstChild(ixmlElement_getNode(list));
+    // TODO continue implementation of parsing (iterate through nodes and create
+    // results array
 }

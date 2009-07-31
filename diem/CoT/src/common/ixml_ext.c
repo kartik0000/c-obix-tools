@@ -53,6 +53,21 @@ IXML_Node* ixmlAttr_getNode(IXML_Attr* attr)
     return &(attr->n);
 }
 
+IXML_Element* ixmlDocument_getRootElement(IXML_Document* doc)
+{
+	IXML_Node* node = ixmlNode_getFirstChild(ixmlDocument_getNode(doc));
+	IXML_Element* element = ixmlNode_convertToElement(node);
+
+	// search for element node in all document's child nodes
+	while((element == NULL) && (node != NULL))
+	{
+		node = ixmlNode_getNextSibling(node);
+		element = ixmlNode_convertToElement(node);
+	}
+
+	return element;
+}
+
 ///**
 // * Does the same with #ixmlDocument_getElementByHrefRecursive(IXML_Document*,const char*,int).
 // * The difference is that this implementation uses utility from upnp library
@@ -205,6 +220,11 @@ IXML_Element* ixmlElement_cloneWithLog(IXML_Element* source)
     }
 
     return ixmlNode_convertToElement(node);
+}
+
+void ixmlNode_freeOwnerDocument(IXML_Node* node)
+{
+	ixmlDocument_free(ixmlNode_getOwnerDocument(node));
 }
 
 void ixmlElement_freeOwnerDocument(IXML_Element* element)

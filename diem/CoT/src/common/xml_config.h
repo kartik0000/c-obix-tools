@@ -1,7 +1,7 @@
 #ifndef XML_CONFIG_H_
 #define XML_CONFIG_H_
 /** @file
- * @brief Declares configuration constants and structs.
+ * @brief Declares Configuration API.
  *
  * Defines the names of configuration parameters as
  * well as their possible values. These parameters

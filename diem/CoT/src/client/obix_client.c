@@ -674,6 +674,71 @@ int obix_unregisterListener(int connectionId,
     return listener_unregister(connection, device, listenerId);
 }
 
+int obix_readValue(int connectionId,
+                   int deviceId,
+                   const char* paramUri,
+                   char** output)
+{
+    Connection* connection;
+    int error = connection_get(connectionId, TRUE, &connection);
+    if (error != OBIX_SUCCESS)
+    {
+        return error;
+    }
+
+    Device* device;
+    error = device_get(connection, deviceId, &device);
+    if (error != OBIX_SUCCESS)
+    {
+        return error;
+    }
+
+    if (deviceId == 0)
+    {
+        device = NULL;
+    }
+
+    if ((paramUri == NULL) && (device == NULL))
+    {
+        return OBIX_ERR_INVALID_ARGUMENT;
+    }
+
+    return (connection->comm->readValue)(connection, device, paramUri, output);
+}
+
+
+int obix_read(int connectionId,
+              int deviceId,
+              const char* paramUri,
+              IXML_Element** output)
+{
+    Connection* connection;
+    int error = connection_get(connectionId, TRUE, &connection);
+    if (error != OBIX_SUCCESS)
+    {
+        return error;
+    }
+
+    Device* device;
+    error = device_get(connection, deviceId, &device);
+    if (error != OBIX_SUCCESS)
+    {
+        return error;
+    }
+
+    if (deviceId == 0)
+    {
+        device = NULL;
+    }
+
+    if ((paramUri == NULL) && (device == NULL))
+    {
+        return OBIX_ERR_INVALID_ARGUMENT;
+    }
+
+    return (connection->comm->read)(connection, device, paramUri, output);
+}
+
 int obix_writeValue(int connectionId,
                     int deviceId,
                     const char* paramUri,
@@ -697,6 +762,11 @@ int obix_writeValue(int connectionId,
     if (deviceId == 0)
     {
         device = NULL;
+    }
+
+    if ((paramUri == NULL) && (device == NULL))
+    {
+        return OBIX_ERR_INVALID_ARGUMENT;
     }
 
     return (connection->comm->writeValue)(connection, device, paramUri, newValue, dataType);
@@ -742,12 +812,4 @@ int obix_dispose()
     }
 
     return retVal;
-}
-
-int obix_readValue(int connectionId,
-                   int deviceId,
-                   const char* paramUri,
-                   char** value)
-{
-	return 0;
 }

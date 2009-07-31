@@ -1,34 +1,49 @@
 /**@file
- * Contains definitions for oBIX client library.
+ * @brief Definitions for @ref obix-client-intro.
+ *
+ * oBIX Client API simplifies implementing client applications for oBIX servers,
+ * such as device drivers. Library hides all network calls and allows accessing
+ * data at the oBIX server without dealing with oBIX request formats. There is
+ * also a possibility to subscribe for data updates on the server, which is
+ * performed by library using oBIX Watch engine.
  *
  * @author Andrey Litvinov
  * @version 0.0.0
  */
 
-/**@mainpage
+/**@page obix-client-intro oBIX Client API
+ *
  * The oBIX Client Library can be used by device drivers to post device data to
- * oBIX server and monitor value updates. In order to register new device,
- * server should support signUp feature which is not in the oBIX specification.
- * @n
- * @n @b Usage:
- * @n
+ * oBIX server and monitor value updates. In order to register a new device
+ * (using #obix_registerDevice), server should support @a signUp feature which is
+ * not in the oBIX specification. Currently @a signUp operation is supported by
+ * C oBIX Server included to this distribution and oFMS
+ * (http://www.stok.fi/eng/ofms/index.html). All other functions should work
+ * with any proper oBIX server implementation. If not, please report the found
+ * error to the author of this distribution.
+ *
+ * @section obix-client-comp Compilation
+ *
  * The following string will compile application which uses oBIX Client Library:
  * @code
  * gcc -I<cot_headers> -L<cot_lib> -lcot-client <source> -o <output_name>
  * @endcode
  * where
- * - @a \<cot_headers> - Path to header files of libcot (usually it is
+ * - @a \<cot_headers> - Path to header files of @a libcot (usually it is
  * 						\<installation_prefix>/include/cot/).
  * - @a \<cot_lib>	  - Path to library binaries of libcot (usually it is
  * 						\<installation_prefix>/lib).
  * - @a \<sources>	  - Your source files to be compiled.
  * - @a \<output_name> - Name of the output binary.
  *
- * @n
- * The typical usage of library (see example at example_timer.c):
+ * @section obix-client-usage Usage
+ *
+ * The typical usage of the library in device adapter (see example at
+ * example_timer.c):
+ *
  * @li Include obix_client.h header.
  *
- * @li Initialize library during driver startup. It can be done either by
+ * @li Initialize library during program startup. It can be done either by
  *     calling #obix_loadConfigFile() which will load settings from
  *     configuration file, or by #obix_loadConfig() with own generated XML
  *     settings structure.
@@ -36,22 +51,24 @@
  * @li Open configured connection to oBIX server by calling
  *     #obix_openConnection().
  *
- * @li Generate an oBIX object for each device and register them at the server
+ * @li Generate an oBIX object for each device (for instance, one adapter can
+ *     handle several devices of the same type) and register them at the server
  *     by calling #obix_registerDevice().
  *
  * @li If oBIX object, generated for the device, contains controlling values
- *     which can be changed outside, register listener for these values by
- *     calling #obix_registerListener(). Library start automatically polling
- *     changes of subscribed values and calls corresponding
- *     #obix_update_listener() when receives an updated value.
+ *     which can be changed outside (e.g. enabling/disabling boolean switch),
+ *     register listener for these values by calling #obix_registerListener().
+ *     Library starts polling changes of subscribed values and calls
+ *     corresponding #obix_update_listener() every time when receives a new
+ *     value.
  *
- * @li When some update of device state is received by a driver, post new value
- *     to the oBIX server by calling #obix_writeValue().
+ * @li When some update of state variable is received by the driver from device,
+ * 	   post the new value to the oBIX server by calling #obix_writeValue().
  *
  * @li Call #obix_unregisterDevice() when driver detects that the device is not
- *     available any more (unplugged, turned off, etc.).
+ *     available any more (unplugged, connection broken, etc.).
  *
- * @li Call #obix_dispose() when device driver is going down in order to close
+ * @li When device driver is going down call #obix_dispose() in order to close
  *     all connections and release resources reserved for communication with
  *     oBIX server(s).
  *
@@ -85,17 +102,33 @@ typedef enum
     OBIX_ERR_UNKNOWN_BUG		= -100,
     /**Error inside HTTP communication module.*/
     OBIX_ERR_HTTP_LIB			= -6,
+    /**oBIX server returned an error object.*/
+    OBIX_ERR_SERVER_ERROR		= -7
 } OBIX_ERRORCODE;
 
+/**
+ * Standard oBIX data types. Used in #obix_writeValue().
+ */
 typedef enum
 {
+    /** Boolean data type (bool). Possible values: @a "true" or @a "false". */
     OBIX_T_BOOL,
+    /** Integer data type (int). Possible values are defined by @a xs:long. */
     OBIX_T_INT,
+    /** Real data type (real). Possible values are defined by @a xs:double. */
     OBIX_T_REAL,
+    /** String data type (str). */
     OBIX_T_STR,
+    /** Enumeration data type (enum). Possible values are defined by associated
+     *  @a range object. */
     OBIX_T_ENUM,
+    /** Time data type (abstime). Represents an absolute point in time. Value
+     * format is defined by @a xs:dateTime. */
     OBIX_T_ABSTIME,
+    /** Time data type (reltime). Represents time interval. Value format is
+     * defined by @a xs:duration. */
     OBIX_T_RELTIME,
+    /** URI data type (uri). Almost like a string, but contains valid URI. */
     OBIX_T_URI
 } OBIX_DATA_TYPE;
 
@@ -140,7 +173,7 @@ int obix_loadConfigFile(const char* fileName);
  * of the library. Unconfigured log writes all messages to @a stdout.
  *
  * @param config DOM structure representing a configuration XML.
- * @return #OBIX_SUCCESS if the library initialized successfully,
+ * @return #OBIX_SUCCESS if the library is initialized successfully,
  *         error code otherwise.
  */
 int obix_loadConfig(IXML_Element* config);
@@ -155,7 +188,7 @@ int obix_loadConfig(IXML_Element* config);
 int obix_dispose();
 
 /**
- * Opens connection with oBIX server.
+ * Opens connection to the oBIX server.
  *
  * @param connectionId Connection ID which was specified in the loaded
  * 					   configuration file.
@@ -181,11 +214,14 @@ int obix_closeConnection(int connectionId);
  *       Is is strongly recommended to provide @a displayName attribute
  *       to every object. Also attributes @a href and @a writable are
  *       obligatory for all device parameters which are going to be changed by
- *       the device driver or external oBIX server users. @a writable attribute
- *       should be set to @a true; @a href attribute should have a valid URI,
- *       relative to the parent object.
+ *       the device driver or external oBIX server users:
+ *       - @a writable attribute should be set to @a true.
+ *       - @a href attribute of the parent object should be a valid URI,
+ *         relative to the server root (start with "/").
+ *       - @a href attributes of all child objects should have a valid URIs,
+ *         relative to the parent object.
  *
- * @n Example:
+ * @n @b Example:
  * @code
  * <obj name="light" href="/kitchen/light/" displayName="Kitchen lights">
  *     <bool name="switch"
@@ -197,12 +233,13 @@ int obix_closeConnection(int connectionId);
  * </obj>
  * @endcode
  *
- * @note Parent object can specify @a href attribute but the oBIX server can
- *       modify it (for instance, add prefix of the device storage), thus URI
- *       can't be used to refer to the device record. Use device ID instead.
+ * @note Parent object should specify @a href attribute but the oBIX server is
+ *       free to modify it (for instance, add prefix of the device storage),
+ *       thus the URI can't be used to refer to the device record. Use the
+ *       assigned device ID instead.
  *
  * @param connectionId ID of the connection which should be used.
- * @param obixData oBIX object representing the new device.
+ * @param obixData oBIX object representing a new device.
  * @return @li >0 ID of the created device record;
  *         @li <0 error code.
  */
@@ -223,8 +260,9 @@ int obix_unregisterDevice(int connectionId, int deviceId);
  * Reads value of the specified parameter from the oBIX server.
  *
  * This function can be used to read value of any object on the server: It can
- * be some parameter of device which was registered by the same client, or by
- * any other device driver. It can be also any value of the server settings.
+ * be some parameter of device which was registered either by the same client,
+ * or by any other device driver. It can be also any value of the server
+ * settings.
  *
  * @n @b Example: Server contains the following information:
  * @code
@@ -234,9 +272,9 @@ int obix_unregisterDevice(int connectionId, int deviceId);
  *   </obj>
  * </obj>
  * @endcode
- * There are two options to read the value of @a "name" string of @a "device1":
+ * There are two ways to read the value of @a "name" string of @a "device1":
  * - If this device was registered by the same client earlier, than the client
- *   should used device ID assigned to this device and provide parameter URI
+ *   should use device ID assigned to this device and provide parameter URI
  *   relative to the root of device data (in current example it is @a
  *   "conf/name").
  * - In case if that device was registered by someone else, than @a 0 should be
@@ -244,7 +282,14 @@ int obix_unregisterDevice(int connectionId, int deviceId);
  *   example it is @a "/obix/device1/conf/name").
  *
  * @note This method is used to read only @a val attribute of some object, but
- *       not the whole object itself. Use #obix_read instead.
+ *       not the whole object itself. If you need to read the whole oBIX object
+ *       then use #obix_read instead.
+ *
+ * @note Although there is no need for this function in the normal workflow (see
+ *       @ref obix-client-usage), it still can be used, for instance, during
+ *       initialization phase for getting some info from the server. Usage of
+ *       this function for periodical reading of some object is not efficient
+ *       and should be avoided. Use #obix_registerListener instead.
  *
  * @param connectionId ID of the connection which should be used.
  * @param deviceId ID of the device whose parameter should be read or @a 0
@@ -256,7 +301,7 @@ int obix_unregisterDevice(int connectionId, int deviceId);
  *                 parameter doesn't belong to devices registered by this
  *                 client.
  *
- * @param output If read command executed successfully the attribute value is
+ * @param output If read command executed successfully the attribute's value is
  *               stored here.
  * @return @a #OBIX_SUCCESS on success, negative error code otherwise.
  */
@@ -269,8 +314,7 @@ int obix_readValue(int connectionId,
  * Overwrites value of the specified device parameter at the oBIX server.
  *
  * This function can be also used to change a value of any @a writable object
- * at the oBIX server. In that case @a 0 should be provided as @a deviceId and
- * @a paramUri should be relative to the server root.
+ * at the oBIX server.
  *
  * @param connectionId ID of the connection which should be used.
  * @param deviceId ID of the device whose parameter should be changed or @a 0
@@ -285,10 +329,12 @@ int obix_readValue(int connectionId,
  *                 be a new value for the @a val attribute of the oBIX object on
  *                 the server, not the whole object.
  * @note  Only value of an object (@a val attribute) can be written using this
- * 		  method. It's not possible to overwrite a piece of XML on the server.
+ * 		  method. It's not possible to overwrite a whole oBIX object on the
+ *        server.
  * @param dataType Type of data which is written to the server.
  * @return @a #OBIX_SUCCESS on success, negative error code otherwise.
- * @see #obix_readValue for the usage example.
+ *
+ * @see #obix_readValue() for the usage example.
  */
 int obix_writeValue(int connectionId,
                     int deviceId,
@@ -296,10 +342,53 @@ int obix_writeValue(int connectionId,
                     const char* newValue,
                     OBIX_DATA_TYPE dataType);
 
-
-
 /**
- * hello here is some description :)
+ * Reads the whole oBIX object from the server and returns it as a DOM
+ * structure.
+ *
+ * This function can be used to read any object on the server. It can be some
+ * object which was registered either by the same client, or by any other device
+ * driver. It can be also any server's own object.
+ *
+ * @n @b Example: Server contains the following information:
+ * @code
+ * <obj name="device1" href="/obix/device1/">
+ *   <obj name="configure" href="conf/" />
+ *     <str name="name" href="name" val="My Device"/>
+ *   </obj>
+ * </obj>
+ * @endcode
+ * There are two options to read the @a "configure" object of @a "device1":
+ * - If this device was registered by the same client earlier, than the client
+ *   should use device ID assigned to this device and provide parameter URI
+ *   relative to the root of device data (in current example it is @a
+ *   "conf/").
+ * - In case if that device was registered by someone else, than @a 0 should be
+ *   used instead device ID + full URI of the required object (in this
+ *   example it is @a "/obix/device1/conf/").
+ *
+ * If the whole object "device1" should be read and it was previously published
+ * by the same client, then the client should provide device ID assigned to this
+ * device and @a NULL as paramUri.
+ *
+ * @note Although there is no need for this function in the normal workflow (see
+ *       @ref obix-client-usage) it still can be used, for instance, during
+ *       initialization phase for obtaining some info from the server. Usage of
+ *       this function for periodical reading of some object is not efficient
+ *       and should be avoided. Use #obix_registerListener instead.
+ *
+ * @param connectionId ID of the connection which should be used.
+ * @param deviceId ID of the device whose data should be read or @a 0 if the
+ *                 object doesn't belong to devices registered by this client.
+ * @param paramUri URI of the object. It should be either relative to the
+ *                 device record like it was provided during device
+ *                 registration, or relative to the server root if the
+ *                 object doesn't belong to devices registered by this
+ *                 client.
+ *
+ * @param output If read command executed successfully the DOM representation of
+ *               the read object is stored here.
+ * @return @a #OBIX_SUCCESS on success, negative error code otherwise.
  */
 int obix_read(int connectionId,
               int deviceId,
@@ -309,7 +398,7 @@ int obix_read(int connectionId,
 /**
  * Registers listener for device parameter updates.
  *
- * Overwrites existing listener if is called twice.
+ * Overwrites existing listener if it is called twice for the same parameter.
  *
  * This method can be also used to subscribe for the updates of any other
  * objects stored at the oBIX server. In that case @a 0 should be provided as
@@ -322,12 +411,12 @@ int obix_read(int connectionId,
  * @param paramUri URI of the parameter which should be monitored. It should be
  *                 either relative to the device record like it was provided
  *                 during device registration, or relative to the server root
- *                 if changing parameter doesn't belong to devices registered
+ *                 if the parameter doesn't belong to devices registered
  *                 by this client.
  * @param listener Pointer to the listener function which would be invoked
  *                 every time when the subscribed parameter is changed.
  * @note @a listener method should be quick. Slow listener (especially if it
- *       waits for some resource) will block subsequent calls to listeners.
+ *       waits for some resource) will block subsequent calls to all listeners.
  * @return @li >=0 ID of the created listener;
  *         @li <0 error code.
  */
@@ -351,53 +440,174 @@ int obix_unregisterListener(int connectionId,
                             int deviceId,
                             int listenerId);
 
-typedef enum
-{
-    OBIX_READ,
-    OBIX_WRITE
-} OBIX_BATCH_CMD_TYPE;
+/**
+ * Represents a Batch object. oBIX Batch allows combining several commands in
+ * one request to the server, thus reducing response time and network load.
+ *
+ * <b>General Usage:</b> @n
+ * - Create new Batch instance using #obix_batch_create();
+ * - Add commands to batch using #obix_batch_read(), #obix_batch_readValue() or
+ *   #obix_batch_writeValue();
+ * - Send Batch object to the server by calling #obix_batch_send();
+ * - An instance of #oBIX_BatchResult will be generated for each command in
+ *   Batch, containing execution results. These results can be obtained using
+ *   #obix_batch_getResult();
+ * - Free Batch object with #obix_batch_free().
+ */
+typedef struct _oBIX_Batch oBIX_Batch;
 
-typedef struct _oBIX_BatchCmd
-{
-    OBIX_BATCH_CMD_TYPE type;
-    int deviceId;
-    char* paramUri;
-    char* newValue;
-    OBIX_DATA_TYPE dataType;
-    struct _oBIX_BatchCmd* next;
-}
-oBIX_BatchCmd;
-
+/**
+ * Contains outputs of the command, which was executed in a
+ * @link #oBIX_Batch Batch.
+ */
 typedef struct _oBIX_BatchResult
 {
+	/**
+	 * Return value of the executed command. It is identical to the return
+	 * value of the corresponding command executed without Batch.
+	 */
     int status;
-    char* paramValue;
+    /**
+     * String value returned by the function, if available (e.g. for
+     * #obix_batch_readValue()).
+     */
+    char* value;
+    /**
+     * XML object returned by the function, if available (e.g. for
+     * #obix_batch_read()).
+     */
+    IXML_Element* obj;
 }
 oBIX_BatchResult;
 
-typedef struct _oBIX_Batch
-{
-    int connectionId;
-    oBIX_BatchCmd* command;
-    oBIX_BatchResult* result;
-}
-oBIX_Batch;
-
+/**@name oBIX Batch operations
+ * @{
+ */
+/**
+ * Creates a new Batch instance. oBIX Batch contains several operations
+ * which can be executed by one request to the server. Commands are executed at
+ * the server in the order they were added to the Batch.
+ *
+ * @param connectionId ID of the connection for which batch is created.
+ * @return New Batch instance.
+ */
 oBIX_Batch* obix_batch_create(int connectionId);
 
-int obix_batch_addRead(oBIX_Batch* batch,
-                       int deviceId,
-                       const char* paramUri);
-int obix_batch_addWrite(oBIX_Batch* batch,
-                        int deviceId,
-                        const char* paramUri,
-                        const char* newValue,
-                        OBIX_DATA_TYPE dataType);
+/**
+ * Adds readValue operation to the provided Batch. When Batch is executed,
+ * this operation will act like #obix_readValue(). Read value will be
+ * stored at the corresponding oBIX_BatchResult::value.
+ *
+ * @param batch    Batch object where readValue operation should be added to.
+ * @param deviceId ID of the device whose parameter should be read.
+ * @param paramUri Uri of the parameter which should be read.
+ * @return @li @a >0 - ID of the added command. IDs are assigned according to
+ *         the order of adding commands to the Batch. Thus ID of the first added
+ *         command will be @a 1, ID of the second - @a 2, and so on.
+ *         @li @a <0 - Error code indicating that adding command to the Batch
+ *         failed.
+ *         @b Note that this is not the return code of the
+ *         execution of read command: It will be stored in the corresponding
+ *         oBIX_BatchResult::status after the whole Batch is executed.
+ *
+ * @see #obix_readValue()
+ */
+int obix_batch_readValue(oBIX_Batch* batch,
+                         int deviceId,
+                         const char* paramUri);
+/**
+ * Adds read operation to the provided Batch. When Batch is executed, this
+ * operation will act like #obix_read(). Read object will be stored at the
+ * corresponding oBIX_BatchResult::obj.
+ *
+ * @param batch    Batch object where read operation should be added to.
+ * @param deviceId ID of the device whose parameter should be read.
+ * @param paramUri Uri of the parameter which should be read.
+ * @return @li @a >0 - ID of the added command. IDs are assigned according to
+ *         the order of adding commands to the Batch. Thus ID of the first added
+ *         command will be @a 1, ID of the second - @a 2, and so on.
+ *         @li @a <0 - Error code indicating that adding command to the Batch
+ *         failed.
+ *         @b Note that this is not the return code of the
+ *         execution of read command: It will be stored in the corresponding
+ *         oBIX_BatchResult::status after the whole Batch is executed.
+ *
+ * @see #obix_read()
+ */
+int obix_batch_read(oBIX_Batch* batch,
+                    int deviceId,
+                    const char* paramUri);
 
+/**
+ * Adds writeValue operation to the provided Batch. When Batch is executed, this
+ * operation will act like #obix_writeValue().
+ *
+ * @param batch    Batch object where writeValue operation should be added to.
+ * @param deviceId ID of the device whose parameter's value should be written.
+ * @param paramUri Uri of the parameter which should be written.
+ * @return @li @a >0 - ID of the added command. IDs are assigned according to
+ *         the order of adding commands to the Batch. Thus ID of the first added
+ *         command will be @a 1, ID of the second - @a 2, and so on.
+ *         @li @a <0 - Error code indicating that adding command to the Batch
+ *         failed.
+ *         @b Note that this is not the return code of the
+ *         execution of write command: It will be stored in the corresponding
+ *         oBIX_BatchResult::status after the whole Batch is executed.
+ *
+ * @see #obix_writeValue()
+ */
+int obix_batch_writeValue(oBIX_Batch* batch,
+                          int deviceId,
+                          const char* paramUri,
+                          const char* newValue,
+                          OBIX_DATA_TYPE dataType);
+
+/**
+ * Removes command with specified ID from the Batch object.
+ *
+ * @param batch Batch object, from which the command should be removed.
+ * @param commandId ID of the command which should be removed.
+ * @return @li #OBIX_SUCCESS if the command is removed successfully;
+ *         @li #OBIX_ERR_INVALID_ARGUMENT if batch is @a NULL;
+ *         @li #OBIX_ERR_INVALID_STATE if no command with specified ID is
+ *         found in the Batch.
+ */
+int obix_batch_removeCommand(oBIX_Batch* batch, int commandId)
+
+/**
+ * Sends the Batch object to the oBIX server.
+ * After successful execution, a set of #oBIX_BatchResult objects will be
+ * generated containing execution results for each command in Batch.
+ * Same Batch object can be sent to the server several times. In that case
+ * previous results will be freed and new one will be generated.
+ *
+ * @param batch Batch object to be sent.
+ * @return #OBIX_SUCCESS if the Batch object is sent successfully and server
+ *         returned no errors. Error code is returned in case if at least one
+ *         command in batch caused error.
+ */
 int obix_batch_send(oBIX_Batch* batch);
 
-oBIX_BatchResult* obix_batch_getResult(oBIX_Batch* batch, int index);
+/**
+ * Returns execution results of the command from specified Batch object.
+ *
+ * @param batch Batch object in which the command was executed.
+ * @param commandId ID of the command whose results should be returned.
+ * @return An instance of oBIX_BatchResult, containing returned error code of
+ *         the executed command and other return values if any.
+ *
+ * @note Do not free the returned values. They will be freed automatically
+ *       by next execution of #obix_batch_send() or #obix_batch_free().
+ */
+const oBIX_BatchResult* obix_batch_getResult(oBIX_Batch* batch, int commandId);
 
-int obix_batch_free(oBIX_Batch* batch);
+/**
+ * Releases memory allocated for the provided Batch object.
+ * Batch object will become unusable after calling this method.
+ *
+ * @param batch Batch object to be deleted.
+ */
+void obix_batch_free(oBIX_Batch* batch);
+/** @} */
 
 #endif /* OBIX_CLIENT_H_ */

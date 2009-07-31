@@ -235,7 +235,9 @@ IXML_Element* config_loadFile(const char* filename)
     free(path);
 
     //get the root configure tag from the document
-    IXML_Element* configTag = config_getChildTag((IXML_Element *)xmlConfigDoc, CT_CONFIG, TRUE);
+    IXML_Element* configTag = config_getChildTag((IXML_Element *)xmlConfigDoc,
+                              CT_CONFIG,
+                              TRUE);
 
     if (log_config(configTag) != 0)
         return NULL;

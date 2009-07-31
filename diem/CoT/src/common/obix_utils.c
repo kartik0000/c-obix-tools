@@ -29,6 +29,7 @@ const char* OBIX_OBJ_URI = "uri";
 const char* OBIX_OBJ_FEED = "feed";
 
 const char* OBIX_NAME_SIGN_UP = "signUp";
+const char* OBIX_NAME_BATCH = "batch";
 const char* OBIX_NAME_WATCH_SERVICE = "watchService";
 const char* OBIX_NAME_WATCH_SERVICE_MAKE = "make";
 const char* OBIX_NAME_WATCH_ADD = "add";

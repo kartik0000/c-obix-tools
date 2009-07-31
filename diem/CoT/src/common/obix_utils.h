@@ -30,6 +30,7 @@ extern const char* OBIX_OBJ_URI;
 extern const char* OBIX_OBJ_FEED;
 
 extern const char* OBIX_NAME_SIGN_UP;
+extern const char* OBIX_NAME_BATCH;
 extern const char* OBIX_NAME_WATCH_SERVICE;
 extern const char* OBIX_NAME_WATCH_SERVICE_MAKE;
 extern const char* OBIX_NAME_WATCH_ADD;
