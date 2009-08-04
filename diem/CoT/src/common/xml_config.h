@@ -1,11 +1,14 @@
 #ifndef XML_CONFIG_H_
 #define XML_CONFIG_H_
 /** @file
- * @brief Declares Configuration API.
+ * @brief Declares configuration API.
  *
- * Defines the names of configuration parameters as
- * well as their possible values. These parameters
- * can be set by user in #OBIX_CONFIG_FILE.
+ * Configuration API allows loading settings from XML file which contains
+ * <config> element. This header defines required functions which simplify
+ * parsing XML settings.
+ *
+ * @author Andrey Litvinov
+ * @version 1.0
  */
 
 #include <ixml_ext.h>
@@ -19,7 +22,6 @@
 extern const char* CT_CONFIG;
 ///@brief Tag attribute 'value' (CTA - Config Tag Attribute)
 extern const char* CTA_VALUE;
-///@brief Tag attribute value 'true' (CTAV - Config Tag Attribute Value)
 /*@}*/
 
 /**

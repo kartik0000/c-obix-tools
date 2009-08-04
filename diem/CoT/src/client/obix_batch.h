@@ -8,6 +8,8 @@
 #ifndef OBIX_BATCH_H_
 #define OBIX_BATCH_H_
 
+#include "obix_comm.h"
+
 typedef enum
 {
     OBIX_BATCH_READ_VALUE,

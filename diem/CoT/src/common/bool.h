@@ -1,6 +1,5 @@
 /** @file
- *
- * Defines boolean type.
+ * Defines boolean data type.
  * Just in case if nobody defined it before.
  *
  * @author Andrey Litvinov

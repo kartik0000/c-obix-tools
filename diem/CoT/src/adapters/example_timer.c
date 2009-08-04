@@ -1,10 +1,10 @@
 /** @file
- * This is simple oBIX Timer device implementation, which demonstrates
- * usage of oBIX client library.
+ * Simple oBIX Timer device implementation, which demonstrates usage of oBIX
+ * client library.
  * It shows the time elapsed after timer was started or reset by user.
- * Device registers itself at oBIX Server, regularly updates elapsed time on
+ * Device registers itself at oBIX server, regularly updates elapsed time on
  * it and listens to updates of "reset" parameter. If someone changes "reset"
- * to true, that elapsed time is set to 0.
+ * to true, than elapsed time is set to 0.
  *
  * @author Andrey Litvinov
  * @version 1.0
@@ -38,7 +38,9 @@ long _time;
  */
 pthread_mutex_t _time_mutex = PTHREAD_MUTEX_INITIALIZER;
 /** Separate thread for timer value updating. */
-Task_Thread* taskThread;
+Task_Thread* _taskThread;
+/** ID of the task which increases time every second. */
+int _timerTaskId;
 
 /**
  * Handles changes of @a "reset" value.
@@ -54,32 +56,92 @@ int resetListener(int connectionId,
                   int listenerId,
                   const char* newValue)
 {
+    static oBIX_Batch* batch = NULL;
+    int error;
+
     if (strcmp(newValue, "false") == 0)
     {
-        // ignore this update
+        // ignore this update - we are waiting for "reset" to be "true"
         return OBIX_SUCCESS;
     }
 
+    if (batch == NULL)
+    {
+        // we are going to send two commands to the server:
+        // 1. set timer value to 0
+        // 2. set "reset" field back to "false"
+        // We will generate once the oBIX Batch object which contains both
+        // these operations and will send it instead of two separate commands
+        // every time when needed.
+        batch = obix_batch_create(connectionId);
+        if (batch == NULL)
+        {
+            printf("Unable to create Batch object!\n");
+            return -1;
+        }
+        error = obix_batch_writeValue(batch,
+                                      deviceId,
+                                      "time",
+                                      "PT0S",
+                                      OBIX_T_RELTIME);
+        if (error < 0)
+        {
+            printf("Unable to create Batch object!\n");
+            return error;
+        }
+        error = obix_batch_writeValue(batch,
+                                      deviceId,
+                                      "reset",
+                                      XML_FALSE,
+                                      OBIX_T_BOOL);
+        if (error < 0)
+        {
+            printf("Unable to create Batch object!\n");
+            return error;
+        }
+    }
+
+    // reset timer task so that the next time of execution will be now + 1 sec
+    if (_taskThread != NULL)
+    {
+    	ptask_reset(_taskThread, _timerTaskId);
+    }
     // new value is true, thus we need to reset timer
     pthread_mutex_lock(&_time_mutex);
     _time = 0;
     pthread_mutex_unlock(&_time_mutex);
     printf("Timer is set to 0.\n");
 
-    // write zero value to the server
-    int error = obix_writeValue(connectionId, deviceId, "time", "PT0S", OBIX_T_RELTIME);
+    error = obix_batch_send(batch);
     if (error != OBIX_SUCCESS)
     {
-        printf("Unable to set timer to zero at the server.\n");
+    	printf("Unable to update timer attributes using oBIX Batch.\n");
+    	return error;
     }
-    // reset also "reset" field of the timer at the oBIX server
-    error = obix_writeValue(connectionId, deviceId, "reset", "false", OBIX_T_BOOL);
-    if (error != OBIX_SUCCESS)
-    {
-        printf("Unable to set \"reset\" field at the oBIX server "
-               "to \"false\".\n");
-        return -1;
-    }
+    // Instead of batch we could use 2 calls of obix_writeValue() like this:
+    //
+    //    // write zero value to the server
+    //    error = obix_writeValue(connectionId,
+    //                                deviceId,
+    //                                "time",
+    //                                "PT0S",
+    //                                OBIX_T_RELTIME);
+    //    if (error != OBIX_SUCCESS)
+    //    {
+    //        printf("Unable to set timer to zero at the server.\n");
+    //    }
+    //    // reset also "reset" field of the timer at the oBIX server
+    //    error = obix_writeValue(connectionId,
+    //                            deviceId,
+    //                            "reset",
+    //                            "false",
+    //                            OBIX_T_BOOL);
+    //    if (error != OBIX_SUCCESS)
+    //    {
+    //        printf("Unable to set \"reset\" field at the oBIX server "
+    //               "to \"false\".\n");
+    //        return -1;
+    //    }
 
     return OBIX_SUCCESS;
 }
@@ -120,6 +182,14 @@ void timerTask(void* arg)
     free(reltime);
 }
 
+/**
+ * Generates device data in oBIX format.
+ *
+ * @param deviceUri Address at the server where device will be stored to. This
+ * 					address will be written as the @a href attribute of the root
+ * 					object.
+ * @return Data which should be posted to the server.
+ */
 char* getDeviceData(char* deviceUri)
 {
     // length of data template +
@@ -189,14 +259,14 @@ int main(int argc, char** argv)
     }
 
     // Initialize separate thread for timer
-    taskThread = ptask_init();
-    if (taskThread == NULL)
+    _taskThread = ptask_init();
+    if (_taskThread == NULL)
     {
         printf("Unable to start separate thread for timer.\n");
         return -1;
     }
     // start updating time once in a second
-    int timerTaskId = ptask_schedule(taskThread, &timerTask, &deviceId,
+    _timerTaskId = ptask_schedule(_taskThread, &timerTask, &deviceId,
                                      1000, EXECUTE_INDEFINITE);
 
     printf("Example timer is successfully registered at the server\n\n"
@@ -207,12 +277,12 @@ int main(int argc, char** argv)
     // shutdown gracefully
 
     // stop timer task
-    if (ptask_cancel(taskThread, timerTaskId, TRUE))
+    if (ptask_cancel(_taskThread, _timerTaskId, TRUE))
     {
         printf("Unable to stop timer task.\n");
         return -1;
     }
-    ptask_dispose(taskThread, TRUE);
+    ptask_dispose(_taskThread, TRUE);
 
     // release all resources allocated by oBIX client library.
     // No need to close connection or unregister listener explicitly - it is

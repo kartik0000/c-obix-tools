@@ -205,7 +205,7 @@ static int device_unregister(Connection* connection, int deviceId)
     return retVal;
 }
 
-static int device_get(Connection* connection, int deviceId, Device** device)
+int device_get(Connection* connection, int deviceId, Device** device)
 {
     if ((deviceId < 0)
             || (deviceId >= connection->maxDevices)
@@ -386,9 +386,9 @@ static int connection_create(IXML_Element* connItem)
     return OBIX_SUCCESS;
 }
 
-static int connection_get(int connectionId,
-                          BOOL isConnected,
-                          Connection** connection)
+int connection_get(int connectionId,
+                   BOOL isConnected,
+                   Connection** connection)
 {
     if ((connectionId < 0) || (connectionId >= _connectionCount))
     {

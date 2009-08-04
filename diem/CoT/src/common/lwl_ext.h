@@ -1,5 +1,5 @@
 /** @file
- * Contains definitions of logging tools.
+ * Definitions of logging tools.
  *
  * Log system is based on @a liblwl (Log Writer Library
  * http://gna.org/projects/lwl/).

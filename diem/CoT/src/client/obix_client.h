@@ -1,42 +1,13 @@
 /**@file
- * @brief Definitions for @ref obix-client-intro.
+ * @brief oBIX Client API.
  *
- * oBIX Client API simplifies implementing client applications for oBIX servers,
- * such as device drivers. Library hides all network calls and allows accessing
+ * oBIX Client API simplifies implementing oBIX client applications, such as
+ * device drivers. Library hides all network calls and allows accessing
  * data at the oBIX server without dealing with oBIX request formats. There is
  * also a possibility to subscribe for data updates on the server, which is
  * performed by library using oBIX Watch engine.
  *
- * @author Andrey Litvinov
- * @version 0.0.0
- */
-
-/**@page obix-client-intro oBIX Client API
- *
- * The oBIX Client Library can be used by device drivers to post device data to
- * oBIX server and monitor value updates. In order to register a new device
- * (using #obix_registerDevice), server should support @a signUp feature which is
- * not in the oBIX specification. Currently @a signUp operation is supported by
- * C oBIX Server included to this distribution and oFMS
- * (http://www.stok.fi/eng/ofms/index.html). All other functions should work
- * with any proper oBIX server implementation. If not, please report the found
- * error to the author of this distribution.
- *
- * @section obix-client-comp Compilation
- *
- * The following string will compile application which uses oBIX Client Library:
- * @code
- * gcc -I<cot_headers> -L<cot_lib> -lcot-client <source> -o <output_name>
- * @endcode
- * where
- * - @a \<cot_headers> - Path to header files of @a libcot (usually it is
- * 						\<installation_prefix>/include/cot/).
- * - @a \<cot_lib>	  - Path to library binaries of libcot (usually it is
- * 						\<installation_prefix>/lib).
- * - @a \<sources>	  - Your source files to be compiled.
- * - @a \<output_name> - Name of the output binary.
- *
- * @section obix-client-usage Usage
+ * * @section obix-client-usage Usage
  *
  * The typical usage of the library in device adapter (see example at
  * example_timer.c):
@@ -72,7 +43,15 @@
  *     all connections and release resources reserved for communication with
  *     oBIX server(s).
  *
+ * @note In order to register a new device (using #obix_registerDevice), server
+ * should support @a signUp feature which is not in the oBIX specification.
+ * Currently @a signUp operation is supported by C oBIX Server included into
+ * this distribution and oFMS (http://www.stok.fi/eng/ofms/index.html).
+ * All other functions should work with any proper oBIX server implementation.
+ * If not, please report the found error to the author of this distribution.
+ *
  * @author Andrey Litvinov
+ * @version 0.0.0
  */
 
 #ifndef OBIX_CLIENT_H_
@@ -287,7 +266,7 @@ int obix_unregisterDevice(int connectionId, int deviceId);
  *
  * @note Although there is no need for this function in the normal workflow (see
  *       @ref obix-client-usage), it still can be used, for instance, during
- *       initialization phase for getting some info from the server. Usage of
+ *       initialization phase for obtaining some data from the server. Usage of
  *       this function for periodical reading of some object is not efficient
  *       and should be avoided. Use #obix_registerListener instead.
  *
@@ -373,7 +352,7 @@ int obix_writeValue(int connectionId,
  *
  * @note Although there is no need for this function in the normal workflow (see
  *       @ref obix-client-usage) it still can be used, for instance, during
- *       initialization phase for obtaining some info from the server. Usage of
+ *       initialization phase for obtaining some data from the server. Usage of
  *       this function for periodical reading of some object is not efficient
  *       and should be avoided. Use #obix_registerListener instead.
  *
@@ -489,7 +468,7 @@ oBIX_BatchResult;
  * the server in the order they were added to the Batch.
  *
  * @param connectionId ID of the connection for which batch is created.
- * @return New Batch instance.
+ * @return New Batch instance or @a NULL on error.
  */
 oBIX_Batch* obix_batch_create(int connectionId);
 
@@ -509,6 +488,9 @@ oBIX_Batch* obix_batch_create(int connectionId);
  *         @b Note that this is not the return code of the
  *         execution of read command: It will be stored in the corresponding
  *         oBIX_BatchResult::status after the whole Batch is executed.
+ *
+ * @note Results of the previous execution of the Batch will become
+ *       unavailable after calling this method.
  *
  * @see #obix_readValue()
  */
@@ -532,6 +514,9 @@ int obix_batch_readValue(oBIX_Batch* batch,
  *         execution of read command: It will be stored in the corresponding
  *         oBIX_BatchResult::status after the whole Batch is executed.
  *
+ * @note Results of the previous execution of the Batch will become
+ *       unavailable after calling this method.
+ *
  * @see #obix_read()
  */
 int obix_batch_read(oBIX_Batch* batch,
@@ -554,6 +539,9 @@ int obix_batch_read(oBIX_Batch* batch,
  *         execution of write command: It will be stored in the corresponding
  *         oBIX_BatchResult::status after the whole Batch is executed.
  *
+ * @note Results of the previous execution of the Batch will become
+ *       unavailable after calling this method.
+ *
  * @see #obix_writeValue()
  */
 int obix_batch_writeValue(oBIX_Batch* batch,
@@ -571,8 +559,11 @@ int obix_batch_writeValue(oBIX_Batch* batch,
  *         @li #OBIX_ERR_INVALID_ARGUMENT if batch is @a NULL;
  *         @li #OBIX_ERR_INVALID_STATE if no command with specified ID is
  *         found in the Batch.
+ *
+ * @note Results of the previous execution of the Batch will become
+ *       unavailable after calling this method.
  */
-int obix_batch_removeCommand(oBIX_Batch* batch, int commandId)
+int obix_batch_removeCommand(oBIX_Batch* batch, int commandId);
 
 /**
  * Sends the Batch object to the oBIX server.

@@ -534,7 +534,9 @@ WARN_LOGFILE =
 # directories like "/usr/src/myproject". Separate the files or directories 
 # with spaces.
 
-INPUT = @top_srcdir@/src/client/obix_client.h @top_srcdir@/src/common \
+INPUT = @top_srcdir@/src/client/obix_client.h \
+		@top_srcdir@/src/client/libcot.mainpage \
+		@top_srcdir@/src/common \
         @top_srcdir@/src/adapters/example_timer.c \
         @top_srcdir@/res/example_timer_config.xml 
 

@@ -60,7 +60,7 @@ const Comm_Stack OBIX_HTTP_COMM_STACK =
         &http_registerListener,
         &http_unregisterListener,
         &http_read,
-        $http_readVale,
+        &http_readValue,
         &http_writeValue,
         &http_sendBatch
     };
@@ -589,38 +589,11 @@ static int recreateWatch(Http_Connection* c,
     return addWatchItem(c, uri, count, response, curlHandle);
 }
 
-static int parseResponse(IXML_Document* respDoc, IXML_Element** respElem)
+static int checkResponseElement(IXML_Element* element)
 {
-    if (respDoc == NULL)
-    {
-        return OBIX_ERR_BAD_CONNECTION;
-    }
-
-    IXML_Node* node = ixmlNode_getFirstChild(ixmlDocument_getNode(respDoc));
-    // iterate until we find first xml element
-    while((node != NULL) && (ixmlNode_getNodeType(node) != eELEMENT_NODE))
-    {
-        node = ixmlNode_getNextSibling(node);
-    }
-
-    if (node == NULL)
-    {
-        char* text = ixmlPrintDocument(respDoc);
-        log_error("Server response doesn't contain any oBIX objects:\n"
-                  "%s", text);
-        free(text);
-        return OBIX_ERR_BAD_CONNECTION;
-    }
-
-    IXML_Element* element = ixmlNode_convertToElement(node);
-    if (respElem != NULL)
-    {
-        *respElem = element;
-    }
-
     if (strcmp(ixmlElement_getTagName(element), OBIX_OBJ_ERR) == 0)
     {
-        char* text = ixmlPrintDocument(respDoc);
+        char* text = ixmlPrintNode(ixmlElement_getNode(element));
         log_error("Server replied with error:\n"
                   "%s", text);
         free(text);
@@ -628,6 +601,30 @@ static int parseResponse(IXML_Document* respDoc, IXML_Element** respElem)
     }
 
     return OBIX_SUCCESS;
+}
+
+static int checkResponseDoc(IXML_Document* respDoc, IXML_Element** respElem)
+{
+    if (respDoc == NULL)
+    {
+        return OBIX_ERR_BAD_CONNECTION;
+    }
+
+    IXML_Element* element = ixmlDocument_getRootElement(respDoc);
+    if (element == NULL)
+    {
+        char* text = ixmlPrintDocument(respDoc);
+        log_error("Server response doesn't contain any oBIX objects:\n"
+                  "%s", text);
+        free(text);
+        return OBIX_ERR_BAD_CONNECTION;
+    }
+    if (respElem != NULL)
+    {
+        *respElem = element;
+    }
+
+    return checkResponseElement(element);
 }
 
 static int parseWatchOut(IXML_Document* doc,
@@ -638,7 +635,7 @@ static int parseWatchOut(IXML_Document* doc,
     // but sometimes we generate own one.
     BOOL needToCleanDoc = FALSE;
     IXML_Element* element = NULL;
-    int error = parseResponse(doc, &element);
+    int error = checkResponseDoc(doc, &element);
     if (error != OBIX_SUCCESS)
     {
         if (error != OBIX_ERR_SERVER_ERROR)
@@ -665,7 +662,7 @@ static int parseWatchOut(IXML_Document* doc,
             return error;
         }
 
-        error = parseResponse(doc, &element);
+        error = checkResponseDoc(doc, &element);
         if (error != OBIX_SUCCESS)
         {
             ixmlDocument_free(doc);
@@ -891,7 +888,7 @@ static int removeWatch(Http_Connection* c)
     {
         // check the response
         IXML_Element* obixObj = NULL;
-        error = parseResponse(response, &obixObj);
+        error = checkResponseDoc(response, &obixObj);
         if (error != OBIX_SUCCESS)
         {
             // check if the response contain Bad Uri error which means
@@ -1012,7 +1009,7 @@ static char* getRelUri(Device* device, const char* paramUri)
         return NULL;
     }
 
-    fullUri = '\0';
+    *fullUri = '\0';
     if (d != NULL)
     {
         strcat(fullUri, d->uri);
@@ -1063,6 +1060,31 @@ static char* getAbsUri(Http_Connection* connection,
     }
 
     return fullUri;
+}
+
+static int parseElementValue(IXML_Element* element, char** output)
+{
+    const char* attr = ixmlElement_getAttribute(element, OBIX_ATTR_VAL);
+    if (attr == NULL)
+    {
+        char* temp = ixmlPrintNode(ixmlElement_getNode(element));
+        log_warning("Received object doesn't have \"%s\" attribute:\n%s",
+                    OBIX_ATTR_VAL, temp);
+        free(temp);
+        ixmlElement_freeOwnerDocument(element);
+        return OBIX_ERR_INVALID_ARGUMENT;
+    }
+
+    char* copy = (char*) malloc(strlen(attr) + 1);
+    if (copy == NULL)
+    {
+        log_error("Unable to allocate enough memory.");
+        ixmlElement_freeOwnerDocument(element);
+        return OBIX_ERR_NO_MEMORY;
+    }
+    strcpy(copy, attr);
+    *output = copy;
+    return OBIX_SUCCESS;
 }
 
 int http_init()
@@ -1368,7 +1390,7 @@ int http_openConnection(Connection* connection)
     strcpy(lobbyFullUri, c->serverUri);
     strcat(lobbyFullUri, c->lobbyUri);
     curl_ext_getDOM(_curl_handle, lobbyFullUri, &response);
-    int error = parseResponse(response, NULL);
+    int error = checkResponseDoc(response, NULL);
     if (error != OBIX_SUCCESS)
     {
         log_error("Unable to get Lobby object from the oBIX server \"%s\".",
@@ -1399,7 +1421,7 @@ int http_openConnection(Connection* connection)
     ixmlDocument_free(response);
     response = NULL;
     curl_ext_getDOM(_curl_handle, watchServiceUri, &response);
-    int error = parseResponse(response, NULL);
+    error = checkResponseDoc(response, NULL);
     if (error != OBIX_SUCCESS)
     {
         log_error("Unable to get watchService object from the oBIX server "
@@ -1469,10 +1491,10 @@ int http_registerDevice(Connection* connection, Device** device, const char* dat
 
     // check response
     IXML_Element* element;
-    error = parseResponse(response, &element);
+    error = checkResponseDoc(response, &element);
     if (error != OBIX_SUCCESS)
     {
-        if (error != OBIX_ERR_INVALID_STATE)
+        if (error != OBIX_ERR_SERVER_ERROR)
         {
             ixmlDocument_free(response);
             return OBIX_ERR_BAD_CONNECTION;
@@ -1501,7 +1523,7 @@ int http_registerDevice(Connection* connection, Device** device, const char* dat
         ixmlDocument_free(response);
         response = NULL;
         curl_ext_getDOM(_curl_handle, uri, &response);
-        int error = parseResponse(response, &element);
+        int error = checkResponseDoc(response, &element);
         if (error != OBIX_SUCCESS)
         {
             // It's a pity but our hopes did not come true :) URI from the
@@ -1625,7 +1647,6 @@ int http_unregisterListener(Connection* connection,
                             Listener* listener)
 {
     Http_Connection* c = getHttpConnection(connection);
-    Http_Device* d = NULL;
 
     log_debug("Removing listener of parameter \"%s\" at the server \"%s\"...",
               listener->paramUri, c->serverUri);
@@ -1674,7 +1695,7 @@ int http_unregisterListener(Connection* connection,
     {
         IXML_Element* obixObj = NULL;
         // check server response
-        error = parseResponse(response, &obixObj);
+        error = checkResponseDoc(response, &obixObj);
         if (error != OBIX_SUCCESS)
         {
             // if server replied with Bad Uri error, than we can consider
@@ -1712,7 +1733,7 @@ int http_read(Connection* connection,
     }
 
     curl_ext_getDOM(_curl_handle, fullUri, &response);
-    int error = parseResponse(response, NULL);
+    int error = checkResponseDoc(response, NULL);
     if (error != OBIX_SUCCESS)
     {
         log_error("Unable to get object \"%s\" from the oBIX server.",
@@ -1756,27 +1777,7 @@ int http_readValue(Connection* connection,
         return error;
     }
 
-    const char* attr = ixmlElement_getAttribute(element, OBIX_ATTR_VAL);
-    if (attr == NULL)
-    {
-        char* temp = ixmlPrintNode(ixmlElement_getNode(element));
-        log_warning("Received object doesn't have \"%s\" attribute:\n%s",
-                    OBIX_ATTR_VAL, temp);
-        free(temp);
-        ixmlElement_freeOwnerDocument(element);
-        return OBIX_ERR_INVALID_ARGUMENT;
-    }
-
-    char* copy = (char*) malloc(strlen(attr) + 1);
-    if (copy == NULL)
-    {
-        log_error("Unable to allocate enough memory.");
-        ixmlElement_freeOwnerDocument(element);
-        return OBIX_ERR_NO_MEMORY;
-    }
-    strcpy(copy, attr);
-    *output = copy;
-    return OBIX_SUCCESS;
+    return parseElementValue(element, output);
 }
 
 int http_writeValue(Connection* connection,
@@ -1802,7 +1803,7 @@ int http_writeValue(Connection* connection,
 #define OBIX_BATCH_TEMPLATE_HEADER "<list is=\"obix:BatchIn\" of=\"obix:uri\">\r\n"
 #define OBIX_BATCH_TEMPLATE_HEADER_LENGTH 40
 #define OBIX_BATCH_TEMPLATE_FOOTER "</list>"
-#define OBIX_BATCH_TEMPLATE_FOOTER_LENGTH 7;
+#define OBIX_BATCH_TEMPLATE_FOOTER_LENGTH 7
 #define OBIX_BATCH_TEMPLATE_CMD_READ " <uri is=\"obix:Read\" val=\"%s\" />\r\n"
 #define OBIX_BATCH_TEMPLATE_CMD_READ_LENGTH 32
 #define OBIX_BATCH_TEMPLATE_CMD_WRITE (" <uri is=\"obix:Write\" val=\"%s\" >\r\n" \
@@ -1848,7 +1849,7 @@ static char* getStrBatch(oBIX_Batch* batch)
             cleanup();
             return NULL;
         }
-        uri[batch->commandCounter] = fullUri;
+        uri[command->id] = fullUri;
 
         // calculate length of this command
         batchMessageSize += strlen(fullUri);
@@ -1923,9 +1924,9 @@ int http_sendBatch(oBIX_Batch* batch)
     strcat(fullBatchUri, c->batchUri);
 
     // send the batch request
-    _curlHandle->outputBuffer = requestBody;
+    _curl_handle->outputBuffer = requestBody;
     IXML_Document* response;
-    int error = curl_ext_postDOM(curlHandle, fullBatchUri, &response);
+    int error = curl_ext_postDOM(_curl_handle, fullBatchUri, &response);
     free(requestBody);
     if (error != 0)
     {
@@ -1933,9 +1934,53 @@ int http_sendBatch(oBIX_Batch* batch)
     }
 
     // parse response message
-    IXML_Element* list = ixmlDocument_getRootElement(response);
+    IXML_Element* list;
+    error = checkResponseDoc(response, &list);
+    if (error != OBIX_SUCCESS)
+    {
+    	ixmlDocument_free(response);
+        return error;
+    }
 
     IXML_Node* node = ixmlNode_getFirstChild(ixmlElement_getNode(list));
-    // TODO continue implementation of parsing (iterate through nodes and create
-    // results array
+    oBIX_BatchCmd* command = batch->command;
+
+    while (node != NULL)
+    {
+        IXML_Element* commandResponse = ixmlNode_convertToElement(node);
+
+        if (commandResponse != NULL)
+        {
+            // find corresponding result object
+            oBIX_BatchResult* result = &(batch->result[command->id]);
+
+            // check that response doesn't contain error messages
+            result->status = checkResponseElement(commandResponse);
+            if (result->status == OBIX_SUCCESS)
+            {
+                // fill other result fields depending on command type
+                if (command->type == OBIX_BATCH_READ)
+                {	// save a copy of returned object
+                    result->obj = ixmlElement_cloneWithLog(commandResponse);
+                    if (result->obj == NULL)
+                    {
+                        result->status = OBIX_ERR_UNKNOWN_BUG;
+                    }
+                }
+                else if (command->type == OBIX_BATCH_READ_VALUE)
+                {	// save returned value
+                    result->status = parseElementValue(commandResponse,
+                                                      &(result->value));
+                }
+            }
+
+            // switch to next command
+            command = command->next;
+        }
+        // switch to next command response
+        node = ixmlNode_getNextSibling(node);
+    }
+    ixmlDocument_free(response);
+
+    return OBIX_SUCCESS;
 }

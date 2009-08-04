@@ -10,18 +10,82 @@
 #include <lwl_ext.h>
 #include "obix_comm.h"
 #include "obix_client.h"
+#include "obix_batch.h"
+
+#define OBIX_BATCH_EMPTY_RESULT 1
 
 static void obix_batch_commandFree(oBIX_BatchCmd* command)
 {
-    if (paramUri != NULL)
+    if (command->paramUri != NULL)
     {
-        free(paramUri);
+        free(command->paramUri);
     }
-    if (newValue != NULL)
+    if (command->newValue != NULL)
     {
-        free(newValue);
+        free(command->newValue);
     }
     free(command);
+}
+
+static void obix_batch_resultClear(oBIX_Batch* batch, BOOL totally)
+{
+    if (batch->result != NULL)
+    {
+        int i;
+        for (i = 0; i < batch->commandCounter; i++)
+        {
+            oBIX_BatchResult result = batch->result[i];
+            if (result.value != NULL)
+            {
+                free(result.value);
+            }
+            if (result.obj != NULL)
+            {
+                ixmlElement_freeOwnerDocument(result.obj);
+            }
+
+            if (!totally)
+            {
+                result.status = OBIX_BATCH_EMPTY_RESULT;
+                result.obj = NULL;
+                result.value = NULL;
+            }
+        }
+
+        if (totally)
+        {
+            free(batch->result);
+            batch->result = NULL;
+        }
+    }
+}
+
+static int obix_batch_resultInit(oBIX_Batch* batch)
+{
+    obix_batch_resultClear(batch, FALSE);
+
+    if (batch->result == NULL)
+    {
+        oBIX_BatchResult* result =
+            (oBIX_BatchResult*) calloc(batch->commandCounter,
+                                       sizeof(oBIX_BatchResult));
+        if (result == NULL)
+        {
+            log_error("Not enough memory.");
+            return OBIX_ERR_NO_MEMORY;
+        }
+
+        // init all results as empty.
+        int i;
+        for (i = 0; i < batch->commandCounter; i++)
+        {
+            result[i].status = OBIX_BATCH_EMPTY_RESULT;
+        }
+
+        batch->result = result;
+    }
+
+    return OBIX_SUCCESS;
 }
 
 oBIX_Batch* obix_batch_create(int connectionId)
@@ -30,7 +94,7 @@ oBIX_Batch* obix_batch_create(int connectionId)
     int error = connection_get(connectionId, TRUE, &connection);
     if (error != OBIX_SUCCESS)
     {
-        return error;
+        return NULL;
     }
 
     oBIX_Batch* batch = (oBIX_Batch*) malloc(sizeof(oBIX_Batch));
@@ -38,7 +102,7 @@ oBIX_Batch* obix_batch_create(int connectionId)
     {
         log_error("Unable to initialize new Batch instance: "
                   "Not enough memory.");
-        return OBIX_ERR_NO_MEMORY;
+        return NULL;
     }
 
     // initialize default values
@@ -49,7 +113,7 @@ oBIX_Batch* obix_batch_create(int connectionId)
     return batch;
 }
 
-static int strnullcpy(char** dest, char* source)
+static int strnullcpy(char** dest, const char* source)
 {
     if (source == NULL)
     {
@@ -79,15 +143,17 @@ static int obix_batch_addCommand(oBIX_Batch* batch,
         return OBIX_ERR_INVALID_ARGUMENT;
     }
 
+    obix_batch_resultClear(batch, TRUE);
+
     Device* device;
-    int error = device_get(connection, deviceId, &device);
+    int error = device_get(batch->connection, deviceId, &device);
     if (error != OBIX_SUCCESS)
     {
         return error;
     }
     if (deviceId == 0)
     {
-        device == NULL;
+        device = NULL;
         if (paramUri == NULL)
         {
             return OBIX_ERR_INVALID_ARGUMENT;
@@ -107,7 +173,7 @@ static int obix_batch_addCommand(oBIX_Batch* batch,
     }
 
     command->type = cmdType;
-    command->id = ++(batch->commandCounter);
+    command->id = (batch->commandCounter)++;
     command->device = device;
     command->paramUri = paramUriCopy;
     // next two field are used only by write operation
@@ -120,7 +186,7 @@ static int obix_batch_addCommand(oBIX_Batch* batch,
     if (lastCmd == NULL)
     {	// no commands in batch, put the first one
         batch->command = command;
-        return command->id;
+        return command->id + 1;
     }
 
     // find the last command in the batch
@@ -129,7 +195,7 @@ static int obix_batch_addCommand(oBIX_Batch* batch,
         lastCmd = lastCmd->next;
     }
     lastCmd->next = command;
-    return command->id;
+    return command->id + 1;
 }
 
 int obix_batch_readValue(oBIX_Batch* batch,
@@ -170,10 +236,15 @@ int obix_batch_writeValue(oBIX_Batch* batch,
 
 int obix_batch_removeCommand(oBIX_Batch* batch, int commandId)
 {
+    // all command id's are actually 1 less than shown to the user
+    commandId--;
+
     if (batch == NULL)
     {
         return OBIX_ERR_INVALID_ARGUMENT;
     }
+
+    obix_batch_resultClear(batch, TRUE);
 
     oBIX_BatchCmd* parent = NULL;
     oBIX_BatchCmd* child = batch->command;
@@ -208,9 +279,10 @@ int obix_batch_send(oBIX_Batch* batch)
         return OBIX_ERR_INVALID_ARGUMENT;
     }
 
-    if (batch->result != NULL)
-    {	// remove results of previous call
-        free(batch->result);
+    int error = obix_batch_resultInit(batch);
+    if (error != OBIX_SUCCESS)
+    {
+        return error;
     }
 
     return (batch->connection->comm->sendBatch)(batch);
@@ -218,12 +290,20 @@ int obix_batch_send(oBIX_Batch* batch)
 
 const oBIX_BatchResult* obix_batch_getResult(oBIX_Batch* batch, int commandId)
 {
-    if (batch == NULL)
+    if ((batch == NULL) || (batch->result == NULL))
     {
-        return OBIX_ERR_INVALID_ARGUMENT;
+        return NULL;
     }
 
-    return batch->result[commandId - 1];
+    // all command ID's are actually 1 less than are shown to the user
+    commandId--;
+
+    if (batch->result[commandId].status == OBIX_BATCH_EMPTY_RESULT)
+    {
+        return NULL;
+    }
+
+    return &(batch->result[commandId]);
 }
 
 void obix_batch_free(oBIX_Batch* batch)

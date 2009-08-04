@@ -99,4 +99,10 @@ struct _Connection
     int deviceCount;
 };
 
+int connection_get(int connectionId,
+                   BOOL isConnected,
+                   Connection** connection);
+
+int device_get(Connection* connection, int deviceId, Device** device);
+
 #endif /* OBIX_COMM_H_ */

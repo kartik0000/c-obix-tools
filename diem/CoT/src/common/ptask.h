@@ -1,6 +1,6 @@
 /** @file
  *
- * Contains interface definition of the Periodic Task.
+ * Periodic Task - tool for asynchronous task execution.
  *
  * Periodic Task utility can be used to schedule some function(s) to
  * be invoked in a separate thread periodically after defined delay.

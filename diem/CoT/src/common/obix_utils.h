@@ -1,7 +1,8 @@
 /** @file
- * Contains definitions of oBIX constants: names of objects,
- * contracts, facets, etc.
- * (<a href="http://obix.org/">http://obix.org/</a>)
+ * Contains oBIX names (objects, contracts, facets, etc) and some utility
+ * functions.
+ *
+ * (Read more about oBIX from http://obix.org/)
  */
 
 #ifndef OBIX_UTILS_H_

@@ -1,0 +1,33 @@
+/**
+ * @mainpage oBIX Client Library Documentation
+ *
+ * oBIX Client Library (libcot) is a small library written in C, which allows
+ * creating lightweight oBIX client applications such as device adapters.
+ * @n
+ * Library API consists of obix_client.h which declares oBIX Client API and
+ * several utility header files which provides helper tools commonly needed by
+ * oBIX client applications:
+ * @li ptask.h - Allows scheduling tasks to be executed in a separate thread;
+ * @li obix_utils.h - Contains names of most essential oBIX object, attributes,
+ *     etc.
+ * @li xml_config.h - Helps to load application settings from XML file;
+ * @li lwl_ext.h - Provides interface to the logging utility which is used by
+ *     the whole library.
+ * @li ixml_ext.h - Contains utilities for manipulating XML DOM structures.
+ *
+ * @section obix-client-comp Compilation
+ *
+ * The following string will compile application which uses oBIX Client Library:
+ * @code
+ * gcc -I<cot_headers> -L<cot_lib> -lcot-client <source> -o <output_name>
+ * @endcode
+ * where
+ * - @a \<cot_headers> - Path to header files of @a libcot (usually it is
+ * 						\<installation_prefix>/include/cot/).
+ * - @a \<cot_lib>	  - Path to library binaries of libcot (usually it is
+ * 						\<installation_prefix>/lib).
+ * - @a \<sources>	  - Your source files to be compiled.
+ * - @a \<output_name> - Name of the output binary.
+ *
+ * @author Andrey Litvinov
+ */

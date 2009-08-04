@@ -59,8 +59,8 @@ am__DEPENDENCIES_1 =
 libcot_client_la_DEPENDENCIES = $(am__DEPENDENCIES_1) \
 	$(top_builddir)/src/common/libcot-utils.la
 am_libcot_client_la_OBJECTS = libcot_client_la-obix_client.lo \
-	libcot_client_la-obix_http.lo libcot_client_la-table.lo \
-	libcot_client_la-curl_ext.lo
+	libcot_client_la-obix_batch.lo libcot_client_la-obix_http.lo \
+	libcot_client_la-table.lo libcot_client_la-curl_ext.lo
 libcot_client_la_OBJECTS = $(am_libcot_client_la_OBJECTS)
 libcot_client_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(libcot_client_la_CFLAGS) \
@@ -206,6 +206,7 @@ top_srcdir = @top_srcdir@
 pkginclude_HEADERS = obix_client.h
 lib_LTLIBRARIES = libcot-client.la
 libcot_client_la_SOURCES = obix_client.h obix_client.c \
+							  obix_batch.h obix_batch.c \
 							  obix_comm.h \
 							  obix_http.h obix_http.c \
 							  table.h table.c \
@@ -218,6 +219,7 @@ libcot_client_la_LIBADD = $(CURL_LIBS) \
 							  $(top_builddir)/src/common/libcot-utils.la
 
 libcot_client_la_LDFLAGS = -version-info ${COT_CLIENT_VERSION}
+EXTRA_DIST = libcot.mainpage
 all: all-am
 
 .SUFFIXES:
@@ -288,6 +290,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcot_client_la-curl_ext.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcot_client_la-obix_batch.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcot_client_la-obix_client.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcot_client_la-obix_http.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcot_client_la-table.Plo@am__quote@
@@ -319,6 +322,13 @@ libcot_client_la-obix_client.lo: obix_client.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='obix_client.c' object='libcot_client_la-obix_client.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libcot_client_la_CFLAGS) $(CFLAGS) -c -o libcot_client_la-obix_client.lo `test -f 'obix_client.c' || echo '$(srcdir)/'`obix_client.c
+
+libcot_client_la-obix_batch.lo: obix_batch.c
+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libcot_client_la_CFLAGS) $(CFLAGS) -MT libcot_client_la-obix_batch.lo -MD -MP -MF $(DEPDIR)/libcot_client_la-obix_batch.Tpo -c -o libcot_client_la-obix_batch.lo `test -f 'obix_batch.c' || echo '$(srcdir)/'`obix_batch.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libcot_client_la-obix_batch.Tpo $(DEPDIR)/libcot_client_la-obix_batch.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='obix_batch.c' object='libcot_client_la-obix_batch.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libcot_client_la_CFLAGS) $(CFLAGS) -c -o libcot_client_la-obix_batch.lo `test -f 'obix_batch.c' || echo '$(srcdir)/'`obix_batch.c
 
 libcot_client_la-obix_http.lo: obix_http.c
 @am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libcot_client_la_CFLAGS) $(CFLAGS) -MT libcot_client_la-obix_http.lo -MD -MP -MF $(DEPDIR)/libcot_client_la-obix_http.Tpo -c -o libcot_client_la-obix_http.lo `test -f 'obix_http.c' || echo '$(srcdir)/'`obix_http.c
