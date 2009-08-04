@@ -7,7 +7,6 @@
 #include <obix_utils.h>
 #include <xml_config.h>
 #include <lwl_ext.h>
-#include <ixml_ext.h>
 #include "xml_storage.h"
 #include "post_handler.h"
 #include "watch.h"

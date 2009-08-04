@@ -1,7 +1,7 @@
 /** @file
  * Defines utility methods for work with XML DOM structure.
- * Expands functionality of IXML library which provides DOM XML
- * parser functionality. IXML is distributed as a part of libupnp
+ * Expands functionality of @a ixml library which provides DOM XML
+ * parser functionality. @a ixml is distributed as a part of @a libupnp
  * (http://pupnp.sourceforge.net/).
  */
 #ifndef IXML_EXT_H_

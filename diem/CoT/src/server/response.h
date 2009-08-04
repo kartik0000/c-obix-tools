@@ -8,7 +8,7 @@
 #ifndef RESPONSE_H_
 #define RESPONSE_H_
 
-#include "ixml_ext.h"
+#include "bool.h"
 #include "request.h"
 
 typedef struct Response

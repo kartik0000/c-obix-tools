@@ -12,6 +12,7 @@
  License is not yet fully implemented in the project, but please, act with this
  distribution as if it was under GPL. If you have any concerns about GPL, 
  please, contact the author.
+ 
 =====  
     
  This file contains description of the project in the following sections:
@@ -96,7 +97,7 @@
  ./configure		That will configure building system according to your system 
  					configuration. 					  					
  					
- You would probably like to use also following flags:
+ You would probably like to use also the following flags:
    
   CFLAGS="-O0 -g"	Forces to produce binaries which are easier to debug.
   

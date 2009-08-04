@@ -1,6 +1,6 @@
 /** @file
- * Contains implementation of logging tools
- * which extend functionality of  @a liblwl.
+ * Contains implementation of logging tools which extend functionality of
+ * @a liblwl.
  *
  * @author Andrey Litvinov
  * @version 1.0
@@ -30,19 +30,27 @@ const char* CTA_LOG_LOCALE = "locale";
 const char* CTA_LOG_PRIORITY = "priority";
 const char* CT_LOG_NO_FLUSH = "no-flush";
 
-// logging to stdout
+/** @name Logging to @a stdout
+ * @{ */
 static void log_debugPrintf(char* fmt, ...);
 static void log_warningPrintf(char* fmt, ...);
 static void log_errorPrintf(char* fmt, ...);
-// logging using lwl
+/** @}
+ * @name Logging using @a lwl
+ * @{ */
 static void log_debugLwl(char* fmt, ...);
 static void log_warningLwl(char* fmt, ...);
 static void log_errorLwl(char* fmt, ...);
+/** @} */
 
+/** @name Log handlers.
+ * @{ */
 log_function log_debugHandler = &log_debugPrintf;
 log_function log_warningHandler = &log_warningPrintf;
 log_function log_errorHandler = &log_errorPrintf;
+/** @} */
 
+/** @a lwl log handle */
 static lwlh_t logHandle = NULL;
 
 int log_config(IXML_Element* configTag)
@@ -179,9 +187,9 @@ int log_config(IXML_Element* configTag)
     return 0;
 }
 
-/**
- * Writes log using syslog utility
- */
+// /**
+// * Writes log using syslog utility
+// */
 //static void logWithSyslog(lwl_priority_t priority, char* fmt, va_list args)
 //{
 //    vsyslog(LOG_INFO, fmt, args);

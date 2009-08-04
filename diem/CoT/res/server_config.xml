@@ -23,7 +23,7 @@
   -->
   <log> 
     <!--
-      Available values:
+      Log level. Available values:
       - debug: Write to log all possible messages;
       - warning: Write to log only warnings and errors;
       - error: Write to log only errors;
@@ -60,8 +60,11 @@
       locale="true"/>
 <!--  prefix="oBIX SERVER"/> -->  
     <!--
-      If the tag presents, than the log file will 
-      not be flushed after each message.
+      If the tag presents, than the log file will not be flushed after each 
+      message. This tag can be used in order to reduce time required for 
+      logging - operating system can buffer messages and write them down to the
+      file only when system is not busy. As a drawback, messages can appear in
+      the log file with big delay.  
     -->  
     <!--no-flush/-->
   </log>

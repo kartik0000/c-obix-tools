@@ -81,7 +81,7 @@ IXML_Element* xmldb_getObixSysObject(const char* objType);
  * @see #xmldb_getLastUriCompSlashFlag
  * @param uri1 first URI to compare (object's URI for the slash flag).
  * @param uri2 second URI to compare (request URI for the slash flag).
- * @return @a TRUE is URI match, @a FALSE otherwise.
+ * @return #TRUE is URI match, #FALSE otherwise.
  */
 //BOOL xmldb_compareUri(const char* uri1, const char* uri2);
 
