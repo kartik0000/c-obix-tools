@@ -92,7 +92,7 @@ int testObix_reltime_parse()
     error += testObix_reltime_parseToLong("PT1H123456M", -2, 0);
     error += testObix_reltime_parseToLong("PT999999999999S", -2, 0);
     error += testObix_reltime_parseToLong("PT111111111111S", -2, 0);
-    // maximum that can be parsed: 24 days, 23:59:59.999
+    // maximum that can be parsed: almost 24 days (23:59:59.999)
     int l = ((((23 * 24 + 23) * 60 + 59) * 60 + 59) * 1000 + 999);
     error += testObix_reltime_parseToLong("P23DT23H59M59.999S", 0, l);
 
@@ -144,6 +144,10 @@ int testObix_reltime_fromLong()
                  60 * 60 * 1000 + 100,
                  RELTIME_DAY,
                  "PT1H0.1S");
+    error += testObix_reltime_fromLongHelper(
+                     10000 * 1000 + 1,
+                     RELTIME_SEC,
+                     "PT10000.001S");
 
     printTestResult("Test obix_reltime_fromLong()", (error == 0) ? TRUE : FALSE);
 

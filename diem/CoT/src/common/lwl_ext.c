@@ -1,5 +1,5 @@
 /** @file
- * Contains implementation of logging tools which extend functionality of
+ * Contains implementation of logging tools which extends functionality of
  * @a liblwl.
  *
  * @author Andrey Litvinov
@@ -124,22 +124,22 @@ int log_config(IXML_Element* configTag)
         }
 
         //print date?
-        if (config_getTagBoolAttrValue(tempTag, CTA_LOG_DATE, FALSE))
+        if (config_getTagAttrBoolValue(tempTag, CTA_LOG_DATE, FALSE))
         {
             logOptions |= LWL_OPT_DATE;
         }
         //print time?
-        if (config_getTagBoolAttrValue(tempTag, CTA_LOG_TIME, FALSE))
+        if (config_getTagAttrBoolValue(tempTag, CTA_LOG_TIME, FALSE))
         {
             logOptions |= LWL_OPT_TIME;
         }
         //print priority of the message?
-        if (config_getTagBoolAttrValue(tempTag, CTA_LOG_PRIORITY, FALSE))
+        if (config_getTagAttrBoolValue(tempTag, CTA_LOG_PRIORITY, FALSE))
         {
             logOptions |= LWL_OPT_PRIORITY;
         }
         //print time and date using current locale format?
-        if (config_getTagBoolAttrValue(tempTag, CTA_LOG_LOCALE, FALSE))
+        if (config_getTagAttrBoolValue(tempTag, CTA_LOG_LOCALE, FALSE))
         {
             logOptions |= LWL_OPT_USE_LOCALE;
         }

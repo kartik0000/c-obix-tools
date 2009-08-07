@@ -455,7 +455,7 @@ int loadDeviceData(IXML_Element* deviceConf)
         return -1;
     }
 
-    int targetsCount = config_getTagIntAttrValue(target, "count", TRUE, 1);
+    int targetsCount = config_getTagAttrIntValue(target, "count", TRUE, 1);
     if (targetsCount <= 0)
     {
         ixmlDocument_free(doc);

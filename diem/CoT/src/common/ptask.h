@@ -1,11 +1,9 @@
 /** @file
- *
  * Periodic Task - tool for asynchronous task execution.
  *
  * Periodic Task utility can be used to schedule some function(s) to
- * be invoked in a separate thread periodically after defined delay.
- * A function can scheduled to be invoked either defined number of times
- * or indefinite (until it is canceled).
+ * be invoked periodically in a separate thread. A function can scheduled to be
+ * invoked either defined number of times or indefinite (until it is canceled).
  *
  * @author Andrey Litvinov
  * @version 1.0
@@ -47,7 +45,7 @@ Task_Thread* ptask_init();
  * All scheduled tasks are canceled.
  *
  * @param thread Pointer to the #Task_Thread to be freed.
- * @param wait   If @a TRUE than the method will block and wait until specified
+ * @param wait   If #TRUE than the method will block and wait until specified
  *               thread is really disposed. Otherwise, method will only schedule
  *               asynchronous disposing of the thread.
  * @return @a 0 on success, negative error code otherwise.
@@ -85,8 +83,8 @@ int ptask_schedule(Task_Thread* thread,
  *               to the current task period).
  * @param executeTimes Defines how many times (min. 1) the task should be
  *                     executed. If #EXECUTE_INDEFINITE is provided than the
- *                     task is executed until #ptask_cancel() with
- *                     corresponding task ID is called.
+ *                     task is executed until #ptask_cancel() is called with
+ *                     corresponding task ID.
  * @param add Defines whether time provided in @a period argument will be used
  *            as new execution period, or will be added to the current one.
  * @note When @a add is set to #TRUE, @a period will be also added to the next
@@ -101,12 +99,12 @@ int ptask_reschedule(Task_Thread* thread,
                      BOOL add);
 
 /**
- * Checks whether task with provided id is scheduled for execution in the
+ * Checks whether the task with provided id is scheduled for execution in the
  * thread.
  *
  * @param thread Thread where the task should be searched for.
  * @param taskId Task id which is searched for.
- * @return #TRUE if the task with specified @taskId is scheduled,
+ * @return #TRUE if the task with specified @a taskId is scheduled,
  *         #FALSE otherwise.
  */
 BOOL ptask_isScheduled(Task_Thread* thread, int taskId);
@@ -127,13 +125,12 @@ int ptask_reset(Task_Thread* thread, int taskId);
  * Removes task from the scheduled list.
  *
  * @param thread Thread in which task is scheduled.
- * @param id ID of the task to be removed.
+ * @param taskId ID of the task to be removed.
  * @param wait When task is being executed it can be canceled only after
  *             execution is completed. This parameter defines whether the
  *             function should wait until the task is really canceled, or it can
  *             just mark the task as canceled, which guarantees that the task
  *             will be removed as soon as the current execution is completed.
- *
  *             In case when this function is called while the task is not
  *             executed @a wait argument makes no difference.
  * @return @li @a 0 on success;

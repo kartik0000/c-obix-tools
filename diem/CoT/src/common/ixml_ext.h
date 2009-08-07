@@ -14,6 +14,7 @@
  */
 /**
  * Returns node which represents provided document.
+ *
  * @param doc Document whose node representation is needed.
  * @return Node corresponding to the provided document.
  */
@@ -22,7 +23,7 @@ IXML_Node* ixmlDocument_getNode(IXML_Document* doc);
 /**
  * Converts node to the element.
  *
- * @param Node to be converted.
+ * @param node Node which should be converted.
  * @return NULL if node is not an element (i.e. tag).
  */
 IXML_Element* ixmlNode_convertToElement(IXML_Node* node);
@@ -30,7 +31,7 @@ IXML_Element* ixmlNode_convertToElement(IXML_Node* node);
 /**
  * Converts node to the attribute.
  *
- * @param Node to be converted.
+ * @param node Node which should be converted.
  * @return NULL if node is not an attribute.
  */
 IXML_Attr* ixmlNode_convertToAttr(IXML_Node* node);
@@ -91,7 +92,7 @@ IXML_Node* ixmlNode_parseBuffer(const char* data);
  * @note As long as the whole document is freed, all other nodes
  * which belongs to the same document are also freed.
  *
- * @param node Node which should be freed with it's owner document.
+ * @param node Node which should be freed together with it's owner document.
  */
 void ixmlNode_freeOwnerDocument(IXML_Node* node);
 
@@ -108,8 +109,10 @@ IXML_Element* ixmlElement_parseBuffer(const char* data);
 
 /**
  * Adds new attribute to the element. If attribute with the same name already
- * exists, it's value will be updated. Writes warning message to log on error.
+ * exists, it's value will be updated. Writes warning message to log (using
+ * lwl_ext.h) on error.
  *
+ * @param element Element to which the attribute should be added.
  * @param attrName Name of the attribute to be added.
  * @param attrValue Value of the attribute.
  * @return @a 0 on success or @a 1 on error.
@@ -121,8 +124,10 @@ int ixmlElement_setAttributeWithLog(IXML_Element* element,
 /**
  * Removes attribute from the provided element.
  * Unlike @a ixmlElement_removeAttribute() the attribute node is removed
- * totally, not only value.
+ * totally, not only value. Also writes warning message to log (using
+ * lwl_ext.h) on error.
  *
+ * @param element Element from which the attribute should be removed.
  * @param attrName Name of the attribute to be removed.
  * @return @a 0 on success or @a 1 on error.
  */
@@ -133,10 +138,11 @@ int ixmlElement_removeAttributeWithLog(IXML_Element* element,
  * Duplicates provided element.
  *
  * Creates new instance of @a IXML_Document and copies entire element
- * including all its children to that document.
+ * including all its children to that document. Also writes message to
+ * log (using lwl_ext.h) on error.
  *
  * @note Don't forget to free owner document of the clone after usage.
- * @see @a ixmlNode_getOwnerDocument()
+ * @see @a ixmlNode_getOwnerDocument() at @a ixml.h
  *
  * @param source Element to be copied.
  * @return @a NULL on error, otherwise a pointer to the new copy of the source
@@ -149,14 +155,15 @@ IXML_Element* ixmlElement_cloneWithLog(IXML_Element* source);
  * @note As long as the whole document is freed, all other nodes
  * which belongs to the same document are also freed.
  *
- * @param element Element which should be freed with it's owner document.
+ * @param element Element which should be freed together with it's owner
+ *                document.
  */
 void ixmlElement_freeOwnerDocument(IXML_Element* element);
 
 /**
  * Copies attribute value from one element to another.
  * If the attribute with provided name doesn't exist in the target node, it is
- * created. Method also writes error messages using #lwl_ext.h facilities.
+ * created. Method also writes error messages using lwl_ext.h facilities.
  *
  * @param source Element where the attribute will be copied from.
  * @param target Element which the attribute will be copied to.

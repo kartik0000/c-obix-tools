@@ -116,7 +116,7 @@ void obix_server_read(Response* response, const char* uri)
         obix_server_generateObixErrorMessage(
             response,
             uri,
-            OBIX_HREF_ERR_BAD_URI,
+            OBIX_CONTRACT_ERR_BAD_URI,
             "Bad URI Error",
             "Requested URI is not found on the server.");
         return;
@@ -234,14 +234,14 @@ void obix_server_write(Response* response,
     case -2: // bad uri
         obix_server_generateObixErrorMessage(response,
                                              uri,
-                                             OBIX_HREF_ERR_BAD_URI,
+                                             OBIX_CONTRACT_ERR_BAD_URI,
                                              "Write Error",
                                              "URI is not found.");
         break;
     case -3: // object is not writable
         obix_server_generateObixErrorMessage(response,
                                              uri,
-                                             OBIX_HREF_ERR_PERMISSION,
+                                             OBIX_CONTRACT_ERR_PERMISSION,
                                              "Write Error",
                                              "Object is not writable.");
         break;
@@ -287,7 +287,7 @@ void obix_server_invoke(Response* response,
         obix_server_generateObixErrorMessage(
             response,
             uri,
-            OBIX_HREF_ERR_BAD_URI,
+            OBIX_CONTRACT_ERR_BAD_URI,
             "Bad URI Error",
             "Requested URI is not found on the server.");
         obixResponse_send(response);
@@ -299,7 +299,7 @@ void obix_server_invoke(Response* response,
     {
         log_debug("Requested URI doesn't contain <op/> object");
         obix_server_generateObixErrorMessage(
-            response, uri, OBIX_HREF_ERR_BAD_URI,
+            response, uri, OBIX_CONTRACT_ERR_BAD_URI,
             "Bad URI Error",
             "Requested URI is not an operation.");
         obixResponse_send(response);
@@ -354,8 +354,8 @@ void obix_server_shutdown()
     //TODO release post handlers;
     log_debug("Stopping oBIX server...");
     xmldb_dispose();
-    config_dispose();
     obixWatch_dispose();
+    config_dispose();
 }
 
 /**

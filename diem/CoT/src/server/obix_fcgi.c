@@ -130,7 +130,7 @@ IXML_Element* obix_fcgi_loadConfig(char* resourceDir)
                               FALSE);
     if (configTag != NULL)
     {
-        _requestMaxCount = config_getTagIntAttrValue(
+        _requestMaxCount = config_getTagAttrIntValue(
                                configTag,
                                CTA_VALUE,
                                FALSE,
@@ -263,7 +263,7 @@ void obix_fcgi_handleRequest(Request* request)
         sprintf(message, "%s request is not supported by oBIX server.", requestType);
         obix_server_generateObixErrorMessage(response,
                                              uri,
-                                             OBIX_HREF_ERR_UNSUPPORTED,
+                                             OBIX_CONTRACT_ERR_UNSUPPORTED,
                                              "Unsupported Request",
                                              message);
         free(message);

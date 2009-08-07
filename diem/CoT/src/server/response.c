@@ -13,6 +13,9 @@
 #include <obix_utils.h>
 #include "response.h"
 
+const char* OBIX_OBJ_ERR_TEMPLATE = "<err displayName=\"Internal Server Error\""
+                                    " display=\"%s\"/ >";
+
 // method which handles server responses is stored here
 static obix_response_listener _responseListener = NULL;
 

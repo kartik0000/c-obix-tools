@@ -259,7 +259,7 @@ static int connection_create(IXML_Element* connItem)
     int maxListeners = DEFAULT_MAX_LISTENERS;
 
     // get connection id
-    id = config_getTagIntAttrValue(connItem, CTA_CONNECTION_ID, TRUE, 0);
+    id = config_getTagAttrIntValue(connItem, CTA_CONNECTION_ID, TRUE, 0);
     if (id < 0)
     {	// error occurred and logged
         return OBIX_ERR_INVALID_ARGUMENT;
@@ -316,7 +316,7 @@ static int connection_create(IXML_Element* connItem)
                              FALSE);
     if (confItem != NULL)
     {
-        maxDevices = config_getTagIntAttrValue(confItem,
+        maxDevices = config_getTagAttrIntValue(confItem,
                                                CTA_VALUE,
                                                FALSE,
                                                DEFAULT_MAX_DEVICES);
@@ -327,7 +327,7 @@ static int connection_create(IXML_Element* connItem)
                                   FALSE);
     if (confItem != NULL)
     {
-        maxListeners = config_getTagIntAttrValue(
+        maxListeners = config_getTagAttrIntValue(
                            confItem,
                            CTA_VALUE,
                            FALSE,

@@ -2,7 +2,7 @@
  * @todo add description here
  *
  * @author Andrey Litvinov
- * @version 1.0
+ * @version 1.1
  */
 
 #include <stdlib.h>
@@ -645,7 +645,7 @@ static int parseWatchOut(IXML_Document* doc,
 
         // we received error object instead of WatchOut.
         // in case if it is BadUri than try to create new Watch object.
-        if (!obix_obj_implementsContract(element, OBIX_HREF_ERR_BAD_URI))
+        if (!obix_obj_implementsContract(element, OBIX_CONTRACT_ERR_BAD_URI))
         {
             // it is some strange error. no idea what to do with it
             return OBIX_ERR_BAD_CONNECTION;
@@ -894,7 +894,7 @@ static int removeWatch(Http_Connection* c)
             // check if the response contain Bad Uri error which means
             // that Watch object was already removed and thus we can ignore this
             // error
-            if (obix_obj_implementsContract(obixObj, OBIX_HREF_ERR_BAD_URI))
+            if (obix_obj_implementsContract(obixObj, OBIX_CONTRACT_ERR_BAD_URI))
             {
                 log_warning("The Watch object is already deleted at the "
                             "server. Probably server has dropped it because "
@@ -1241,7 +1241,7 @@ int http_initConnection(IXML_Element* connItem, Connection** connection)
     element = config_getChildTag(connItem, CT_POLL_INTERVAL, FALSE);
     if (element != NULL)
     {
-        pollInterval = config_getTagLongAttrValue(
+        pollInterval = config_getTagAttrLongValue(
                            element,
                            CTA_VALUE,
                            FALSE,
@@ -1259,7 +1259,7 @@ int http_initConnection(IXML_Element* connItem, Connection** connection)
             cleanup();
             return OBIX_ERR_INVALID_ARGUMENT;
         }
-        pollWaitMin = config_getTagLongAttrValue(childTag,
+        pollWaitMin = config_getTagAttrLongValue(childTag,
                       OBIX_ATTR_VAL,
                       TRUE,
                       0);
@@ -1271,7 +1271,7 @@ int http_initConnection(IXML_Element* connItem, Connection** connection)
             cleanup();
             return OBIX_ERR_INVALID_ARGUMENT;
         }
-        pollWaitMax = config_getTagLongAttrValue(childTag,
+        pollWaitMax = config_getTagAttrLongValue(childTag,
                       OBIX_ATTR_VAL,
                       TRUE,
                       0);
@@ -1292,7 +1292,7 @@ int http_initConnection(IXML_Element* connItem, Connection** connection)
     element = config_getChildTag(connItem, CT_WATCH_LEASE, FALSE);
     if (element != NULL)
     {
-        watchLease = config_getTagLongAttrValue(
+        watchLease = config_getTagAttrLongValue(
                          element,
                          CTA_VALUE,
                          FALSE,
@@ -1701,7 +1701,7 @@ int http_unregisterListener(Connection* connection,
             // if server replied with Bad Uri error, than we can consider
             // that watch item is removed (actually all Watch object is
             // dropped by someone)
-            if (!obix_obj_implementsContract(obixObj, OBIX_HREF_ERR_BAD_URI))
+            if (!obix_obj_implementsContract(obixObj, OBIX_CONTRACT_ERR_BAD_URI))
             {
                 free(fullParamUri);
                 ixmlDocument_free(response);

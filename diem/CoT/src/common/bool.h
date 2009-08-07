@@ -9,7 +9,7 @@
 #ifndef BOOL_H_
 #define BOOL_H_
 
-/** Boolean data type which so natural for all programmers. */
+/** Boolean data type which is so natural for all programmers. */
 typedef int BOOL;
 
 #ifndef TRUE

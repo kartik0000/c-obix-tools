@@ -130,15 +130,15 @@ extern log_function log_errorHandler;
 
 /**
  * Configures log system using parameters passed in XML format.
- * Passed XML should contain at least @a <log> tag with child @a <level>, which
- * specifies log level. For example:
+ * Passed XML should contain at least @a \<log> tag with child @a \<level>,
+ * which specifies log level. For example:
  * @code
  * <log>
  *  <level val="debug" />
  * </log>
  * @endcode
  *
- * There are other optional configuration tags. Please refer to the <log>
+ * There are other optional configuration tags. Please refer to the @a \<log>
  * element in example_timer_config.xml for the full description of possible
  * tags.
  *
@@ -152,7 +152,7 @@ int log_config(IXML_Element* configTag);
  * Clears memory allocated for the logging utility. Should be called in the very
  * end of the program execution. Also resets all log settings, thus all messages
  * logged after calling this method will be written to the standard output
- * (stdout).
+ * (@a stdout).
  */
 void log_dispose();
 

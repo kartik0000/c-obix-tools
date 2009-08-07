@@ -1,6 +1,7 @@
-/**
- * TODO: write shorcuts for logging, make everything smooth and start
- * implementing the load of specific parameters
+/** @file
+ * @todo ad description
+ *
+ * @author Andrey Litvinov
  */
 #include <limits.h>
 #include <stdlib.h>
@@ -12,44 +13,47 @@
 
 const char* CT_CONFIG = "config";
 const char* CTA_VALUE = "val";
-/*@}*/
 
 static char* resourceFolder;
 
 static IXML_Document* xmlConfigDoc;
 
-IXML_Element* config_getChildTag(IXML_Element* conf, const char* tagName, BOOL obligatory)
+IXML_Element* config_getChildTag(IXML_Element* conf,
+                                 const char* tagName,
+                                 BOOL obligatory)
 {
     IXML_NodeList* list = ixmlElement_getElementsByTagName(conf, tagName);
     if (list == NULL)
     {
         if (obligatory == TRUE)
         {
-            log_error("Obligatory configuration tag <%s> is not found.", tagName);
+            log_error("Obligatory configuration tag <%s> is not found.",
+                      tagName);
         }
         return NULL;
     }
-    if (ixmlNodeList_length(list) > 1)
-    {
-        log_warning("All extra <%s> tags are ignored.", tagName);
-    }
 
-    IXML_Node* node = ixmlNodeList_item(list, 0);
+    IXML_Element* element = ixmlNode_convertToElement(
+                                ixmlNodeList_item(list, 0));
     ixmlNodeList_free(list);
 
-    if (ixmlNode_getNodeType(node) != eELEMENT_NODE)
+    if (element == NULL)
     {
         if (obligatory == TRUE)
         {
-            log_error("Obligatory configuration tag <%s> is not found.", tagName);
+            log_error("Obligatory configuration tag <%s> is not found.",
+                      tagName);
         }
+        log_error("Internal error! This should never happen.");
         return NULL;
     }
 
-    return (IXML_Element*) node;
+    return (IXML_Element*) element;
 }
 
-const char* config_getChildTagValue(IXML_Element* conf, const char* tagName, BOOL obligatory)
+const char* config_getChildTagValue(IXML_Element* conf,
+                                    const char* tagName,
+                                    BOOL obligatory)
 {
     IXML_Element* element = config_getChildTag(conf, tagName, obligatory);
     if (element == NULL)
@@ -71,9 +75,9 @@ const char* config_getTagAttributeValue(IXML_Element* tag, const char* attrName,
     return val;
 }
 
-int config_getTagIntAttrValue(IXML_Element* tag, const char* attrName, BOOL obligatory, int defaultValue)
+int config_getTagAttrIntValue(IXML_Element* tag, const char* attrName, BOOL obligatory, int defaultValue)
 {
-    long val = config_getTagLongAttrValue(tag, attrName, obligatory, defaultValue);
+    long val = config_getTagAttrLongValue(tag, attrName, obligatory, defaultValue);
     if (val < 0)
     {	// error is already logged
         return val;
@@ -102,7 +106,7 @@ int config_getTagIntAttrValue(IXML_Element* tag, const char* attrName, BOOL obli
     return (int) val;
 }
 
-long config_getTagLongAttrValue(IXML_Element* tag, const char* attrName, BOOL obligatory, long defaultValue)
+long config_getTagAttrLongValue(IXML_Element* tag, const char* attrName, BOOL obligatory, long defaultValue)
 {
     const char* attrValue = config_getTagAttributeValue(tag, attrName, obligatory);
     if (attrValue == NULL)
@@ -148,7 +152,7 @@ long config_getTagLongAttrValue(IXML_Element* tag, const char* attrName, BOOL ob
     return val;
 }
 
-int config_getTagBoolAttrValue(IXML_Element* tag, const char* attrName, BOOL obligatory)
+int config_getTagAttrBoolValue(IXML_Element* tag, const char* attrName, BOOL obligatory)
 {
     const char* attrValue = config_getTagAttributeValue(tag, attrName, obligatory);
     // TODO: code assumes that TRUE == 1 and FALSE == 0
@@ -193,15 +197,6 @@ int config_getTagBoolAttrValue(IXML_Element* tag, const char* attrName, BOOL obl
         }
     }
 }
-
-//IXML_NodeList* config_getChildNodes(IXML_Document* doc, const char* nodeName)
-//{
-//	IXML_Node* node = config_getChildNode(doc, nodeName, TRUE);
-//    if (node == NULL)
-//        return NULL;
-//
-//    return ixmlNode_getChildNodes(node);
-//}
 
 IXML_Element* config_loadFile(const char* filename)
 {
@@ -272,12 +267,18 @@ void config_dispose()
 char* config_getResFullPath(const char* filename)
 {
     if (resourceFolder == NULL)
-    {	// resource folder is not set, so we consider that it is a current one
+    {	// resource folder is not set, so there is nothing to add
         return strdup(filename);
     }
 
     // concatenate filename with resource folder
-    char* output = (char*) malloc(strlen(filename) + strlen(resourceFolder) + 1);
+    char* output = (char*) malloc(strlen(filename) +
+    		strlen(resourceFolder) + 1);
+    if (output == NULL)
+    {
+    	log_error("Not enough memory.");
+    	return NULL;
+    }
     strcpy(output, resourceFolder);
     strcat(output, filename);
 

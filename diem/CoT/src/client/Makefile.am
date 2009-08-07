@@ -19,4 +19,4 @@ libcot_client_la_LIBADD		= $(CURL_LIBS) \
 
 libcot_client_la_LDFLAGS	= -version-info ${COT_CLIENT_VERSION}
 
-EXTRA_DIST					= libcot.mainpage
+EXTRA_DIST					= mainpage.h

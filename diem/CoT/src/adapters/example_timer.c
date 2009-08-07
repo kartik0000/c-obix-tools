@@ -7,7 +7,7 @@
  * to true, than elapsed time is set to 0.
  *
  * @author Andrey Litvinov
- * @version 1.0
+ * @version 1.1
  */
 
 #include <stdio.h>
@@ -47,7 +47,7 @@ int _timerTaskId;
  * The function implements #obix_update_listener() prototype and is registered
  * as a listener of @a "reset" param using #obix_registerListener().
  * If @a "reset" value is changed at oBIX server to @a "true" it will set it
- * back to "false" and reset timer.
+ * back to @a "false" and reset timer.
  *
  * @see obix_update_listener(), obix_registerListener().
  */
@@ -59,7 +59,7 @@ int resetListener(int connectionId,
     static oBIX_Batch* batch = NULL;
     int error;
 
-    if (strcmp(newValue, "false") == 0)
+    if (strcmp(newValue, XML_FALSE) == 0)
     {
         // ignore this update - we are waiting for "reset" to be "true"
         return OBIX_SUCCESS;
@@ -151,7 +151,7 @@ int resetListener(int connectionId,
  * Implements #periodic_task() prototype and is scheduled using
  * #ptask_schedule(). This method is executed in a separate thread that is why
  * it uses #_time_mutex for synchronization with #resetListener() which sets
- * timer to 0.
+ * timer to @a 0.
  *
  * @see periodic_task(), ptask_schedule().
  * @param arg Assumes that a pointer to the device ID is passed here. Device ID
@@ -204,7 +204,7 @@ char* getDeviceData(char* deviceUri)
 /**
  * Entry point of the Timer application.
  * It takes the name of the configuration file (use
- * @a example_timer_config.xml).
+ * example_timer_config.xml).
  *
  * @see example_timer_config.xml
  */
@@ -214,7 +214,7 @@ int main(int argc, char** argv)
     {
         printf("Usage: %s <config_file> <device_uri>\n"
                " where <config_file> - Address of the configuration file;\n"
-               "       <device_uri>  - URI at which device will be "
+               "       <device_uri>  - URI at which the device will be "
                "registered.\n", argv[0]);
         return -1;
     }

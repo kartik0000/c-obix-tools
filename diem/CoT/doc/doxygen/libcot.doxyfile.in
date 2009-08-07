@@ -177,7 +177,7 @@ SEPARATE_MEMBER_PAGES = NO
 # The TAB_SIZE tag can be used to set the number of spaces in a tab. 
 # Doxygen uses this value to replace tabs by spaces in code fragments.
 
-TAB_SIZE = 8
+TAB_SIZE = 4
 
 # This tag can be used to specify a number of aliases that acts 
 # as commands in the documentation. An alias has the form "name=value". 
@@ -405,7 +405,7 @@ SORT_BY_SCOPE_NAME = NO
 # disable (NO) the todo list. This list is created by putting \todo 
 # commands in the documentation.
 
-GENERATE_TODOLIST = YES
+GENERATE_TODOLIST = NO
 
 # The GENERATE_TESTLIST tag can be used to enable (YES) or 
 # disable (NO) the test list. This list is created by putting \test 
@@ -535,7 +535,7 @@ WARN_LOGFILE =
 # with spaces.
 
 INPUT = @top_srcdir@/src/client/obix_client.h \
-		@top_srcdir@/src/client/libcot.mainpage \
+		@top_srcdir@/src/client/mainpage.h \
 		@top_srcdir@/src/common \
         @top_srcdir@/src/adapters/example_timer.c \
         @top_srcdir@/res/example_timer_config.xml 

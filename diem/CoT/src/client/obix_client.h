@@ -7,7 +7,7 @@
  * also a possibility to subscribe for data updates on the server, which is
  * performed by library using oBIX Watch engine.
  *
- * * @section obix-client-usage Usage
+ * @section obix-client-usage Usage
  *
  * The typical usage of the library in device adapter (see example at
  * example_timer.c):
@@ -437,7 +437,7 @@ typedef struct _oBIX_Batch oBIX_Batch;
 
 /**
  * Contains outputs of the command, which was executed in a
- * @link #oBIX_Batch Batch.
+ * @ref #oBIX_Batch "Batch".
  */
 typedef struct _oBIX_BatchResult
 {
@@ -530,6 +530,10 @@ int obix_batch_read(oBIX_Batch* batch,
  * @param batch    Batch object where writeValue operation should be added to.
  * @param deviceId ID of the device whose parameter's value should be written.
  * @param paramUri Uri of the parameter which should be written.
+ * @param newValue Text representation of the new value to be written. It should
+ *                 be a new value for the @a val attribute of the oBIX object on
+ *                 the server, not the whole object.
+ * @param dataType Type of data which is written to the server.
  * @return @li @a >0 - ID of the added command. IDs are assigned according to
  *         the order of adding commands to the Batch. Thus ID of the first added
  *         command will be @a 1, ID of the second - @a 2, and so on.
@@ -539,6 +543,9 @@ int obix_batch_read(oBIX_Batch* batch,
  *         execution of write command: It will be stored in the corresponding
  *         oBIX_BatchResult::status after the whole Batch is executed.
  *
+ * @note  Only value of an object (@a val attribute) can be written using this
+ * 		  method. It's not possible to overwrite a whole oBIX object on the
+ *        server.
  * @note Results of the previous execution of the Batch will become
  *       unavailable after calling this method.
  *

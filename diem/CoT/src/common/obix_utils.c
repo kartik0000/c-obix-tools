@@ -1,6 +1,6 @@
 /** @file
  * Contains names of oBIX objects, contracts, facets, etc.
- * (<a href="http://obix.org/">http://obix.org/</a>)
+ * (http://obix.org/)
  */
 
 #include <stdlib.h>
@@ -9,9 +9,9 @@
 #include <limits.h>
 #include "obix_utils.h"
 
-const char* OBIX_HREF_ERR_BAD_URI = "obix:BadUriErr";
-const char* OBIX_HREF_ERR_UNSUPPORTED = "obix:UnsupportedErr";
-const char* OBIX_HREF_ERR_PERMISSION = "obix:PermissionErr";
+const char* OBIX_CONTRACT_ERR_BAD_URI = "obix:BadUriErr";
+const char* OBIX_CONTRACT_ERR_UNSUPPORTED = "obix:UnsupportedErr";
+const char* OBIX_CONTRACT_ERR_PERMISSION = "obix:PermissionErr";
 
 const char* OBIX_OBJ = "obj";
 const char* OBIX_OBJ_REF = "ref";
@@ -42,14 +42,13 @@ const char* OBIX_NAME_WATCH_POLL_WAIT_INTERVAL = "pollWaitInterval";
 const char* OBIX_NAME_WATCH_POLL_WAIT_INTERVAL_MIN = "min";
 const char* OBIX_NAME_WATCH_POLL_WAIT_INTERVAL_MAX = "max";
 
-const char* OBIX_OBJ_ERR_TEMPLATE = "<err displayName=\"Internal Server Error\" "
-                                    "display=\"%s/>\"";
 const char* OBIX_OBJ_NULL_TEMPLATE = "<obj null=\"true\"/>";
 
 const char* OBIX_ATTR_IS = "is";
 const char* OBIX_ATTR_NAME = "name";
 const char* OBIX_ATTR_HREF = "href";
 const char* OBIX_ATTR_VAL = "val";
+const char* OBIX_ATTR_NULL = "null";
 const char* OBIX_ATTR_WRITABLE = "writable";
 const char* OBIX_ATTR_DISPLAY = "display";
 const char* OBIX_ATTR_DISPLAY_NAME = "displayName";
@@ -57,7 +56,7 @@ const char* OBIX_ATTR_DISPLAY_NAME = "displayName";
 const char* XML_TRUE = "true";
 const char* XML_FALSE = "false";
 
-int obix_reltime_parseToLong(const char* str, long* period)
+int obix_reltime_parseToLong(const char* str, long* duration)
 {
     int negativeFlag = 0;
     int parsedSomething = 0;
@@ -236,7 +235,7 @@ int obix_reltime_parseToLong(const char* str, long* period)
     }
 
     // save result at the output variable
-    *period = (negativeFlag == 0) ? result : -result;
+    *duration = (negativeFlag == 0) ? result : -result;
 
     return 0;
 }
@@ -272,7 +271,7 @@ char* obix_reltime_fromLong(long millis, RELTIME_FORMAT format)
     int days = 0;
     int hours = 0;
     long minutes = 0;
-    double seconds = 0;
+    long seconds = 0;
     int negativeFlag = 0;
 
     int stringSize = 3;
@@ -297,7 +296,7 @@ char* obix_reltime_fromLong(long millis, RELTIME_FORMAT format)
         stringSize++;
     }
 
-    seconds = (double) millis / 1000;
+    seconds = millis / 1000;
     millis %= 1000;
 
     if (format >= RELTIME_MIN)
@@ -322,7 +321,7 @@ char* obix_reltime_fromLong(long millis, RELTIME_FORMAT format)
     stringSize += plonglen(hours);
     stringSize += plonglen(minutes);
     stringSize += plonglen(seconds);
-    if (millis != 0)
+    if (millis > 0)
     {
         stringSize += 4;
     }
@@ -363,9 +362,22 @@ char* obix_reltime_fromLong(long millis, RELTIME_FORMAT format)
         pos += sprintf(reltime + pos, "%ldM", minutes);
     }
 
-    if (seconds > 0)
+    if ((seconds > 0) || (millis > 0))
     {
-        sprintf(reltime + pos, "%gS", seconds);
+        pos += sprintf(reltime + pos, "%ld", seconds);
+
+        if (millis > 0)
+        {
+            pos += sprintf(reltime + pos, ".%03ld", millis);
+            // remove all trailing zeros'
+            while (reltime[pos - 1] == '0')
+            {
+                pos--;
+            }
+        }
+
+        reltime[pos++] = 'S';
+        reltime[pos] = '\0';
     }
 
     return reltime;

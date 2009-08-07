@@ -97,7 +97,7 @@ void handlerError(Response* response,
     obix_server_generateObixErrorMessage(
         response,
         uri,
-        OBIX_HREF_ERR_UNSUPPORTED,
+        OBIX_CONTRACT_ERR_UNSUPPORTED,
         "Unsupported Request",
         "The requested operation is not yet implemented.");
     obixResponse_send(response);
@@ -385,7 +385,7 @@ void handlerWatchAdd(Response* response,
             obix_server_generateObixErrorMessage(
                 rItem,
                 uriSet[i],
-                OBIX_HREF_ERR_BAD_URI,
+                OBIX_CONTRACT_ERR_BAD_URI,
                 "Bad URI Error",
                 "Requested URI is not found on the server.");
 
@@ -394,7 +394,7 @@ void handlerWatchAdd(Response* response,
             obix_server_generateObixErrorMessage(
                 rItem,
                 uriSet[i],
-                OBIX_HREF_ERR_BAD_URI,
+                OBIX_CONTRACT_ERR_BAD_URI,
                 "Bad URI Error",
                 "Adding <op/> objects to Watch is forbidden.");
         case -3:
