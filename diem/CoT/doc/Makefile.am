@@ -12,7 +12,7 @@ if HAVE_DOXYGEN
  SUBDIRS = doxygen/
 else
  ## Use ready documentation files
- doc_DATA = $(libcothtml) $(libcotpdf)
+ dist_doc_DATA = $(libcothtml) $(libcotpdf)
 endif
 
 

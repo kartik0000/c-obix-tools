@@ -1,3 +1,24 @@
+/* *****************************************************************************
+ * Copyright (c) 2009 Andrey Litvinov
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ * ****************************************************************************/
 /** @file
  * @todo add description here
  *
@@ -8,7 +29,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <lwl_ext.h>
+#include <log_utils.h>
 #include <xml_config.h>
 #include <obix_utils.h>
 #include "test_main.h"
@@ -18,12 +39,13 @@ void testLog()
     log_debug("testing debug 4=%d;", 4);
     log_warning("testing warning 5=%d;", 5);
     log_error("testing %s 4=%d;", "error", 4);
-    config_loadFile("server_config.xml");
-    config_finishInit(TRUE);
+    IXML_Element* settings = config_loadFile("server_config.xml");
+    config_log(settings);
+    config_finishInit(settings, TRUE);
     log_debug("testing debug 4=%d;", 4);
     log_warning("testing warning 5=%d;", 5);
     log_error("testing %s 4=%d;", "error", 4);
-    config_dispose();
+    log_usePrintf();
 }
 
 

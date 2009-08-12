@@ -36,7 +36,7 @@ define Package/libcot
 	SECTION:=libs
 	CATEGORY:=Libraries
 	TITLE:=C oBIX Tools
-	DEPENDS:=+libupnp +libcurl +lwl
+	DEPENDS:=+libupnp +libcurl
 endef
 
 define Build/Compile

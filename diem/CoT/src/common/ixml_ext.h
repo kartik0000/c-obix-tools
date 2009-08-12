@@ -1,3 +1,24 @@
+/* *****************************************************************************
+ * Copyright (c) 2009 Andrey Litvinov
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ * ****************************************************************************/
 /** @file
  * Defines utility methods for work with XML DOM structure.
  * Expands functionality of @a ixml library which provides DOM XML
@@ -8,6 +29,11 @@
 #define IXML_EXT_H_
 
 #include <upnp/ixml.h>
+/**
+ * ixml.h already contains the definition of BOOL type, thus we consider
+ * that bool.h is already added.
+ */
+#define BOOL_H_
 
 /**@name XML node types conversion
  * @{
@@ -110,7 +136,7 @@ IXML_Element* ixmlElement_parseBuffer(const char* data);
 /**
  * Adds new attribute to the element. If attribute with the same name already
  * exists, it's value will be updated. Writes warning message to log (using
- * lwl_ext.h) on error.
+ * log_utils.h) on error.
  *
  * @param element Element to which the attribute should be added.
  * @param attrName Name of the attribute to be added.
@@ -125,7 +151,7 @@ int ixmlElement_setAttributeWithLog(IXML_Element* element,
  * Removes attribute from the provided element.
  * Unlike @a ixmlElement_removeAttribute() the attribute node is removed
  * totally, not only value. Also writes warning message to log (using
- * lwl_ext.h) on error.
+ * log_utils.h) on error.
  *
  * @param element Element from which the attribute should be removed.
  * @param attrName Name of the attribute to be removed.
@@ -139,7 +165,7 @@ int ixmlElement_removeAttributeWithLog(IXML_Element* element,
  *
  * Creates new instance of @a IXML_Document and copies entire element
  * including all its children to that document. Also writes message to
- * log (using lwl_ext.h) on error.
+ * log (using log_utils.h) on error.
  *
  * @note Don't forget to free owner document of the clone after usage.
  * @see @a ixmlNode_getOwnerDocument() at @a ixml.h
@@ -163,7 +189,7 @@ void ixmlElement_freeOwnerDocument(IXML_Element* element);
 /**
  * Copies attribute value from one element to another.
  * If the attribute with provided name doesn't exist in the target node, it is
- * created. Method also writes error messages using lwl_ext.h facilities.
+ * created. Method also writes error messages using log_utils.h facilities.
  *
  * @param source Element where the attribute will be copied from.
  * @param target Element which the attribute will be copied to.

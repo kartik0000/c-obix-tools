@@ -7,7 +7,7 @@ libcothtml = libcot-html-$(PACKAGE_VERSION).tar.gz
 ## PDF file
 libcotpdf = libcot_manual.pdf
 
-nobase_dist_doc_DATA =  $(top_builddir)/doc/$(libcothtml) \
+dist_doc_DATA =  $(top_builddir)/doc/$(libcothtml) \
 						$(top_builddir)/doc/$(libcotpdf)
 
 $(top_builddir)/doc/$(libcothtml): doxygen.stamp

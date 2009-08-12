@@ -1,3 +1,24 @@
+/* *****************************************************************************
+ * Copyright (c) 2009 Andrey Litvinov
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ * ****************************************************************************/
 /** @file
  * @todo add description here
  *
@@ -13,7 +34,7 @@
 // TODO curl is used for hack checking events, which is has to be done
 // because feed doesn't return FALLEN event :(
 #include <curl_ext.h>
-#include <lwl_ext.h>
+#include <log_utils.h>
 #include <ptask.h>
 #include <ixml_ext.h>
 #include <xml_config.h>
@@ -509,12 +530,18 @@ int loadSettings(const char* fileName)
     {
         return -1;
     }
+    // configure log system
+    int error = config_log(settings);
+    if (error != 0)
+    {
+    	return -1;
+    }
 
     // initialize obix_client library with loaded settings
-    int error = obix_loadConfig(settings);
+    error = obix_loadConfig(settings);
     if (error != OBIX_SUCCESS)
     {
-        config_finishInit(FALSE);
+        config_finishInit(settings, FALSE);
         return error;
     }
 
@@ -525,14 +552,14 @@ int loadSettings(const char* fileName)
         return -1;
     }
 
-    // TODO remove me
-    // load test data
-    element = config_getChildTag(settings, "test-data", TRUE);
-    element = ixmlElement_cloneWithLog(element);
-    _testData = ixmlNode_getOwnerDocument(ixmlElement_getNode(element));
+//    // TODO remove me
+//    // load test data
+//    element = config_getChildTag(settings, "test-data", TRUE);
+//    element = ixmlElement_cloneWithLog(element);
+//    _testData = ixmlNode_getOwnerDocument(ixmlElement_getNode(element));
 
     // finish initialization
-    config_finishInit(TRUE);
+    config_finishInit(settings, TRUE);
     return 0;
 }
 

@@ -99,7 +99,6 @@ LIBTOOL = @LIBTOOL@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
-LWL_LIB = @LWL_LIB@
 MAKEINFO = @MAKEINFO@
 MKDIR_P = @MKDIR_P@
 NM = @NM@
@@ -186,8 +185,7 @@ dist_check_DATA = test_devices.xml \
 							test_obix_client_config.xml
 
 EXTRA_DIST = OpenWrt-SDK/README \
-							OpenWrt-SDK/cot/Makefile \
-							OpenWrt-SDK/lwl/Makefile							
+							OpenWrt-SDK/cot/Makefile
 
 all: all-am
 

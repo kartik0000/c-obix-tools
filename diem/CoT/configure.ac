@@ -60,14 +60,6 @@ AC_SEARCH_LIBS(
 	first (fastcgi.com).]), 
 	[ -lm $LIBS_BACKUP])
 FCGI_LIB=$LIBS
-LIBS=""
-AC_SEARCH_LIBS(
-	[lwl_alloc], 
-	[lwl],, 
-	AC_MSG_ERROR([Unable to link to liblwl. Please install LWL library first\
-	(http://home.gna.org/lwl/).]),
-	$LIBS_BACKUP)
-LWL_LIB=$LIBS
 LIBS=$LIBS_BACKUP 	
 			
 AC_SUBST(UPNP_CFLAGS)
@@ -76,7 +68,6 @@ AC_SUBST(CURL_CFLAGS)
 AC_SUBST(CURL_LIBS)
 AC_SUBST(RT_LIB)
 AC_SUBST(FCGI_LIB)
-AC_SUBST(LWL_LIB)
 
 # Add also default warning flags
 WARN_FLAGS=" -Wall -Werror"
@@ -84,7 +75,7 @@ AC_SUBST(WARN_FLAGS)
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([limits.h stdlib.h string.h unistd.h])
+AC_CHECK_HEADERS([limits.h stdlib.h string.h unistd.h syslog.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST

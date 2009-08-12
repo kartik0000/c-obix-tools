@@ -1,13 +1,35 @@
+/* *****************************************************************************
+ * Copyright (c) 2009 Andrey Litvinov
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ * ****************************************************************************/
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include <syslog.h>
 #include <fcgiapp.h>
 
-#include <lwl_ext.h>
+#include <log_utils.h>
 #include <obix_utils.h>
-#include <ptask.h>
 #include <xml_config.h>
+#include <ptask.h>
 #include "xml_storage.h"
 #include "server.h"
 #include "request.h"
@@ -45,12 +67,14 @@ static const char* ERROR_STATIC = "<err displayName=\"Internal Server Error\" "
 struct _Request
 {
     FCGX_Request r;
+    int id;
     BOOL canWait;
     struct _Request* next;
 };
 
 static Request* _requestList;
-static int _requestsInUse;
+static int _requestsInUse = 0;
+static int _requestIds = 0;
 static int _requestMaxCount = MAX_PARALLEL_REQUEST_DEFAULT + 1;
 pthread_mutex_t _requestListMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t _requestListNew = PTHREAD_COND_INITIALIZER;
@@ -59,21 +83,73 @@ static void obixRequest_release(Request* request);
 static Request* obixRequest_get();
 static void obixRequest_free(Request* request);
 
+static char* parseArguments(int argc, char** argv)
+{
+    void printUsageNotice(char* programName)
+    {
+        log_debug("Usage:\n"
+                  " %s [-syslog] [res_dir]\n"
+                  "where  -syslog - Forces to use syslog for logging during\n"
+                  "                 server initialization (before\n"
+                  "                 configuration file is read);\n"
+                  "       res_dir - Address of the folder with server\n"
+                  "                 resources.\n"
+                  "Both these arguments are optional.",
+                  argv[0]);
+    }
+
+    // the call string should be:
+    // obix.fcgi [-syslog] [resource_dir]
+    int i = 1;
+
+    if (argc > i)
+    {
+        if (argv[i][0] == '-')
+        {
+            // we have some kind of argument first
+            if (strcmp(argv[i], "-syslog") == 0)
+            {	// switch log to syslog. It can be changed back during
+                // configuration loading
+                log_useSyslog(LOG_USER);
+            }
+            else
+            {	// some unknown argument
+                log_warning("Unknown argument (ignored): %s", argv[i]);
+                printUsageNotice(argv[0]);
+            }
+            // go to next argument if any
+            i++;
+        }
+    }
+
+	// check how many arguments remained
+    if (argc > (i+1))
+    {
+        log_warning("Wrong number of arguments provided.");
+        printUsageNotice(argv[0]);
+    }
+
+    if (argc > i)
+    {
+        // this is probably resource folder path
+        return argv[i];
+    }
+    // no resource folder found
+    return NULL;
+}
+
 /**
- * Entry point of FCGI script.
- */
+* Entry point of FCGI script.
+*/
 int main(int argc, char** argv)
 {
     Request* request;
+    // parse input arguments
+    char* resourceDir = parseArguments(argc, argv);
 
     log_debug("Starting oBIX server...");
-    char* resourceDir = NULL;
 
-    if (argc >= 2)
-    {
-        resourceDir = argv[1];
-    }
-    else
+    if (resourceDir == NULL)
     {
         log_warning("No resource folder provided. Trying use current directory.\n"
                     "Launch string: \"<path>/obix.fcgi <resource_folder/>\".");
@@ -93,7 +169,7 @@ int main(int argc, char** argv)
     {
         // get free request object
         request = obixRequest_get();
-        log_debug("Waiting for the request..");
+        log_debug("Waiting for the request.. (hadler #%d)", request->id);
         int error = FCGX_Accept_r(&(request->r));
         if (error)
         {
@@ -101,10 +177,9 @@ int main(int argc, char** argv)
             break;
         }
 
-        const char* clientAddr = FCGX_GetParam("REMOTE_ADDR", request->r.envp);
-        log_debug("Request accepted from \"%s\"", clientAddr);
+        log_debug("Request accepted.. (hadler #%d)", request->id);
         obix_fcgi_handleRequest(request);
-        log_debug("Request handled");
+        log_debug("Request handled. (hadler #%d)", request->id);
     }
 
     // shut down
@@ -114,13 +189,19 @@ int main(int argc, char** argv)
 
 IXML_Element* obix_fcgi_loadConfig(char* resourceDir)
 {
-	config_setResourceDir(resourceDir);
+    config_setResourceDir(resourceDir);
 
     IXML_Element* settings = config_loadFile(CONFIG_FILE);
-
     if (settings == NULL)
     {
         // failed to load settings
+        return NULL;
+    }
+    // load log configuration
+    int error = config_log(settings);
+    if (error != 0)
+    {
+        ixmlElement_freeOwnerDocument(settings);
         return NULL;
     }
 
@@ -148,7 +229,7 @@ int obix_fcgi_init(char* resourceDir)
     IXML_Element* settings = obix_fcgi_loadConfig(resourceDir);
     if (settings == NULL)
     {
-    	return -1;
+        return -1;
     }
 
     // call before Accept in multithreaded apps
@@ -156,13 +237,13 @@ int obix_fcgi_init(char* resourceDir)
     if (error)
     {
         log_error("Unable to start the server. FCGX_Init returned: %d", error);
-        config_finishInit(FALSE);
+        config_finishInit(settings, FALSE);
         return -1;
     }
 
     // configure server
     error = obix_server_init(settings);
-    config_finishInit(error == 0);
+    config_finishInit(settings, error == 0);
     return error;
 }
 
@@ -517,6 +598,7 @@ static int obixRequest_create()
 
     // store request at head
     request->next = _requestList;
+    request->id = _requestIds++;
     _requestList = request;
     return 0;
 }
@@ -534,7 +616,8 @@ static Request* obixRequest_get()
         pthread_mutex_unlock(&_requestListMutex);
         return request;
     }
-    // there is nothing in the list of requests..
+    // there is nothing in the list of requests.. check whether we can create a
+    // new one
 
     if (_requestsInUse == _requestMaxCount)
     {

@@ -1,3 +1,24 @@
+/* *****************************************************************************
+ * Copyright (c) 2009 Andrey Litvinov
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ * ****************************************************************************/
 /** @file
  * @todo add description here
  *
@@ -8,7 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ixml_ext.h>
-#include <lwl_ext.h>
+#include <log_utils.h>
 #include <xml_config.h>
 #include <obix_http.h>
 #include "obix_client.h"
@@ -26,8 +47,6 @@ static const char* CT_MAX_LISTENERS = "max-listeners";
 /**Internal storage of connections*/
 static Connection** _connections;
 static int _connectionCount;
-
-static BOOL _logConfigured;
 
 static void listener_free(Listener* listener)
 {
@@ -419,13 +438,19 @@ int obix_loadConfigFile(const char* fileName)
     int error = obix_loadConfig(settings);
     if (error != OBIX_SUCCESS)
     {
-        config_finishInit(FALSE);
+        config_finishInit(settings, FALSE);
         return error;
     }
 
-    _logConfigured = TRUE;
+    // initialize log settings
+    error = config_log(settings);
+    if (error != 0)
+    {
+        config_finishInit(settings, FALSE);
+        return OBIX_ERR_INVALID_ARGUMENT;
+    }
 
-    config_finishInit(TRUE);
+    config_finishInit(settings, TRUE);
     return OBIX_SUCCESS;
 }
 
@@ -804,11 +829,6 @@ int obix_dispose()
     if ((error != OBIX_SUCCESS) && (retVal == OBIX_SUCCESS))
     {
         retVal = error;
-    }
-
-    if (_logConfigured)
-    {
-        config_dispose();
     }
 
     return retVal;

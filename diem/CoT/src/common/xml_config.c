@@ -1,22 +1,55 @@
+/* *****************************************************************************
+ * Copyright (c) 2009 Andrey Litvinov
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ * ****************************************************************************/
 /** @file
- * @todo ad description
+ * @todo add description
  *
  * @author Andrey Litvinov
+ * @version 1.1
  */
 #include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <syslog.h>
 #include "xml_config.h"
-#include "lwl_ext.h"
+#include "log_utils.h"
 #include "obix_utils.h"
 
 const char* CT_CONFIG = "config";
 const char* CTA_VALUE = "val";
 
-static char* resourceFolder;
+const char* CT_LOG = "log";
+const char* CT_LOG_LEVEL = "level";
+const char* CTAV_LOG_LEVEL_DEBUG = "debug";
+const char* CTAV_LOG_LEVEL_WARNING = "warning";
+const char* CTAV_LOG_LEVEL_ERROR = "error";
+const char* CTAV_LOG_LEVEL_NO = "no";
+const char* CT_LOG_USE_SYSLOG = "use-syslog";
+const char* CTA_LOG_FACILITY = "facility";
+const char* CTAV_LOG_FACILITY_USER = "user";
+const char* CTAV_LOG_FACILITY_DAEMON = "daemon";
+const char* CTAV_LOG_FACILITY_LOCAL0 = "local0";
 
-static IXML_Document* xmlConfigDoc;
+static char* resourceFolder;
 
 IXML_Element* config_getChildTag(IXML_Element* conf,
                                  const char* tagName,
@@ -202,6 +235,7 @@ IXML_Element* config_loadFile(const char* filename)
 {
     char* path = config_getResFullPath(filename);
 
+    IXML_Document* xmlConfigDoc;
     //Trying to load the configuration file
     int error = ixmlLoadDocumentEx(path, &xmlConfigDoc);
 
@@ -230,38 +264,25 @@ IXML_Element* config_loadFile(const char* filename)
     free(path);
 
     //get the root configure tag from the document
-    IXML_Element* configTag = config_getChildTag((IXML_Element *)xmlConfigDoc,
-                              CT_CONFIG,
-                              TRUE);
-
-    if (log_config(configTag) != 0)
-        return NULL;
+    IXML_Element* configTag = config_getChildTag(
+                                  ixmlDocument_getRootElement(xmlConfigDoc),
+                                  CT_CONFIG,
+                                  TRUE);
 
     return configTag;
 }
 
-void config_finishInit(BOOL successful)
+void config_finishInit(IXML_Element* conf, BOOL successful)
 {
-    ixmlDocument_free(xmlConfigDoc);
+    ixmlElement_freeOwnerDocument(conf);
     if (successful)
     {
-        log_debug("\n"
-                  "--------------------------------------------------------------------------------\n"
-                  "--------------       Initialization completed successfully        --------------\n"
-                  "--------------------------------------------------------------------------------");
+        log_debug("!!!!   Initialization completed successfully   !!!!");
     }
     else
     {
-        log_error("\n"
-                  "--------------------------------------------------------------------------------\n"
-                  "--------------               Initialization failed                --------------\n"
-                  "--------------------------------------------------------------------------------");
+        log_error("!!!!           Initialization failed           !!!!");
     }
-}
-
-void config_dispose()
-{
-    log_dispose();
 }
 
 char* config_getResFullPath(const char* filename)
@@ -273,11 +294,11 @@ char* config_getResFullPath(const char* filename)
 
     // concatenate filename with resource folder
     char* output = (char*) malloc(strlen(filename) +
-    		strlen(resourceFolder) + 1);
+                                  strlen(resourceFolder) + 1);
     if (output == NULL)
     {
-    	log_error("Not enough memory.");
-    	return NULL;
+        log_error("Not enough memory.");
+        return NULL;
     }
     strcpy(output, resourceFolder);
     strcat(output, filename);
@@ -318,3 +339,122 @@ void config_setResourceDir(char* path)
     }
 }
 
+int config_log(IXML_Element* configTag)
+{
+    IXML_Element* logTag = config_getChildTag(configTag, CT_LOG, TRUE);
+    if (logTag == NULL)
+        return -1;
+
+    //get the log level.
+    int logLevel;
+    IXML_Element* tempTag = config_getChildTag(logTag, CT_LOG_LEVEL, TRUE);
+    if (tempTag == NULL)
+        return -1;
+
+    const char* tempStr = config_getTagAttributeValue(tempTag, CTA_VALUE, TRUE);
+    if (tempStr == NULL)
+        return -1;
+
+    if (!strcmp(tempStr, CTAV_LOG_LEVEL_DEBUG))
+    {
+        logLevel = LOG_LEVEL_DEBUG;
+    }
+    else if (!strcmp(tempStr, CTAV_LOG_LEVEL_WARNING))
+    {
+        logLevel = LOG_LEVEL_WARNING;
+    }
+    else if (!strcmp(tempStr, CTAV_LOG_LEVEL_ERROR))
+    {
+        logLevel = LOG_LEVEL_ERROR;
+    }
+    else if (!strcmp(tempStr, CTAV_LOG_LEVEL_NO))
+    {
+        logLevel = LOG_LEVEL_NO;
+    }
+    else
+    {
+        log_error("Wrong log level value provided. Available values: "
+                  "\"%s\", \"%s\", \"%s\" and \"%s\".",
+                  CTAV_LOG_LEVEL_DEBUG, CTAV_LOG_LEVEL_WARNING,
+                  CTAV_LOG_LEVEL_ERROR, CTAV_LOG_LEVEL_NO);
+        return -1;
+    }
+
+    log_setLevel(logLevel);
+
+    tempTag = config_getChildTag(logTag, CT_LOG_USE_SYSLOG, FALSE);
+    if (tempTag == NULL)
+    {
+    	// use printf
+    	log_usePrintf();
+    }
+    else
+    {
+    	// use syslog
+        int facility = LOG_USER;
+        // check facility attribute
+        tempStr = config_getTagAttributeValue(tempTag, CTA_LOG_FACILITY, FALSE);
+        if (tempStr != NULL)
+        {
+            if (!strcmp(tempStr, CTAV_LOG_FACILITY_USER))
+            {
+                facility = LOG_USER;
+            }
+            else if (!strcmp(tempStr, CTAV_LOG_FACILITY_DAEMON))
+            {
+                facility = LOG_DAEMON;
+            }
+            else if (!strncmp(tempStr, CTAV_LOG_FACILITY_LOCAL0, 5) &&
+                     (strlen(tempStr) == 6))
+            {
+                // it is probably one of local0 - local7
+                switch(tempStr[5])
+                {
+                case '0':
+                    facility = LOG_LOCAL0;
+                    break;
+                case '1':
+                    facility = LOG_LOCAL1;
+                    break;
+                case '2':
+                    facility = LOG_LOCAL2;
+                    break;
+                case '3':
+                    facility = LOG_LOCAL3;
+                    break;
+                case '4':
+                    facility = LOG_LOCAL4;
+                    break;
+                case '5':
+                    facility = LOG_LOCAL5;
+                    break;
+                case '6':
+                    facility = LOG_LOCAL6;
+                    break;
+                case '7':
+                    facility = LOG_LOCAL7;
+                    break;
+                default:
+                    log_error("Wrong log facility value provided. Available "
+                              "values: \"user\", \"daemon\", "
+                              "\"local0\"-\"local7\".");
+                    return -1;
+                }
+            }
+            else // facility value has unknown value
+            {
+                log_error("Wrong log facility value provided. Available "
+                          "values: \"user\", \"daemon\", "
+                          "\"local0\"-\"local7\".");
+                return -1;
+            }
+        }
+
+        log_useSyslog(facility);
+    }
+
+
+    log_debug("Log is configured ...");
+
+    return 0;
+}

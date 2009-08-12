@@ -1,3 +1,24 @@
+/* *****************************************************************************
+ * Copyright (c) 2009 Andrey Litvinov
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ * ****************************************************************************/
 #ifndef XML_CONFIG_H_
 #define XML_CONFIG_H_
 /** @file
@@ -5,15 +26,12 @@
  *
  * Configuration API allows loading settings from XML file which contains
  * \<config> element. This header defines required functions which simplify
- * parsing XML settings.
+ * parsing of XML settings.
  *
- * The API is tightly integrated with the logging system (lwl_ext.h). Log
- * settings are loaded automatically from a parsed configuration file and all
- * functions extensively use lwl_ext.h utilities for logging warning and error
- * messages occurred during parsing. @b Note that errors which occur during
- * initial file reading (before log settings are loaded) are handled by
- * uninitialized logging system (i.e. messages are forwarded to standard
- * output).
+ * The API is tightly integrated with the logging system (log_utils.h). All
+ * functions extensively use log_utils.h utilities for logging warning and error
+ * messages occurred during parsing. There is also a possibility to load log
+ * system configuration from an XML file.
  *
  * @author Andrey Litvinov
  * @version 1.1
@@ -21,16 +39,54 @@
 
 #include <ixml_ext.h>
 
-/** Main configuration tag's name (CT - Config Tag) */
+/**@name Common configuration file keywords
+ * The following acronyms are used in constants' names:
+ * - @a CT means Configuration Tag;
+ * - @a CTA - Configuration Tag's Attribute;
+ * - @a CTAV - Configuration Tag's Attribute's Value.
+ * @{
+ */
+/** Main configuration tag's name. */
 extern const char* CT_CONFIG;
-/** Most commonly used tag attribute: 'val' (CTA - Config Tag Attribute) */
+/** Most commonly used tag attribute: 'val' */
 extern const char* CTA_VALUE;
+/** @} */
+
+/**@name Log configuration keywords
+ * These variables contain names of all log configuration tags, their attributes
+ * and possible attributes' values.
+ * @{
+ */
+/** Parent log configuration tag, containing all settings. */
+extern const char* CT_LOG;
+/** Log level tag. Defines which messages are logged. */
+extern const char* CT_LOG_LEVEL;
+/** Log level @a debug. All messages are logged. */
+extern const char* CTAV_LOG_LEVEL_DEBUG;
+/** Log level @a warning. Only @a warning and @a error messages are logged. */
+extern const char* CTAV_LOG_LEVEL_WARNING;
+/** Log level @a error. Only @a error messages are logged. */
+extern const char* CTAV_LOG_LEVEL_ERROR;
+/** Log level @a no. Nothing is logged at all. */
+extern const char* CTAV_LOG_LEVEL_NO;
+/** Defines whether @a syslog should be used for logging. If tag with such name
+ * is not present, than all messages are printed to @a stdout. */
+extern const char* CT_LOG_USE_SYSLOG;
+/** Attribute which defines syslog facility. */
+extern const char* CTA_LOG_FACILITY;
+/** Log facility 'user'. */
+extern const char* CTAV_LOG_FACILITY_USER;
+/** Log facility 'daemon'. */
+extern const char* CTAV_LOG_FACILITY_DAEMON;
+/** Log facility 'local0'. */
+extern const char* CTAV_LOG_FACILITY_LOCAL0;
+/** @} */
 
 /**
  * Sets the address of the resource folder where configuration file is stored.
  * The general idea is to keep all resource files in one place which is defined
- * only once in the application. After that all resources (including configuration
- * file) can be reached using #config_getResFullPath().
+ * only once in the application. After that all resources (including
+ * configuration file) can be reached using #config_getResFullPath().
  *
  * @param path Path to the application's resource folder.
  */
@@ -48,8 +104,6 @@ char* config_getResFullPath(const char* filename);
 
 /**
  * Opens the configuration file and performs it's initial parsing.
- * - Searches for \<config> tag;
- * - Loads log settings from \<log> tag (see #log_config()).
  *
  * @note Returned XML DOM structure should not be freed manually. Instead, use
  *       #config_finishInit() after parsing all required settings.
@@ -61,22 +115,37 @@ char* config_getResFullPath(const char* filename);
 IXML_Element* config_loadFile(const char* filename);
 
 /**
+ * Configures log system using parameters passed in XML format.
+ * Passed XML should contain at least @a \<log> tag with child @a \<level>,
+ * which specifies log level. For example:
+ * @code
+ * <log>
+ *  <level val="debug" />
+ * </log>
+ * @endcode
+ *
+ * There are other optional configuration tags. Please refer to the @a \<log>
+ * element in example_timer_config.xml for the full description of possible
+ * tags.
+ *
+ * @param configTag XML configuration document, which contains log configuration
+ *                  tags. Document can contain other elements which are ignored.
+ * @return @a 0 on success; @a -1 on error.
+ */
+int config_log(IXML_Element* configTag);
+
+/**
  * Releases resources allocated for settings parsing.
  * Should be called once after all settings are loaded (or failed to load).
  * Also writes message to log, telling that initialization is completed.
  * Depending on @a successful parameter the log message tells that
  * initialization completed or failed.
  *
+ * @param conf Settings which should be freed. It can be the link returned by
+ *             #config_loadFile() or a link to any child tag.
  * @param successful Tells whether application initialized successfully or not.
  */
-void config_finishInit(BOOL successful);
-
-/**
- * Releases all allocated resources and cleans loaded log settings.
- * All settings are dropped including log system configuration (does the same as
- * #log_dispose()). Should be called during application shutdown.
- */
-void config_dispose();
+void config_finishInit(IXML_Element* conf, BOOL successful);
 
 /**
  * Returns child tag of the provided element with the specified name.

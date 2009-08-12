@@ -24,5 +24,4 @@ dist_check_DATA			=   test_devices.xml \
 							test_obix_client_config.xml
 							
 EXTRA_DIST				=   OpenWrt-SDK/README \
-							OpenWrt-SDK/cot/Makefile \
-							OpenWrt-SDK/lwl/Makefile							
+							OpenWrt-SDK/cot/Makefile

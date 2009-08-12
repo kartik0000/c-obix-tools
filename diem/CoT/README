@@ -7,11 +7,8 @@
 
  Copyright (c) 2009 Andrey Litvinov [litvinov.andrey@gmail.com]    
  
- See COPYING for details.
- 
- License is not yet fully implemented in the project, but please, act with this
- distribution as if it was under GPL. If you have any concerns about GPL, 
- please, contact the author.
+ CoT is a free software. It is licensed under MIT (X11) License, contained in
+ the file COPYING.
  
 =====  
     
@@ -106,7 +103,6 @@
  
  You will need the following libraries to build CoT (configure script should 
  tell you which are missing):
- - lwl (Log Writer Library http://gna.org/projects/lwl/)
  - fcgi
  - libupnp
  - libcurl  					
@@ -124,31 +120,58 @@
  --4-- Configuring oBIX server
  
  oBIX server is implemented as FastCGI script which can be executed by any HTTP
- server with FCGI support. This section describes how to configure lighttpd to 
- run oBIX server. For other HTTP server most of steps would be probably the 
- same.
+ server with FCGI support. This section describes how to use lighttpd 
+ (http://lighttpd.net) for running oBIX server. Most of steps would be probably 
+ the same for other HTTP servers.
  
- 0. Compile and install cot (see section 3).
+ 0. Compile and install CoT (see section 3).
  1. Install lighttpd at your target system.
  2. Open <installation_prefix>/etc/cot/server_config.xml with your favorite XML 
-    editor.
+    editor. This is the main (and the only one) configuration file of the oBIX
+    server.
  3. All configuration tags are well described there: Read description carefully,
     modify and save options according to your needs.    
- 4. Open <installation-prefix>/etc/cot/obix-lighttpd.conf file.
+ 4. Open <installation-prefix>/etc/cot/obix-lighttpd.conf file. This file 
+    contains required settings for lighttpd. In brief, it tells lighttpd how to
+    launch the fcgi script.
  5. Modify paths in the following variables:
  	- "socket"  		Defines socket name which will be used for communication 
  						between lighttpd and oBIX server.
+ 						
  	- "bin-path"		Command which starts up the oBIX server, which is 
- 						"<path-to-obix.fcgi> <path-to-folder-with-conf-files>"
- 						If you installed cot to the <prefix> folder, than this
- 						string should look like
+ 						"<path-to-obix.fcgi> [-syslog] [<path-to-res-folder>]"
+ 						where
+ 						<path-to-obix.fcgi> 
+ 						        Location of obix.fcgi file. Note that working 
+ 						         directory may vary for different configurations
+ 						         so it's better to provide an absolute path.
+ 						         
+ 						-syslog Tells server to use syslog for logging messages
+ 						         before actual log settings are loaded from 
+ 						         configuration file. It can be useful if some
+ 						         error occurs, for instance, during settings 
+ 						         parsing. Messages are sent to syslog with 
+ 						         facility 'user'. 
+ 						         If this parameter is not provided than all 
+ 						         messages which were generated before log 
+ 						         settings are loaded will be written to the 
+ 						         standard output.
+ 						         
+ 						<path-to-res-folder>
+ 						        Address of the folder with server's resource 
+ 						        files. These are installed to /etc/cot/ by
+ 						        default.         
+ 						          
+ 						If you installed CoT to the <prefix> folder, than the
+ 						"bin-path" value can look like 						
  						"<prefix>/bin/obix.fcgi <prefix>/etc/cot/"
+ 						
  	- "bin-environment"	This variable can be totally omitted, or used, for 
  						instance, for specifying the path to shared libraries.
  	In order to check whether the launch command in "bin-path" is correct you 
- 	can try to execute it from command line. If everything is fine, that oBIX 
- 	server should start up and then immediately shutdown gracefully because of 
- 	no fcgi	connection.								 		 
+ 	can try to execute it from the command line. If everything is fine, than 
+ 	oBIX server should start up, write few log messages and then immediately 
+ 	shutdown gracefully because of no fcgi connection.								 		 
  6. Locate your lighttpd configuration file. Usually it is at /etc/lighttpd/
  7. In case if you have /etc/lighttpd/conf-available/ folder than you are lucky
  	and should proceed with steps a. otherwise, go to steps b.
@@ -161,7 +184,7 @@
  	   have done.)
  	   
  	b. In case you do not have described folder for lighttpd in your target 
- 	   platform, than open main lighttpd configuration file (usually 
+ 	   platform, than open main lighttpd configuration file (usually it is
  	   /etc/lighttpd/lighttpd.conf) and paste to the end the contents of updated 
  	   res/obix-lighttpd.conf file.
  	   Note that "server.modules" are usually defined in the beginning of the
