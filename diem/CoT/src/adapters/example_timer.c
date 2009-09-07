@@ -26,6 +26,7 @@
  * Device registers itself at oBIX server, regularly updates elapsed time on
  * it and listens to updates of "reset" parameter. If someone changes "reset"
  * to true, than elapsed time is set to 0.
+ * Configuration file template can be found at res/example_timer_config.xml
  *
  * @author Andrey Litvinov
  * @version 1.1

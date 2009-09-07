@@ -160,6 +160,7 @@ typedef int (*obix_update_listener)(int connectionId,
 /**
  * Initializes library and loads connection setting from XML file.
  * Also sets up the logging system of the library.
+ * The format of the configuration file can be found at example_timer_config.xml
  *
  * @param fileName Name of the configuration file.
  * @return #OBIX_SUCCESS if the library initialized successfully,
@@ -173,6 +174,7 @@ int obix_loadConfigFile(const char* fileName);
  * of the library. It can be configured manually using #config_log() or
  * log_utils.h functions. By default, all messages (including debug ones) are
  * written to @a stdout.
+ * The format of the configuration file can be found at example_timer_config.xml
  *
  * @param config DOM structure representing a configuration XML.
  * @return #OBIX_SUCCESS if the library is initialized successfully,

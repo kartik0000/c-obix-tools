@@ -40,6 +40,15 @@
  *     the whole library.
  * @li ixml_ext.h - Contains utilities for manipulating XML DOM structures.
  *
+ * All parts of the library produce log messages which give better understanding
+ * of what happens inside and help to investigate occurred problems. By default
+ * the logging system writes everything (including all debug messages) to
+ * @a stdout which can be inconvenient. Log settings can be changed either
+ * manually (using functions defined at log_utils.h) or during oBIX Client API
+ * initialization (using #obix_loadConfigFile()).
+ *
+ * The example usage of the library can be found at example_timer.c
+ *
  * @section obix-client-comp Compilation
  *
  * The following string will compile application which uses oBIX Client Library:

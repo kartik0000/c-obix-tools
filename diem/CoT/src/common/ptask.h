@@ -26,8 +26,54 @@
  * be invoked periodically in a separate thread. A function can scheduled to be
  * invoked either defined number of times or indefinite (until it is canceled).
  *
+ * @section ptask-usage Usage
+ *
+ * The following piece of code will schedule a function @a foo() to be
+ * executed every second in a separate thread:
+ *
+ * @code
+ * // prints greetings
+ * int foo(void* args)
+ * {
+ *     printf(Greetings from %s!, (char*) args);
+ * }
+ *
+ * ...
+ *
+ * // initialize a new thread
+ * Task_Thread* thread = ptask_init();
+ * if (thread == NULL)
+ * {
+ *     // initialization failed
+ *     return -1;
+ * }
+ *
+ * long period = 1000; 	// interval between executions in milliseconds
+ * int timesToExecute = EXECUTE_INDEFINITE;	// how many times to execute
+ * char* arg = (char*) malloc(7); // It will be passed to the foo() as argument
+ * strcpy(arg, "Andrey");
+ *
+ * // schedule foo() method to be executed indefinitely once is a second
+ * int taskId = ptask_schedule(thread, &foo, arg, period, timesToExecute);
+ * @endcode
+ *
+ * @note @a foo() function should match #periodic_task prototype.
+ * @note The variable which is passed to the #ptask_schedule() function as
+ *       argument for @a foo() shouldn't be locally defined. Otherwise it can
+ *       appear that it doesn't exist when the @a foo() is executed.
+ *
+ * The returned task id can be then used to change execution period, or cancel
+ * the task.
+ *
+ * One task thread can be used to schedule several tasks, but scheduled
+ * functions must be quick enough in order not to block other tasks to be
+ * executed in time.
+ *
+ * At the end of application all initialized task thread should be freed using
+ * #ptask_dispose().
+ *
  * @author Andrey Litvinov
- * @version 1.0
+ * @version 1.1
  */
 
 #ifndef PTASK_H_
