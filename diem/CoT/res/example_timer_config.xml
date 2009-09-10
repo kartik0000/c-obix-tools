@@ -114,7 +114,7 @@
 			- error: Write to log only errors; 
 			- no: Do not write any log.
 		-->
-		<level val="debug" />
+		<level val="warning" />
 		<!--
 			Optional tag. If presents, forces to use syslog for logging.
 			Otherwise all log messages are printed to console (stdout). This tag

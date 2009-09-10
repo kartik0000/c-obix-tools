@@ -58,7 +58,7 @@
 
 /** We have to poll manually last event in order to check for the fallen event.
  * @todo Check whether we can monitor it by including to the Watch. */
-#define LAST_EVENT_POOL_PERIOD 3000
+#define LAST_EVENT_POLL_PERIOD 3000
 
 /** Target object which describes person's position on the sensor floor. */
 typedef struct _Target
@@ -845,7 +845,7 @@ int main(int argc, char** argv)
     }
 
     // open connection to the target oBIX server
-    int error = obix_openConnection(SERVER_CONNECTION);
+    error = obix_openConnection(SERVER_CONNECTION);
     if (error != OBIX_SUCCESS)
     {
         log_error("Unable to establish connection with oBIX server.\n");
@@ -885,11 +885,10 @@ int main(int argc, char** argv)
     }
 
     // TODO workaround for catching FALLEN event
-    curl_ext_create(&_curl_handle);
     int taskId = ptask_schedule(_taskThread,
                                 &checkEventsTask,
                                 NULL,
-                                LAST_EVENT_POOL_PERIOD,
+                                LAST_EVENT_POLL_PERIOD,
                                 EXECUTE_INDEFINITE);
 
 

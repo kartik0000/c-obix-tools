@@ -70,6 +70,8 @@ static const char** OBIX_DATA_TYPE_NAMES[] =
 
 static const char* OBIX_WATCH_OUT_VALUES = "values";
 
+static const char* OBIX_CONTRACT_LONG_POLL_WATCH = "LongPollWatch";
+
 const Comm_Stack OBIX_HTTP_COMM_STACK =
     {
         &http_initConnection,
@@ -446,25 +448,28 @@ static int setWatchPollWaitTime(Http_Connection* c,
         // nothing to be done: wait interval is zero by default
         return OBIX_SUCCESS;
     }
+    // check whether server supports long polling (Watch object should implement
+    // LongPollWatch contract)
+    BOOL longPollSupported = obix_obj_implementsContract(
+                                 ixmlDocument_getRootElement(watchXml),
+                                 OBIX_CONTRACT_LONG_POLL_WATCH);
+    if (!longPollSupported)
+    {
+        // server doesn't support long polling - switch to the traditional
+        c->pollWaitMin = 0;
+        c->pollWaitMax = 0;
+        log_warning("Server doesn't support long polling feature. Switching to "
+                    "the traditional polling.");
+        return OBIX_SUCCESS;
+    }
+
     int error = setWatchTimeParam(c,
                                   curlHandle,
                                   watchXml,
                                   OBIX_NAME_WATCH_POLL_WAIT_INTERVAL_MAX,
                                   c->pollWaitMax);
-    if (error == OBIX_ERR_BAD_CONNECTION)
-    {
-        // Failed to set time. Most probably server doesn't support it.
-        // Switch to the traditional polling.
-        c->pollWaitMin = 0;
-        c->pollWaitMax = 0;
-        log_warning("Unable to set Watch poll wait interval. Switching to the "
-                    "traditional polling.");
-        return OBIX_SUCCESS;
-    }
-
     if (error != OBIX_SUCCESS)
     {
-        // some other kind of problem occurred
         return error;
     }
 
@@ -473,17 +478,6 @@ static int setWatchPollWaitTime(Http_Connection* c,
                               watchXml,
                               OBIX_NAME_WATCH_POLL_WAIT_INTERVAL_MIN,
                               c->pollWaitMin);
-    if (error == OBIX_ERR_BAD_CONNECTION)
-    {
-        // Failed to set time. Most probably server doesn't support it.
-        // Switch to the traditional polling.
-        c->pollWaitMin = 0;
-        c->pollWaitMax = 0;
-        log_warning("Unable to set Watch poll wait interval. Switching to the "
-                    "traditional polling.");
-        return OBIX_SUCCESS;
-    }
-
     return error;
 }
 
@@ -1959,7 +1953,7 @@ int http_sendBatch(oBIX_Batch* batch)
     error = checkResponseDoc(response, &list);
     if (error != OBIX_SUCCESS)
     {
-    	ixmlDocument_free(response);
+        ixmlDocument_free(response);
         return error;
     }
 
@@ -1991,7 +1985,7 @@ int http_sendBatch(oBIX_Batch* batch)
                 else if (command->type == OBIX_BATCH_READ_VALUE)
                 {	// save returned value
                     result->status = parseElementValue(commandResponse,
-                                                      &(result->value));
+                                                       &(result->value));
                 }
             }
 
