@@ -563,6 +563,7 @@ static int createWatch(Http_Connection* c, CURL_EXT* curlHandle)
 
     error = setWatchPollWaitTime(c, curlHandle, response);
     ixmlDocument_free(response);
+    response = NULL;
     if (error != OBIX_SUCCESS)
     {
         cleanup();
@@ -1271,6 +1272,9 @@ int http_initConnection(IXML_Element* connItem, Connection** connection)
                                  TRUE);
         if (childTag == NULL)
         {
+            log_error("Configuration tag <%s/> should have correct child tags "
+                      "<%s/> and <%s/>.",
+                      CT_LONG_POLL, CT_LONG_POLL_MIN, CT_LONG_POLL_MAX);
             cleanup();
             return OBIX_ERR_INVALID_ARGUMENT;
         }
@@ -1283,6 +1287,9 @@ int http_initConnection(IXML_Element* connItem, Connection** connection)
                                       TRUE);
         if (childTag == NULL)
         {
+            log_error("Configuration tag <%s/> should have correct child tags "
+                      "<%s/> and <%s/>.",
+                      CT_LONG_POLL, CT_LONG_POLL_MIN, CT_LONG_POLL_MAX);
             cleanup();
             return OBIX_ERR_INVALID_ARGUMENT;
         }

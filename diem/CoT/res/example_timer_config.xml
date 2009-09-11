@@ -56,9 +56,10 @@
 			<long-poll/> has two child tags which define minimum and maximum
 			time for which server will wait before sending an answer. 
 			
-			TODO Add reference to long poll description here. 
 			Note: Long poll request feature is not in oBIX specification and 
-			currently available only at C oBIX Server.			
+			currently available only at C oBIX Server.
+			Read more about long polling at the project documentation 
+			(doc/long_polling.pdf).			
 		-->
 		<long-poll>
 			<!-- 

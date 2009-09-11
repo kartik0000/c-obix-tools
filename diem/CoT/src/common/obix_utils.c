@@ -368,7 +368,7 @@ char* obix_reltime_fromLong(long millis, RELTIME_FORMAT format)
         pos += sprintf(reltime + pos, "%dD", days);
     }
 
-    if ((hours > 0) || (minutes > 0) || (seconds > 0))
+    if ((millis > 0) || (seconds > 0) || (minutes > 0) || (hours > 0))
     {
         reltime[pos++] = 'T';
     }

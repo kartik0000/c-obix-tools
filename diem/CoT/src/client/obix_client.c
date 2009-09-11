@@ -434,20 +434,20 @@ int obix_loadConfigFile(const char* fileName)
         return OBIX_ERR_INVALID_ARGUMENT;
     }
 
-    // parse config file
-    int error = obix_loadConfig(settings);
-    if (error != OBIX_SUCCESS)
-    {
-        config_finishInit(settings, FALSE);
-        return error;
-    }
-
     // initialize log settings
-    error = config_log(settings);
+    int error = config_log(settings);
     if (error != 0)
     {
         config_finishInit(settings, FALSE);
         return OBIX_ERR_INVALID_ARGUMENT;
+    }
+
+    // parse config file
+    error = obix_loadConfig(settings);
+    if (error != OBIX_SUCCESS)
+    {
+        config_finishInit(settings, FALSE);
+        return error;
     }
 
     config_finishInit(settings, TRUE);
