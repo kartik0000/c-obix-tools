@@ -105,6 +105,10 @@ int testObix_reltime_parse()
     error += testObix_reltime_parseToLong("PD", -1, 0);
     error += testObix_reltime_parseToLong("T", -1, 0);
     error += testObix_reltime_parseToLong("P2DT", -1, 0);
+    error += testObix_reltime_parseToLong("P0.02S", -1, 0);
+    error += testObix_reltime_parseToLong("PT0.02", -1, 0);
+    error += testObix_reltime_parseToLong("PT5", -1, 0);
+    error += testObix_reltime_parseToLong("P", -1, 0);
 
     // check overflow detection
     error += testObix_reltime_parseToLong("P1Y", -2, 0);

@@ -44,12 +44,11 @@ static const char* CONFIG_FILE = "server_config.xml";
 
 static const char* CT_HOLD_REQUEST_MAX = "hold-request-max";
 
-/** Standard header of server answer*/
+/** Standard header of any server answer*/
 static const char* HTTP_STATUS_OK = "Status: 200 OK\r\n"
                                     "Content-Type: text/xml\r\n";
 
 static const char* HTTP_CONTENT_LOCATION = "Content-Location: %s\r\n";
-//TODO may be move it to obix_def?
 static const char* XML_HEADER = "\r\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n";
 // TODO think about stylesheet
 //                               "<?xml-stylesheet type=\'text/xsl\' href=\'/obix/xsl\'?>\r\n";
@@ -122,7 +121,7 @@ static char* parseArguments(int argc, char** argv)
         }
     }
 
-	// check how many arguments remained
+    // check how many arguments remained
     if (argc > (i+1))
     {
         log_warning("Wrong number of arguments provided.");
@@ -339,9 +338,11 @@ void obix_fcgi_handleRequest(Request* request)
     else
     {
         // unknown HTTP request
-        log_error("Unknown request type: %s. Request is ignored.", requestType);
+        log_warning("Unknown request type: %s. Request is ignored.",
+                    requestType);
         char* message = (char*) malloc(strlen(requestType) + 42);
-        sprintf(message, "%s request is not supported by oBIX server.", requestType);
+        sprintf(message, "%s request is not supported by oBIX server.",
+                requestType);
         obix_server_generateObixErrorMessage(response,
                                              uri,
                                              OBIX_CONTRACT_ERR_UNSUPPORTED,

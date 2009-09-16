@@ -66,8 +66,8 @@
   	  - local5: System defined;
   	  - local6: System defined;
   	  - local7: System defined;
-  	  It can be useful to configure syslog to print server log into a separate 
-  	  file. One way to do so is:
+  	  It can be useful to configure syslog at your machine to print server log 
+  	  into a separate file. One way to do so is:
   	  - Set in the tag below one of facilities local0 - local7 which is not 
   	    used in your system yet. For instance, you chose 'local1'
   	  - Go to syslog.conf file (usually it is at /etc/syslog.conf) and add the

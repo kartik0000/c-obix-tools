@@ -130,10 +130,8 @@ int obix_reltime_parseToLong(const char* str, long* duration)
         // ( 24 days * 24 hours * 60 min * 60 sec * 1000 ms < 2 ^ 31 )
         return -2;
     }
-
-    // if we parsed days...
-    if (*endPos == 'D')
-    {
+    else if (*endPos == 'D')
+    {	// if we parsed days...
         if (l < 0)
         {	// nothing is parsed, but a number must be specified before 'D'
             // or negative number is parsed
@@ -148,6 +146,15 @@ int obix_reltime_parseToLong(const char* str, long* duration)
         result += l * 86400000;
 
         startPos = endPos + 1;
+    }
+    else
+    {
+        // no "Y" no "M" no "D"
+        if (parsedSomething != 0)
+        {
+            // there was some value, but no character, defining what it was.
+            return -1;
+        }
     }
 
     if (*startPos == 'T')
@@ -246,6 +253,14 @@ int obix_reltime_parseToLong(const char* str, long* duration)
 
                 result += l;
             }
+
+            // l == -1 shows that no more values are parsed
+            l = -1;
+        }
+
+        if (l != -1)
+        {	// something was parsed, but it was not hours, minutes or seconds
+            return -1;
         }
     }
 

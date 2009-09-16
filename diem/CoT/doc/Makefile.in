@@ -32,7 +32,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-@HAVE_DOXYGEN_FALSE@am__append_1 = $(libcothtml) $(libcotpdf)
+@HAVE_DOXYGEN_FALSE@am__append_1 = $(libcothtml) $(libcotpdf) $(fullhtml) $(fullpdf)   
 subdir = doc
 DIST_COMMON = $(am__dist_doc_DATA_DIST) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in
@@ -56,7 +56,9 @@ RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	installcheck-recursive installdirs-recursive pdf-recursive \
 	ps-recursive uninstall-recursive
 am__dist_doc_DATA_DIST = long_polling.pdf \
-	libcot-html-$(PACKAGE_VERSION).tar.gz libcot_manual.pdf
+	libcot-html-$(PACKAGE_VERSION).tar.gz libcot_manual.pdf \
+	full-cot-html-$(PACKAGE_VERSION).tar.gz \
+	full_reference_manual.pdf
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
@@ -192,9 +194,15 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 
-###########   libcot documentation files   ###########
+###########   libcot documentation   ###########
 libcothtml = libcot-html-$(PACKAGE_VERSION).tar.gz
 libcotpdf = libcot_manual.pdf
+
+###########   full project documentation   ###########
+fullhtml = full-cot-html-$(PACKAGE_VERSION).tar.gz			 
+fullpdf = full_reference_manual.pdf
+
+###########        other documents         ###########
 dist_doc_DATA = long_polling.pdf $(am__append_1)
 @HAVE_DOXYGEN_TRUE@SUBDIRS = doxygen/
 all: all-recursive

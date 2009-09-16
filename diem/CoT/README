@@ -3,14 +3,14 @@
   
  A set of tools for developing oBIX-based solutions.
  
-=====
+========>>
 
  Copyright (c) 2009 Andrey Litvinov [litvinov.andrey@gmail.com]    
  
- CoT is a free software. It is licensed under MIT (X11) License, contained in
- the file COPYING.
+ CoT is a free software. It is licensed under MIT (X11) License. The text of the 
+ license can be found at the file COPYING.
  
-=====  
+========>>  
     
  This file contains description of the project in the following sections:
  
@@ -19,13 +19,13 @@
  3. Building instructions
  4. Configuring oBIX server
  
-=====
+========>>
 
  --1-- Project description
  
  #### T O D O ####
  
-=====
+========>>
 
  --2-- Package contents
  
@@ -79,7 +79,7 @@
  res/OpenWrt-SDK/	Folder contains makefiles and instructions for building 
  					project for OpenWrt platform.            
  
-=====
+========>>
 
  --3-- Building instructions
  
@@ -115,7 +115,7 @@
  make install		Will put binaries, config files and documentation to the 
  					installation directories. 
  
-=====
+========>>
 
  --4-- Configuring oBIX server
  
@@ -125,15 +125,20 @@
  the same for other HTTP servers.
  
  0. Compile and install CoT (see section 3).
+ 
  1. Install lighttpd at your target system.
- 2. Open <installation_prefix>/etc/cot/server_config.xml with your favorite XML 
-    editor. This is the main (and the only one) configuration file of the oBIX
-    server.
- 3. All configuration tags are well described there: Read description carefully,
-    modify and save options according to your needs.    
+ 
+ 2. Open server_config.xml file with your favorite XML editor. Usually it is 
+    placed at <installation_prefix>/etc/cot/ folder. This is the main (and the 
+    only one) configuration file of the oBIX server.
+    
+ 3. All configuration tags are described well there: Read description carefully,
+    modify and save options according to your needs.
+        
  4. Open <installation-prefix>/etc/cot/obix-lighttpd.conf file. This file 
-    contains required settings for lighttpd. In brief, it tells lighttpd how to
-    launch the fcgi script.
+    contains required settings for lighttpd. It tells lighttpd how to launch the 
+    fcgi script (i.e. oBIX server application).
+    
  5. Modify paths in the following variables:
  	- "socket"  		Defines socket name which will be used for communication 
  						between lighttpd and oBIX server.
@@ -159,11 +164,11 @@
  						         
  						<path-to-res-folder>
  						        Address of the folder with server's resource 
- 						        files. These are installed to /etc/cot/ by
- 						        default.         
+ 						         files. These are installed to /etc/cot/ by
+ 						         default.         
  						          
- 						If you installed CoT to the <prefix> folder, than the
- 						"bin-path" value can look like 						
+ 						Example: If you have installed CoT to the <prefix> 
+ 						folder, than the "bin-path" value can look like 						
  						"<prefix>/bin/obix.fcgi <prefix>/etc/cot/"
  						
  	- "bin-environment"	This variable can be totally omitted, or used, for 
@@ -171,8 +176,10 @@
  	In order to check whether the launch command in "bin-path" is correct you 
  	can try to execute it from the command line. If everything is fine, than 
  	oBIX server should start up, write few log messages and then immediately 
- 	shutdown gracefully because of no fcgi connection.								 		 
+ 	shutdown gracefully because of no fcgi connection.
+ 									 		 
  6. Locate your lighttpd configuration file. Usually it is at /etc/lighttpd/
+ 
  7. In case if you have /etc/lighttpd/conf-available/ folder than you are lucky
  	and should proceed with steps a. otherwise, go to steps b.
  	
@@ -183,7 +190,7 @@
  	   (Read conf-available/README in order to get more details about what you
  	   have done.)
  	   
- 	b. In case you do not have described folder for lighttpd in your target 
+ 	b. In case you do not have the described folder for lighttpd in your target 
  	   platform, than open main lighttpd configuration file (usually it is
  	   /etc/lighttpd/lighttpd.conf) and paste to the end the contents of updated 
  	   res/obix-lighttpd.conf file.
@@ -191,10 +198,11 @@
  	   conf file, so check that pasted string is not conflicting with the 
  	   original definition.
  	   Save configuration and restart lighttpd.
+ 	   
  8. If everything is OK, than you will be able to access oBIX server from your
     browser under the following link: http://<you server address>/obix/
     In case of any problems try to check lighttpd and oBIX server error log 
     files. If it doesn't help than contact me, and I'll try to make better
     version of these instructions.
  
-=====     
+========>>

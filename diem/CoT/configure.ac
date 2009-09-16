@@ -98,7 +98,8 @@ AC_CONFIG_FILES([Makefile
                  res/Makefile
                  doc/Makefile
                  doc/doxygen/Makefile
-                 doc/doxygen/libcot.doxyfile])
+                 doc/doxygen/libcot.doxyfile
+                 doc/doxygen/full.doxyfile])
 AC_OUTPUT
 
 echo "

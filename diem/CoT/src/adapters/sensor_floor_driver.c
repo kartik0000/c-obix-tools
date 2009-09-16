@@ -285,6 +285,13 @@ int target_sendUpdate(Target* target)
  */
 int parseTarget(IXML_Node* node)
 {
+    if (!obix_obj_implementsContract(ixmlNode_convertToElement(node),
+                                     "target"))
+    {
+    	// it is not a target - nothing to parse
+    	return 0;
+    }
+
     node = ixmlNode_getFirstChild(node);
     // first node is id tag (at least we hope so :)
     const char* attrValue = ixmlElement_getAttribute(
