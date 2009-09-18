@@ -26,5 +26,13 @@
  */
 /**
  * @mainpage C oBIX Tools Full Reference Manual
- * @todo add description here
+ *
+ * This documentation is intended only for contributors of C oBIX Tools project.
+ * It describes all the source code and the internal architecture of the
+ * project.
+ * If you are interested only in the development of your own custom oBIX client
+ * applications, than you should better use the documentation of oBIX Client
+ * Library @a (libcot).
+ *
+ * @todo Write a lot of nice words about the project here :)
  */

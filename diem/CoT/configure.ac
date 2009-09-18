@@ -89,12 +89,14 @@ AC_FUNC_REALLOC
 AC_FUNC_VPRINTF
 AC_CHECK_FUNCS([clock_gettime strchr strdup strstr strtol])
 
-AC_CONFIG_FILES([Makefile                 
+AC_CONFIG_FILES([Makefile     
+				 src/Makefile            
                  src/common/Makefile
                  src/client/Makefile
                  src/adapters/Makefile
                  src/server/Makefile
                  src/test/Makefile
+                 src/doxygen/Makefile
                  res/Makefile
                  doc/Makefile
                  doc/doxygen/Makefile

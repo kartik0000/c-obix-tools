@@ -7,23 +7,34 @@
 
  Copyright (c) 2009 Andrey Litvinov [litvinov.andrey@gmail.com]    
  
- CoT is a free software. It is licensed under MIT (X11) License. The text of the 
+ CoT is a free software. It is licensed under MIT (X11) License. The text of the
  license can be found at the file COPYING.
  
 ========>>  
     
  This file contains description of the project in the following sections:
  
- 1. Project description
+ 1. Project overview
  2. Package contents
  3. Building instructions
  4. Configuring oBIX server
  
 ========>>
 
- --1-- Project description
+ --1-- Project overview
  
- #### T O D O ####
+ C oBIX Tools (CoT) is an open source project dedicated for the development of 
+ embedded Building Automation solutions based on oBIX standard 
+ (http://www.obix.org). The whole project is written in C and has tiny resource
+ requirement, which allows it to run on embedded Linux platforms, such as 
+ OpenWrt (http://openwrt.org).
+ 
+ The project consists of 2 parts:
+ - C oBIX Server and
+ - C oBIX Client library
+ 
+ oBIX Server is a stand-alone application 
+ %%TODO%% Please, describe me :)
  
 ========>>
 
@@ -36,25 +47,29 @@
  
  src/				Folder with project source files.
  
- src/adapters/		Contains sources of oBIX device adapters which are 
+    ./adapters/		Contains sources of oBIX device adapters which are 
  					implemented using libcot library. 
  
- src/adapters/example_timer.c
+    ./adapters/example_timer.c
                     Source of example device adapter which shows how libcot can 
                     be used for oBIX cliet implementation.
  
- src/adapters/sensor_floor_driver.c
+    ./adapters/sensor_floor_driver.c
  					Source of sensor floor adapter.
  
- src/client/		Sources of libcot library. 
+    ./client/		Sources of libcot library. 
 
- src/common/		Common sources for client and server part of the project.
+    ./common/		Common sources for client and server part of the project.
  
- src/server/		Sources of oBIX server.
+    ./server/		Sources of oBIX server.
  
- src/test/			Tests sources which are used only during development.
+    ./test/			Tests sources which are used only during development.
+    
+    ./doxygen/		Documentation source files.
  
- doc/				Contains project documentation built with Doxygen.
+ doc/				Contains project documentation, most of which is built by 
+ 					Doxygen. HTML documentation is much more easier to read, but 
+ 					.pdf files can be used to make a printed versions.
  
  res/				Various configuration files.
  
@@ -83,7 +98,7 @@
 
  --3-- Building instructions
  
- Please refer res/OpenWrt-SDK/README if you want to compile the project for 
+ Please refer to res/OpenWrt-SDK/README if you want to compile the project for 
  OpenWrt platform.
   
  Simple compilation can be done by executing following commands in the project 
@@ -103,7 +118,7 @@
  
  You will need the following libraries to build CoT (configure script should 
  tell you which are missing):
- - fcgi
+ - libfcgi
  - libupnp
  - libcurl  					
   					

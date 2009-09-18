@@ -34,7 +34,7 @@
  * several utility header files which provides helper tools commonly needed by
  * oBIX client applications:
  * @li ptask.h - Allows scheduling tasks to be executed in a separate thread;
- * @li obix_utils.h - Contains names of most essential oBIX object, attributes,
+ * @li obix_utils.h - Contains names of most essential oBIX objects, attributes,
  *     etc.
  * @li xml_config.h - Helps to load application settings from XML file;
  * @li log_utils.h - Provides interface to the logging utility which is used by

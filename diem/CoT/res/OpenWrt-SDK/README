@@ -48,7 +48,7 @@ USAGE:
 
    CoT depends on the following libraries which are not included to the Open Wrt
    SDK by default:   
-   - fcgi
+   - libfcgi
    - libupnp
    - libcurl
    These also require following additional libraries to be compiled:

@@ -13486,7 +13486,7 @@ fi
 done
 
 
-ac_config_files="$ac_config_files Makefile src/common/Makefile src/client/Makefile src/adapters/Makefile src/server/Makefile src/test/Makefile res/Makefile doc/Makefile doc/doxygen/Makefile doc/doxygen/libcot.doxyfile doc/doxygen/full.doxyfile"
+ac_config_files="$ac_config_files Makefile src/Makefile src/common/Makefile src/client/Makefile src/adapters/Makefile src/server/Makefile src/test/Makefile src/doxygen/Makefile res/Makefile doc/Makefile doc/doxygen/Makefile doc/doxygen/libcot.doxyfile doc/doxygen/full.doxyfile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -14441,11 +14441,13 @@ do
     "depfiles") CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
     "libtool") CONFIG_COMMANDS="$CONFIG_COMMANDS libtool" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+    "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "src/common/Makefile") CONFIG_FILES="$CONFIG_FILES src/common/Makefile" ;;
     "src/client/Makefile") CONFIG_FILES="$CONFIG_FILES src/client/Makefile" ;;
     "src/adapters/Makefile") CONFIG_FILES="$CONFIG_FILES src/adapters/Makefile" ;;
     "src/server/Makefile") CONFIG_FILES="$CONFIG_FILES src/server/Makefile" ;;
     "src/test/Makefile") CONFIG_FILES="$CONFIG_FILES src/test/Makefile" ;;
+    "src/doxygen/Makefile") CONFIG_FILES="$CONFIG_FILES src/doxygen/Makefile" ;;
     "res/Makefile") CONFIG_FILES="$CONFIG_FILES res/Makefile" ;;
     "doc/Makefile") CONFIG_FILES="$CONFIG_FILES doc/Makefile" ;;
     "doc/doxygen/Makefile") CONFIG_FILES="$CONFIG_FILES doc/doxygen/Makefile" ;;
