@@ -87,7 +87,7 @@ AC_TYPE_SIZE_T
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_FUNC_VPRINTF
-AC_CHECK_FUNCS([clock_gettime strchr strdup strstr strtol])
+AC_CHECK_FUNCS([strchr strdup strstr strtol])
 
 AC_CONFIG_FILES([Makefile     
 				 src/Makefile            
