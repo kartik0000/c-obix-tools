@@ -23,7 +23,7 @@
 <config>
 
 	<connection id="0" type="http">	
-		<server-address val="http://localhost" lobby="/obix/" />	
+		<server-address val="http://localhost" lobby="/obix/" />
 		<poll-interval val="1000" />		
 		<long-poll>			
 			<min-interval val="200" />			
@@ -36,6 +36,7 @@
 
 	<log>	
 		<level val="warning" />
+		<use-syslog facility="local4" />
 	</log>
 	
 </config>

@@ -40,8 +40,7 @@
 			Specifies the address of oBIX server and relative address of the
 			Lobby object at this server. Obligatory tag for HTTP connections.
 		-->
-		<server-address val="http://localhost" lobby="/obix/" />
-		<!--server-address val="http://andrey-desktop:1234" lobby="/obix" /-->
+		<server-address val="http://localhost" lobby="/obix/" />		
 		<!--
 			Optional tag, specifying period of polling changes from server in
 			milliseconds. When using HTTP connection library creates Watch 
@@ -150,7 +149,7 @@
 			You can read more about syslog configuration at syslog.conf manual 
 			page.
 		-->
-		<!-- <use-syslog facility="local3" /> -->
+		<!-- <use-syslog facility="local4" /> -->
 	</log>
 	
 </config>

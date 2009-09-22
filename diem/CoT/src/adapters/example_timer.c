@@ -126,7 +126,7 @@ int resetListener(int connectionId,
     // reset timer task so that the next time of execution will be now + 1 sec
     if (_taskThread != NULL)
     {
-    	ptask_reset(_taskThread, _timerTaskId);
+        ptask_reset(_taskThread, _timerTaskId);
     }
     // new value is true, thus we need to reset timer
     pthread_mutex_lock(&_time_mutex);
@@ -137,8 +137,8 @@ int resetListener(int connectionId,
     error = obix_batch_send(batch);
     if (error != OBIX_SUCCESS)
     {
-    	printf("Unable to update timer attributes using oBIX Batch.\n");
-    	return error;
+        printf("Unable to update timer attributes using oBIX Batch.\n");
+        return error;
     }
     // Instead of batch we could use 2 calls of obix_writeValue() like this:
     //
@@ -232,12 +232,16 @@ char* getDeviceData(char* deviceUri)
  */
 int main(int argc, char** argv)
 {
-    if (argc != 3)
+    if (argc != 3 ||
+    		// check that device URI starts and ends with '/'
+    		(argv[2][0] != '/' || argv[2][strlen(argv[2]) - 1] != '/'))
     {
         printf("Usage: %s <config_file> <device_uri>\n"
                " where <config_file> - Address of the configuration file;\n"
-               "       <device_uri>  - URI at which the device will be "
-               "registered.\n", argv[0]);
+               "       <device_uri>  - relative URI at which the device will "
+               "be registered,\n"
+               "                       e.g. \"/obix/ExampleTimer/\".\n",
+               argv[0]);
         return -1;
     }
 
@@ -289,7 +293,7 @@ int main(int argc, char** argv)
     }
     // start updating time once in a second
     _timerTaskId = ptask_schedule(_taskThread, &timerTask, &deviceId,
-                                     1000, EXECUTE_INDEFINITE);
+                                  1000, EXECUTE_INDEFINITE);
 
     printf("Example timer is successfully registered at the server\n\n"
            "Press Enter to stop timer and exit...\n");

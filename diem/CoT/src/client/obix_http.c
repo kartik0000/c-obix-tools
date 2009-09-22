@@ -177,7 +177,7 @@ static char* ixmlElement_getFullHref(IXML_Element* element,
             // we do not have enough parent objects in the document in order
             // to create the full URI
             log_error("Unable to generate full URI for <%s/>. "
-                      "Output should start with either \"/\" or \"%s\", "
+                      "Resulting URI should start with either \"/\" or \"%s\", "
                       "but it is \"%s\".",
                       ixmlElement_getTagName(element), c->serverUri, uri);
             free(uri);
@@ -261,8 +261,11 @@ static char* getObjectUri(IXML_Document* doc,
     char* uri = ixmlElement_getFullHref(element, c, full);
     if (uri == NULL)
     {
-        log_error("Unable to retrieve full URI for the object \"%s\".",
-                  objName);
+        log_error("Unable to retrieve full URI for the object \"%s\" from the "
+                  "server response. Make sure that the server is replying with "
+                  "the same address in \'href\' attributes which is used to "
+                  "contact it (%s).",
+                  objName, c->serverUri);
     }
     return uri;
 }

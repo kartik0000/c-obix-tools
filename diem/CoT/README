@@ -206,11 +206,11 @@
  	   have done.)
  	   
  	b. In case you do not have the described folder for lighttpd in your target 
- 	   platform, than open main lighttpd configuration file (usually it is
+ 	   platform, than open the main lighttpd configuration file (usually it is
  	   /etc/lighttpd/lighttpd.conf) and paste to the end the contents of updated 
  	   res/obix-lighttpd.conf file.
  	   Note that "server.modules" are usually defined in the beginning of the
- 	   conf file, so check that pasted string is not conflicting with the 
+ 	   conf file, so check that pasted string doesn't conflict with the 
  	   original definition.
  	   Save configuration and restart lighttpd.
  	   
