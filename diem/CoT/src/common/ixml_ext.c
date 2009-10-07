@@ -76,108 +76,18 @@ IXML_Node* ixmlAttr_getNode(IXML_Attr* attr)
 
 IXML_Element* ixmlDocument_getRootElement(IXML_Document* doc)
 {
-	IXML_Node* node = ixmlNode_getFirstChild(ixmlDocument_getNode(doc));
-	IXML_Element* element = ixmlNode_convertToElement(node);
+    IXML_Node* node = ixmlNode_getFirstChild(ixmlDocument_getNode(doc));
+    IXML_Element* element = ixmlNode_convertToElement(node);
 
-	// search for element node in all document's child nodes
-	while((element == NULL) && (node != NULL))
-	{
-		node = ixmlNode_getNextSibling(node);
-		element = ixmlNode_convertToElement(node);
-	}
+    // search for element node in all document's child nodes
+    while((element == NULL) && (node != NULL))
+    {
+        node = ixmlNode_getNextSibling(node);
+        element = ixmlNode_convertToElement(node);
+    }
 
-	return element;
+    return element;
 }
-
-///**
-// * Does the same with #ixmlDocument_getElementByHrefRecursive(IXML_Document*,const char*,int).
-// * The difference is that this implementation uses utility from upnp library
-// * to resolve URI. Such solution helps to resolve relative URI starting with '/'.
-// */
-//static IXML_Node* ixmlDocument_getElementByHrefRecursiveUpnp(IXML_Node* node,
-//		const char* href, const char* baseUri)
-//{
-//	if (node == NULL)
-//	{
-//		return NULL;
-//	}
-//
-//	IXML_Node* match = NULL;
-//	IXML_Element* element = ixmlNode_convertToElement(node);
-//	if (element != NULL)
-//	{
-//		const char* currUri = ixmlElement_getAttribute(element, HREF);
-//		if (currUri != NULL)
-//		{
-//			char* absUri = (char*) malloc((baseUri == NULL) ? 0 : strlen(
-//					baseUri) + strlen(currUri) + 2);
-//			int error = UpnpResolveURL(baseUri, currUri, absUri);
-//			if (error != UPNP_E_SUCCESS)
-//			{
-//				printf("!!!Wrong uri %s+%s (error %d)\n", baseUri, currUri,
-//						error);
-//			}
-//			else
-//			{
-//				printf("resolvedUri=%s\n", absUri);
-//				int length = strlen(absUri);
-//				if (strncmp(absUri, href, length) == 0)
-//				{
-//					printf("~=(%d) %s, %s\n", length, absUri, href);
-//					// we found something
-//					if (length == strlen(href))
-//					{
-//						// we compared the whole href. Now check that
-//						// this is not a reference to another object
-//						//TODO: remove this when obix documents will be stored
-//						// separately
-//						if (strcmp("ref", ixmlNode_getNodeName(node)) == 0)
-//						{
-//							printf("found reference to the object\n");
-////							match = ixmlDocument_getElementByHrefRecursiveUpnp(
-////												ixmlNode_getNextSibling(node), href, baseUri);
-//						}
-//						else
-//						{
-//							printf("fully checked\n");
-//							free(absUri);
-//							return node;
-//						}
-//					}
-//					else
-//					{
-//						printf("still not the end (%d from %d)\n", length,
-//								strlen(href));
-//						// still have to compare href of the child
-//						match = ixmlDocument_getElementByHrefRecursiveUpnp(
-//								ixmlNode_getFirstChild(node), href, absUri);
-//					}
-//				}
-//				else
-//				{
-//					printf("!=(%d) %s, %s\n", length, absUri, href);
-//					// href doesn't much, let's check other nodes
-//					match = ixmlDocument_getElementByHrefRecursiveUpnp(
-//							ixmlNode_getNextSibling(node), href, baseUri);
-//				}
-//				free(absUri);
-//			}
-//
-//		}
-//	}
-//	else // element == NULL (i.e. node is not an element)
-//	{ // check the next node
-//		match = ixmlDocument_getElementByHrefRecursiveUpnp(
-//				ixmlNode_getFirstChild(node), href, baseUri);
-//		if (match == NULL)
-//		{
-//			match = ixmlDocument_getElementByHrefRecursiveUpnp(
-//					ixmlNode_getNextSibling(node), href, baseUri);
-//		}
-//	}
-//
-//	return match;
-//}
 
 int ixmlElement_setAttributeWithLog(IXML_Element* element, const char* attrName, const char* attrValue)
 {
@@ -245,7 +155,7 @@ IXML_Element* ixmlElement_cloneWithLog(IXML_Element* source)
 
 void ixmlNode_freeOwnerDocument(IXML_Node* node)
 {
-	ixmlDocument_free(ixmlNode_getOwnerDocument(node));
+    ixmlDocument_free(ixmlNode_getOwnerDocument(node));
 }
 
 void ixmlElement_freeOwnerDocument(IXML_Element* element)
@@ -367,5 +277,34 @@ IXML_Node* ixmlNode_parseBuffer(const char* data)
 
 IXML_Element* ixmlElement_parseBuffer(const char* data)
 {
-	return ixmlNode_convertToElement(ixmlNode_parseBuffer(data));
+    return ixmlNode_convertToElement(ixmlNode_parseBuffer(data));
+}
+
+IXML_Element* ixmlElement_createChildElementWithLog(
+    IXML_Element* parent,
+    const char* childTagName)
+{
+    IXML_Element* childTag;
+    IXML_Document* ownerDocument =
+        ixmlNode_getOwnerDocument(ixmlElement_getNode(parent));
+
+    int error =
+        ixmlDocument_createElementEx(ownerDocument, childTagName, &childTag);
+    if (error != IXML_SUCCESS)
+    {
+        log_error("Unable to create tag \"%s\". "
+                  "ixmlDocument_createElementEx() returned %d.",
+                  childTagName, error);
+        return NULL;
+    }
+    error = ixmlNode_appendChild(ixmlElement_getNode(parent),
+                                 ixmlElement_getNode(childTag));
+    if (error != IXML_SUCCESS)
+    {
+        log_error("Unable to create tag \"%s\". "
+                  "ixmlNode_appendChild() returned %d.", childTagName, error);
+        return NULL;
+    }
+
+    return childTag;
 }

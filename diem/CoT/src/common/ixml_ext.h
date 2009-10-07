@@ -192,7 +192,7 @@ void ixmlElement_freeOwnerDocument(IXML_Element* element);
  * created. Method also writes error messages using log_utils.h facilities.
  *
  * @param source Element where the attribute will be copied from.
- * @param target Element which the attribute will be copied to.
+ * @param target Element where the attribute will be copied to.
  * @param attrName Name of the attribute to be copied.
  * @param obligatory Tells whether the attribute should necessarily present in
  *                   the source tag. If @a TRUE and the attribute is missing
@@ -206,6 +206,18 @@ int ixmlElement_copyAttributeWithLog(IXML_Element* source,
                                      IXML_Element* target,
                                      const char* attrName,
                                      BOOL obligatory);
+
+/**
+ * Creates new element (tag) and appends as a child to the provided parent
+ * element.
+ *
+ * @param parent Element to which the new tag will be added.
+ * @param childTagName Name of the new tag.
+ * @return A reference to the new element, or @a NULL on error.
+ */
+IXML_Element* ixmlElement_createChildElementWithLog(
+    IXML_Element* parent,
+    const char* childTagName);
 
 /**
  * Returns element which the provided attribute belongs to.

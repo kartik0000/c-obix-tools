@@ -300,7 +300,7 @@ static int processWatchIn(IXML_Element* input, const char*** uriSet)
  * 		   @a NULL on error.
  */
 static Response* addResponsePart(Response* respHead,
-								 Response* respTail,
+                                 Response* respTail,
                                  const char* uri,
                                  const char* operationName)
 {
@@ -759,9 +759,7 @@ void handlerWatchDelete(Response* response,
 
 static int putDeviceReference(IXML_Element* newDevice)
 {
-    IXML_Node* devices = ixmlElement_getNode(
-                             xmldb_getDOM("/obix/devices/", NULL));
-
+    IXML_Element* devices = xmldb_getDOM("/obix/devices/", NULL);
     if (devices == NULL)
     {
         // database failure
@@ -773,19 +771,17 @@ static int putDeviceReference(IXML_Element* newDevice)
 
     // create new <ref/> object and copy 'href', 'name', 'display' and
     // 'displayName' attributes to it
-    IXML_Document* parent = ixmlNode_getOwnerDocument(devices);
 
-    IXML_Element* ref;
-    int error = ixmlDocument_createElementEx(parent, OBIX_OBJ_REF, &ref);
-    if (error != IXML_SUCCESS)
+    IXML_Element* ref =
+        ixmlElement_createChildElementWithLog(devices, OBIX_OBJ_REF);
+    if (ref == NULL)
     {
-        log_error("Unable to add new reference to the device list: "
-                  "ixmlDocument_createElementEx() returned %d", error);
+        log_error("Unable to add new reference to the device list.");
         return -1;
     }
 
     // copy attribute uri
-    error = ixmlElement_copyAttributeWithLog(newDevice, ref,
+    int error = ixmlElement_copyAttributeWithLog(newDevice, ref,
             OBIX_ATTR_HREF,
             TRUE);
     if (error != IXML_SUCCESS)
@@ -820,15 +816,6 @@ static int putDeviceReference(IXML_Element* newDevice)
             FALSE);
     if ((error != IXML_SUCCESS) && (error != IXML_NOT_FOUND_ERR))
     {
-        ixmlElement_free(ref);
-        return -1;
-    }
-
-    error = ixmlNode_appendChild(devices, ixmlElement_getNode(ref));
-    if (error != IXML_SUCCESS)
-    {
-        log_error("Unable to add new reference to the device list: "
-                  "ixmlNode_appendChild() returned %d", error);
         ixmlElement_free(ref);
         return -1;
     }
@@ -982,7 +969,7 @@ void handlerBatch(Response* response,
         // current response tail
         while (rItem->next != NULL)
         {
-        	rItem = rItem->next;
+            rItem = rItem->next;
         }
         // create new response part for the next command response
         rItem = addResponsePart(response, rItem, uri, "Batch");

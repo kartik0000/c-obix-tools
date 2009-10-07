@@ -816,7 +816,7 @@ int main(int argc, char** argv)
     if (argc != 2)
     {
         printf("Usage: sensor_floor_driver <config_file>\n"
-               " where <config_file> - Address of the configuration file.\n");
+               " where <config_file> - Name of the configuration file.\n");
         return -1;
     }
 

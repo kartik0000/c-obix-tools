@@ -26,7 +26,7 @@
  C oBIX Tools (CoT) is an open source project dedicated for the development of 
  embedded Building Automation solutions based on oBIX standard 
  (http://www.obix.org). The whole project is written in C and has tiny resource
- requirement, which allows it to run on embedded Linux platforms, such as 
+ requirements. It allows the project to run on embedded Linux platforms, such as
  OpenWrt (http://openwrt.org).
  
  The project consists of 2 parts:
@@ -52,7 +52,7 @@
  
     ./adapters/example_timer.c
                     Source of example device adapter which shows how libcot can 
-                    be used for oBIX cliet implementation.
+                    be used for oBIX client implementation.
  
     ./adapters/sensor_floor_driver.c
  					Source of sensor floor adapter.

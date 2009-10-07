@@ -106,6 +106,6 @@ AC_OUTPUT
 
 echo "
   C oBIX Tools ($PACKAGE_NAME) version $PACKAGE_VERSION
-  Prefix.........: $prefix    
-  Doxygen........: ${DOXYGEN:-NONE}
+  Installation prefix...: $prefix    
+  Doxygen...............: ${DOXYGEN:-NONE}
 "

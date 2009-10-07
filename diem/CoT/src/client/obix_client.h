@@ -94,7 +94,7 @@ typedef enum
     /**Library has invalid state.*/
     OBIX_ERR_INVALID_STATE		= -3,
     /**Allocated buffer for devices or listeners is full.
-     * @todo Remove this error and enlarge arrays when needed.*/
+     * @todo Remove this error and enlarge arrays automatically.*/
     OBIX_ERR_LIMIT_REACHED		= -4,
     /**Error in communication with server.*/
     OBIX_ERR_BAD_CONNECTION		= -5,

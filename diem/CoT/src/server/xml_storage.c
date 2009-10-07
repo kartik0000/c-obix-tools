@@ -781,30 +781,20 @@ IXML_Node* xmldb_putMeta(IXML_Element* element, const char* name, const char* va
     if (meta == NULL)
     {
         // create a new meta tag
-        error = ixmlDocument_createElementEx(_storage, OBIX_META, &meta);
-        if (error != IXML_SUCCESS)
+        meta = ixmlElement_createChildElementWithLog(element, OBIX_META);
+        if (meta == NULL)
         {
-            log_error("Unable to create meta tag. "
-                      "ixmlDocument_createElementEx() returned %d.", error);
-            return NULL;
-        }
-        error = ixmlNode_appendChild(ixmlElement_getNode(element),
-                                     ixmlElement_getNode(meta));
-        if (error != IXML_SUCCESS)
-        {
-            log_error("Unable to create meta tag. "
-                      "ixmlNode_appendChild() returned %d.", error);
+            log_error("Unable to create meta tag.");
             return NULL;
         }
     }
 
     // create new meta item
-    IXML_Element* metaItem;
-    error = ixmlDocument_createElementEx(_storage, name, &metaItem);
-    if (error != IXML_SUCCESS)
+    IXML_Element* metaItem =
+        ixmlElement_createChildElementWithLog(meta, name);
+    if (metaItem == NULL)
     {
-        log_error("Unable to create meta item. "
-                  "ixmlDocument_createElementEx() returned %d.", error);
+        log_error("Unable to create meta item.");
         return NULL;
     }
 
@@ -814,15 +804,6 @@ IXML_Node* xmldb_putMeta(IXML_Element* element, const char* name, const char* va
     {
         log_error("Unable to create meta item. "
                   "ixmlElement_setAttribute() returned %d.", error);
-        return NULL;
-    }
-    // insert new meta item to the meta tag
-    error = ixmlNode_appendChild(ixmlElement_getNode(meta),
-                                 ixmlElement_getNode(metaItem));
-    if (error != IXML_SUCCESS)
-    {
-        log_error("Unable to create meta item. "
-                  "ixmlNode_appendChild() returned %d.", error);
         return NULL;
     }
 

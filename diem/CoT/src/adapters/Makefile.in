@@ -33,7 +33,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS = example_timer$(EXEEXT) sensor_floor_driver$(EXEEXT) \
-	test_adapter$(EXEEXT)
+	test_adapter$(EXEEXT) poll_generator$(EXEEXT)
 subdir = src/adapters
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -55,6 +55,13 @@ example_timer_DEPENDENCIES =  \
 	$(top_builddir)/src/client/libcot-client.la
 example_timer_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(example_timer_CFLAGS) \
+	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+am_poll_generator_OBJECTS = poll_generator-poll_generator.$(OBJEXT)
+poll_generator_OBJECTS = $(am_poll_generator_OBJECTS)
+poll_generator_DEPENDENCIES =  \
+	$(top_builddir)/src/client/libcot-client.la
+poll_generator_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(poll_generator_CFLAGS) \
 	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 am_sensor_floor_driver_OBJECTS =  \
 	sensor_floor_driver-sensor_floor_driver.$(OBJEXT)
@@ -84,10 +91,10 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(example_timer_SOURCES) $(sensor_floor_driver_SOURCES) \
-	$(test_adapter_SOURCES)
-DIST_SOURCES = $(example_timer_SOURCES) $(sensor_floor_driver_SOURCES) \
-	$(test_adapter_SOURCES)
+SOURCES = $(example_timer_SOURCES) $(poll_generator_SOURCES) \
+	$(sensor_floor_driver_SOURCES) $(test_adapter_SOURCES)
+DIST_SOURCES = $(example_timer_SOURCES) $(poll_generator_SOURCES) \
+	$(sensor_floor_driver_SOURCES) $(test_adapter_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -225,7 +232,12 @@ test_adapter_SOURCES = test_adapter.c
 test_adapter_CFLAGS = -I$(top_srcdir)/src/client \
 								  -I$(top_srcdir)/src/common 
 
-test_adapter_LDADD = $(top_builddir)/src/client/libcot-client.la 
+test_adapter_LDADD = $(top_builddir)/src/client/libcot-client.la
+poll_generator_SOURCES = poll_generator.c
+poll_generator_CFLAGS = -I$(top_srcdir)/src/client \
+								  -I$(top_srcdir)/src/common 
+
+poll_generator_LDADD = $(top_builddir)/src/client/libcot-client.la 
 all: all-am
 
 .SUFFIXES:
@@ -290,6 +302,9 @@ clean-binPROGRAMS:
 example_timer$(EXEEXT): $(example_timer_OBJECTS) $(example_timer_DEPENDENCIES) 
 	@rm -f example_timer$(EXEEXT)
 	$(example_timer_LINK) $(example_timer_OBJECTS) $(example_timer_LDADD) $(LIBS)
+poll_generator$(EXEEXT): $(poll_generator_OBJECTS) $(poll_generator_DEPENDENCIES) 
+	@rm -f poll_generator$(EXEEXT)
+	$(poll_generator_LINK) $(poll_generator_OBJECTS) $(poll_generator_LDADD) $(LIBS)
 sensor_floor_driver$(EXEEXT): $(sensor_floor_driver_OBJECTS) $(sensor_floor_driver_DEPENDENCIES) 
 	@rm -f sensor_floor_driver$(EXEEXT)
 	$(sensor_floor_driver_LINK) $(sensor_floor_driver_OBJECTS) $(sensor_floor_driver_LDADD) $(LIBS)
@@ -304,6 +319,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/example_timer-example_timer.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/poll_generator-poll_generator.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sensor_floor_driver-sensor_floor_driver.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_adapter-test_adapter.Po@am__quote@
 
@@ -341,6 +357,20 @@ example_timer-example_timer.obj: example_timer.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='example_timer.c' object='example_timer-example_timer.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(example_timer_CFLAGS) $(CFLAGS) -c -o example_timer-example_timer.obj `if test -f 'example_timer.c'; then $(CYGPATH_W) 'example_timer.c'; else $(CYGPATH_W) '$(srcdir)/example_timer.c'; fi`
+
+poll_generator-poll_generator.o: poll_generator.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(poll_generator_CFLAGS) $(CFLAGS) -MT poll_generator-poll_generator.o -MD -MP -MF $(DEPDIR)/poll_generator-poll_generator.Tpo -c -o poll_generator-poll_generator.o `test -f 'poll_generator.c' || echo '$(srcdir)/'`poll_generator.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/poll_generator-poll_generator.Tpo $(DEPDIR)/poll_generator-poll_generator.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='poll_generator.c' object='poll_generator-poll_generator.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(poll_generator_CFLAGS) $(CFLAGS) -c -o poll_generator-poll_generator.o `test -f 'poll_generator.c' || echo '$(srcdir)/'`poll_generator.c
+
+poll_generator-poll_generator.obj: poll_generator.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(poll_generator_CFLAGS) $(CFLAGS) -MT poll_generator-poll_generator.obj -MD -MP -MF $(DEPDIR)/poll_generator-poll_generator.Tpo -c -o poll_generator-poll_generator.obj `if test -f 'poll_generator.c'; then $(CYGPATH_W) 'poll_generator.c'; else $(CYGPATH_W) '$(srcdir)/poll_generator.c'; fi`
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/poll_generator-poll_generator.Tpo $(DEPDIR)/poll_generator-poll_generator.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='poll_generator.c' object='poll_generator-poll_generator.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(poll_generator_CFLAGS) $(CFLAGS) -c -o poll_generator-poll_generator.obj `if test -f 'poll_generator.c'; then $(CYGPATH_W) 'poll_generator.c'; else $(CYGPATH_W) '$(srcdir)/poll_generator.c'; fi`
 
 sensor_floor_driver-sensor_floor_driver.o: sensor_floor_driver.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sensor_floor_driver_CFLAGS) $(CFLAGS) -MT sensor_floor_driver-sensor_floor_driver.o -MD -MP -MF $(DEPDIR)/sensor_floor_driver-sensor_floor_driver.Tpo -c -o sensor_floor_driver-sensor_floor_driver.o `test -f 'sensor_floor_driver.c' || echo '$(srcdir)/'`sensor_floor_driver.c

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+   Copyright (c) 2009 Andrey Litvinov
+  
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+  
+   The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+  
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+   THE SOFTWARE.
+-->
+<config>
+	
+	<!-- Connection settings -->
+	<connection id="0" type="http">
+		<server-address val="http://localhost" lobby="/obix/" />		
+		<!-- poll-interval val="1000" />
+		<long-poll>
+			<min-interval val="200"/>
+			<max-interval val="60000"/>
+		</long-poll -->
+		<max-devices val="1" />
+		<max-listeners val="1" />
+	</connection>
+
+	<!-- Driver specific settings -->
+	<device-info>
+		<!-- Info which will be posted to the server -->
+		<obj name="SensorFloor" displayName="Sensor Floor" href="/obix/SensorFloor/">
+			<bool name="fall" displayName="Fallen Event" href="fall" val="false"
+				writable="true" />
+		</obj>
+
+		<!-- Targets show current position of people on the floor -->
+		<target count="4">
+			<!-- Object stub which will represent one target at the server -->
+			<obj>
+				<bool name="available" displayName="Available" href="available"
+					val="false" writable="true" />
+				<real name="x" displayName="X coordinate" href="x" val="0"
+					writable="true" />
+				<real name="y" displayName="Y coordinate" href="y" val="0"
+					writable="true" />
+			</obj>
+		</target>
+	</device-info>
+
+	<!-- Log settings -->
+	<log>
+		<level val="warning" />
+		<!-- <use-syslog facility="user" /> -->
+	</log>
+
+</config>

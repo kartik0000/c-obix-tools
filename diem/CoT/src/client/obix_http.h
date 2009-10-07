@@ -36,7 +36,7 @@
 typedef struct _Http_Connection
 {
     Connection c;
-    // type specific connection properties
+    // HTTP specific connection properties
     char* serverUri;
     int serverUriLength;
     char* lobbyUri;
@@ -56,16 +56,13 @@ typedef struct _Http_Connection
     Table* watchTable;
     pthread_mutex_t watchMutex;
     int watchPollTaskId;
-
-    //	char*
-    // is used to delete Watch if there is nothing to monitor
 }
 Http_Connection;
 
 typedef struct _Http_Device
 {
     Device d;
-    // type specific device properties
+    // HTTP specific device properties
     char* uri;
     int uriLength;
 }
