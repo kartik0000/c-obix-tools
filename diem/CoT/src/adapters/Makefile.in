@@ -33,7 +33,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS = example_timer$(EXEEXT) sensor_floor_driver$(EXEEXT) \
-	test_adapter$(EXEEXT) poll_generator$(EXEEXT)
+	memtest_adapter$(EXEEXT) poll_generator$(EXEEXT)
 subdir = src/adapters
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -56,6 +56,14 @@ example_timer_DEPENDENCIES =  \
 example_timer_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(example_timer_CFLAGS) \
 	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+am_memtest_adapter_OBJECTS =  \
+	memtest_adapter-memtest_adapter.$(OBJEXT)
+memtest_adapter_OBJECTS = $(am_memtest_adapter_OBJECTS)
+memtest_adapter_DEPENDENCIES =  \
+	$(top_builddir)/src/client/libcot-client.la
+memtest_adapter_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(memtest_adapter_CFLAGS) \
+	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 am_poll_generator_OBJECTS = poll_generator-poll_generator.$(OBJEXT)
 poll_generator_OBJECTS = $(am_poll_generator_OBJECTS)
 poll_generator_DEPENDENCIES =  \
@@ -72,13 +80,6 @@ sensor_floor_driver_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(sensor_floor_driver_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-am_test_adapter_OBJECTS = test_adapter-test_adapter.$(OBJEXT)
-test_adapter_OBJECTS = $(am_test_adapter_OBJECTS)
-test_adapter_DEPENDENCIES =  \
-	$(top_builddir)/src/client/libcot-client.la
-test_adapter_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(test_adapter_CFLAGS) \
-	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -91,10 +92,10 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(example_timer_SOURCES) $(poll_generator_SOURCES) \
-	$(sensor_floor_driver_SOURCES) $(test_adapter_SOURCES)
-DIST_SOURCES = $(example_timer_SOURCES) $(poll_generator_SOURCES) \
-	$(sensor_floor_driver_SOURCES) $(test_adapter_SOURCES)
+SOURCES = $(example_timer_SOURCES) $(memtest_adapter_SOURCES) \
+	$(poll_generator_SOURCES) $(sensor_floor_driver_SOURCES)
+DIST_SOURCES = $(example_timer_SOURCES) $(memtest_adapter_SOURCES) \
+	$(poll_generator_SOURCES) $(sensor_floor_driver_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -228,11 +229,11 @@ sensor_floor_driver_CFLAGS = $(WARN_FLAGS) \
 								  -I$(top_srcdir)/src/common
 
 sensor_floor_driver_LDADD = $(top_builddir)/src/client/libcot-client.la
-test_adapter_SOURCES = test_adapter.c
-test_adapter_CFLAGS = -I$(top_srcdir)/src/client \
+memtest_adapter_SOURCES = memtest_adapter.c
+memtest_adapter_CFLAGS = -I$(top_srcdir)/src/client \
 								  -I$(top_srcdir)/src/common 
 
-test_adapter_LDADD = $(top_builddir)/src/client/libcot-client.la
+memtest_adapter_LDADD = $(top_builddir)/src/client/libcot-client.la
 poll_generator_SOURCES = poll_generator.c
 poll_generator_CFLAGS = -I$(top_srcdir)/src/client \
 								  -I$(top_srcdir)/src/common 
@@ -302,15 +303,15 @@ clean-binPROGRAMS:
 example_timer$(EXEEXT): $(example_timer_OBJECTS) $(example_timer_DEPENDENCIES) 
 	@rm -f example_timer$(EXEEXT)
 	$(example_timer_LINK) $(example_timer_OBJECTS) $(example_timer_LDADD) $(LIBS)
+memtest_adapter$(EXEEXT): $(memtest_adapter_OBJECTS) $(memtest_adapter_DEPENDENCIES) 
+	@rm -f memtest_adapter$(EXEEXT)
+	$(memtest_adapter_LINK) $(memtest_adapter_OBJECTS) $(memtest_adapter_LDADD) $(LIBS)
 poll_generator$(EXEEXT): $(poll_generator_OBJECTS) $(poll_generator_DEPENDENCIES) 
 	@rm -f poll_generator$(EXEEXT)
 	$(poll_generator_LINK) $(poll_generator_OBJECTS) $(poll_generator_LDADD) $(LIBS)
 sensor_floor_driver$(EXEEXT): $(sensor_floor_driver_OBJECTS) $(sensor_floor_driver_DEPENDENCIES) 
 	@rm -f sensor_floor_driver$(EXEEXT)
 	$(sensor_floor_driver_LINK) $(sensor_floor_driver_OBJECTS) $(sensor_floor_driver_LDADD) $(LIBS)
-test_adapter$(EXEEXT): $(test_adapter_OBJECTS) $(test_adapter_DEPENDENCIES) 
-	@rm -f test_adapter$(EXEEXT)
-	$(test_adapter_LINK) $(test_adapter_OBJECTS) $(test_adapter_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -319,9 +320,9 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/example_timer-example_timer.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/memtest_adapter-memtest_adapter.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/poll_generator-poll_generator.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sensor_floor_driver-sensor_floor_driver.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_adapter-test_adapter.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -358,6 +359,20 @@ example_timer-example_timer.obj: example_timer.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(example_timer_CFLAGS) $(CFLAGS) -c -o example_timer-example_timer.obj `if test -f 'example_timer.c'; then $(CYGPATH_W) 'example_timer.c'; else $(CYGPATH_W) '$(srcdir)/example_timer.c'; fi`
 
+memtest_adapter-memtest_adapter.o: memtest_adapter.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(memtest_adapter_CFLAGS) $(CFLAGS) -MT memtest_adapter-memtest_adapter.o -MD -MP -MF $(DEPDIR)/memtest_adapter-memtest_adapter.Tpo -c -o memtest_adapter-memtest_adapter.o `test -f 'memtest_adapter.c' || echo '$(srcdir)/'`memtest_adapter.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/memtest_adapter-memtest_adapter.Tpo $(DEPDIR)/memtest_adapter-memtest_adapter.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='memtest_adapter.c' object='memtest_adapter-memtest_adapter.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(memtest_adapter_CFLAGS) $(CFLAGS) -c -o memtest_adapter-memtest_adapter.o `test -f 'memtest_adapter.c' || echo '$(srcdir)/'`memtest_adapter.c
+
+memtest_adapter-memtest_adapter.obj: memtest_adapter.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(memtest_adapter_CFLAGS) $(CFLAGS) -MT memtest_adapter-memtest_adapter.obj -MD -MP -MF $(DEPDIR)/memtest_adapter-memtest_adapter.Tpo -c -o memtest_adapter-memtest_adapter.obj `if test -f 'memtest_adapter.c'; then $(CYGPATH_W) 'memtest_adapter.c'; else $(CYGPATH_W) '$(srcdir)/memtest_adapter.c'; fi`
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/memtest_adapter-memtest_adapter.Tpo $(DEPDIR)/memtest_adapter-memtest_adapter.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='memtest_adapter.c' object='memtest_adapter-memtest_adapter.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(memtest_adapter_CFLAGS) $(CFLAGS) -c -o memtest_adapter-memtest_adapter.obj `if test -f 'memtest_adapter.c'; then $(CYGPATH_W) 'memtest_adapter.c'; else $(CYGPATH_W) '$(srcdir)/memtest_adapter.c'; fi`
+
 poll_generator-poll_generator.o: poll_generator.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(poll_generator_CFLAGS) $(CFLAGS) -MT poll_generator-poll_generator.o -MD -MP -MF $(DEPDIR)/poll_generator-poll_generator.Tpo -c -o poll_generator-poll_generator.o `test -f 'poll_generator.c' || echo '$(srcdir)/'`poll_generator.c
 @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/poll_generator-poll_generator.Tpo $(DEPDIR)/poll_generator-poll_generator.Po
@@ -385,20 +400,6 @@ sensor_floor_driver-sensor_floor_driver.obj: sensor_floor_driver.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='sensor_floor_driver.c' object='sensor_floor_driver-sensor_floor_driver.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sensor_floor_driver_CFLAGS) $(CFLAGS) -c -o sensor_floor_driver-sensor_floor_driver.obj `if test -f 'sensor_floor_driver.c'; then $(CYGPATH_W) 'sensor_floor_driver.c'; else $(CYGPATH_W) '$(srcdir)/sensor_floor_driver.c'; fi`
-
-test_adapter-test_adapter.o: test_adapter.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_adapter_CFLAGS) $(CFLAGS) -MT test_adapter-test_adapter.o -MD -MP -MF $(DEPDIR)/test_adapter-test_adapter.Tpo -c -o test_adapter-test_adapter.o `test -f 'test_adapter.c' || echo '$(srcdir)/'`test_adapter.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/test_adapter-test_adapter.Tpo $(DEPDIR)/test_adapter-test_adapter.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='test_adapter.c' object='test_adapter-test_adapter.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_adapter_CFLAGS) $(CFLAGS) -c -o test_adapter-test_adapter.o `test -f 'test_adapter.c' || echo '$(srcdir)/'`test_adapter.c
-
-test_adapter-test_adapter.obj: test_adapter.c
-@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_adapter_CFLAGS) $(CFLAGS) -MT test_adapter-test_adapter.obj -MD -MP -MF $(DEPDIR)/test_adapter-test_adapter.Tpo -c -o test_adapter-test_adapter.obj `if test -f 'test_adapter.c'; then $(CYGPATH_W) 'test_adapter.c'; else $(CYGPATH_W) '$(srcdir)/test_adapter.c'; fi`
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/test_adapter-test_adapter.Tpo $(DEPDIR)/test_adapter-test_adapter.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='test_adapter.c' object='test_adapter-test_adapter.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_adapter_CFLAGS) $(CFLAGS) -c -o test_adapter-test_adapter.obj `if test -f 'test_adapter.c'; then $(CYGPATH_W) 'test_adapter.c'; else $(CYGPATH_W) '$(srcdir)/test_adapter.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo

@@ -38,6 +38,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <pthread.h>
 
 #include <obix_utils.h>
@@ -83,6 +84,8 @@ pthread_mutex_t _time_mutex = PTHREAD_MUTEX_INITIALIZER;
 Task_Thread* _taskThread;
 /** ID of the task which increases time every second. */
 int _timerTaskId;
+
+BOOL _shutDown = FALSE;
 
 /**
  * Handles changes of @a "reset" value.
@@ -160,30 +163,6 @@ int resetListener(int connectionId,
         printf("Unable to update timer attributes using oBIX Batch.\n");
         return error;
     }
-    // Instead of batch we could use 2 calls of obix_writeValue() like this:
-    //
-    //    // write zero value to the server
-    //    error = obix_writeValue(connectionId,
-    //                                deviceId,
-    //                                "time",
-    //                                "PT0S",
-    //                                OBIX_T_RELTIME);
-    //    if (error != OBIX_SUCCESS)
-    //    {
-    //        printf("Unable to set timer to zero at the server.\n");
-    //    }
-    //    // reset also "reset" field of the timer at the oBIX server
-    //    error = obix_writeValue(connectionId,
-    //                            deviceId,
-    //                            "reset",
-    //                            "false",
-    //                            OBIX_T_BOOL);
-    //    if (error != OBIX_SUCCESS)
-    //    {
-    //        printf("Unable to set \"reset\" field at the oBIX server "
-    //               "to \"false\".\n");
-    //        return -1;
-    //    }
 
     return OBIX_SUCCESS;
 }
@@ -196,8 +175,7 @@ int dummyListener(int connectionId,
                   int listenerId,
                   const char* newValue)
 {
-    printf("Somebody have changed some dummy data on the server:\n"
-           "id: %d; new value: %s\n", listenerId, newValue);
+    printf("New data: id %d; value \"%s\"\n", listenerId, newValue);
 }
 
 /**
@@ -253,6 +231,12 @@ char* getDeviceData(char* deviceUri)
                                 + (strlen(deviceUri) - 2)*4 + 1);
     sprintf(data, DEVICE_DATA, deviceUri, deviceUri, deviceUri, deviceUri);
     return data;
+}
+
+void signalHandler(int signal)
+{
+	_shutDown = TRUE;
+	printf("\nSignal %d is caught, terminating.\n", signal);
 }
 
 /**
@@ -378,16 +362,14 @@ int main(int argc, char** argv)
         }
     }
 
+    // register signal handler
+    signal(SIGINT, &signalHandler);
+    printf("Press Ctrl+C to shutdown.\n");
+
     // fall into the endless loop
     size = atoi(argv[4]);
-    while (1)
+    while (_shutDown == FALSE)
     {
-        int wokeUp = sleep(2);
-        if (wokeUp)
-        {
-            printf("Somebody has interrupted my sleeping! Shutdown..\n");
-            break;
-        }
         // try to allocate some more memory
         char* buffer = (char*) malloc(size);
         if (buffer == NULL)
@@ -399,16 +381,11 @@ int main(int argc, char** argv)
         buffer[0] = '\0';
         strlen(buffer);
         free(buffer);
+
+        sleep(2);
     }
 
     // shutdown gracefully
-
-    // stop timer task
-    if (ptask_cancel(_taskThread, _timerTaskId, TRUE))
-    {
-        printf("Unable to stop timer task.\n");
-        return -1;
-    }
     ptask_dispose(_taskThread, TRUE);
 
     // release all resources allocated by oBIX client library.

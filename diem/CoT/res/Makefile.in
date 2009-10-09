@@ -181,7 +181,8 @@ dist_pkgsysconf_DATA = obix-lighttpd.conf server_about.xml \
 	server_config.xml server_devices.xml server_lobby.xml \
 	server_sys_objects.xml server_watch.xml server_def.xml \
 	server_test_device.xml sensor_floor_config.xml \
-	example_timer_config.xml
+	example_timer_config.xml memtest_adapter_config.xml \
+	poll_generator_config.xml
 dist_check_DATA = test_devices.xml \
 							test_obix_client_config.xml
 

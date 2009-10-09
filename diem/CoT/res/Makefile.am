@@ -17,7 +17,9 @@ dist_pkgsysconf_DATA  	=   obix-lighttpd.conf \
 			   
 ## Data files for adapters
 dist_pkgsysconf_DATA	+=  sensor_floor_config.xml \
-							example_timer_config.xml
+							example_timer_config.xml \
+							memtest_adapter_config.xml \
+							poll_generator_config.xml
 
 ## Other data			   
 dist_check_DATA			=   test_devices.xml \

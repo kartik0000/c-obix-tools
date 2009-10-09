@@ -13,7 +13,7 @@ fi
 
 # launch [pri] parallel processes
 for i in $(seq 1 1 $2); do
-	./test_adapter $1 /obix/memtest$i $4 $5 <&- >> /dev/null 2>&1 || \
+	./memtest_adapter $1 /obix/memtest$i $4 $5 <&- >> /dev/null 2>&1 || \
 		echo "$i is terminated!" >> stop.log &
 	echo "Adapter N $i is started..."
 	echo "Adapter N $i is started..." >> mem_test.log
@@ -21,6 +21,7 @@ done
 
 # launch [prd] more processes. Each process in started once in 2 seconds.
 echo "Starting processes with delay.."
+echo "Starting processes with delay.." >> mem_test.log
 i=$(( $2 + 1 ))
 TOTAL_PRC=$(( $2 + $3 ))
 while [ $i -le $TOTAL_PRC ]; do
@@ -32,10 +33,12 @@ while [ $i -le $TOTAL_PRC ]; do
 		exit 1
 	fi
 	
-	./test_adapter $1 /obix/memtest$i $4 $5 <&- >> /dev/null 2>&1 || \
+	./memtest_adapter $1 /obix/memtest$i $4 $5 <&- >> /dev/null 2>&1 || \
 		echo "$i is terminated!" >> stop.log &
 	echo "Adapter N $i is started..."
 	echo "Adapter N $i is started..." >> mem_test.log
 	i=$(( $i + 1 ))
 done
 
+echo "All $(( $i - 1 )) processes are started."
+echo "All $(( $i - 1 )) processes are started." >> mem_test.log
