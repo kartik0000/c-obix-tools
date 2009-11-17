@@ -38,6 +38,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
+#include <pthread.h>
 
 #include <obix_client.h>
 #include <xml_config.h>
@@ -95,20 +96,24 @@ char* _configFile = NULL;
 long _deviceCount = 0;
 long _pollIntervalPerDevice = 0;
 long _writeIntervalPerDevice = 0;
-long _pollFieldsPerDevice = POLL_FIELDS_PER_DEVICE_DEFAULT;
+long _pollFieldsPerDevice = 0;
 POLL_TYPE _pollType = POLL_T_NONE;
 long _longPollMinInterval = 0;
+long _deviceIdShift = 0;
 
 int* _connectionIds;
 IXML_Element* _deviceXML;
 Task_Thread* _readThread = NULL;
 Task_Thread* _statisticsThread = NULL;
 
+pthread_mutex_t _pollCounterMutex = PTHREAD_MUTEX_INITIALIZER;
 long _pollCounter = 0;
 long _pollErrorCounter = 0;
+pthread_mutex_t _writeCounterMutex = PTHREAD_MUTEX_INITIALIZER;
 long _writeCounter = 0;
 long _writeErrorCounter = 0;
 long _executionTime = 0;
+
 
 BOOL _shutDown = FALSE;
 
@@ -181,6 +186,12 @@ POLL_TYPE parseAndSetPollType(char* argument)
  */
 int checkParsedArguments(long pollPerSecond, long writePerSecond)
 {
+    if (_pollFieldsPerDevice == 0)
+    {
+        // use default value
+        _pollFieldsPerDevice = POLL_FIELDS_PER_DEVICE_DEFAULT;
+    }
+
     if (pollPerSecond > 0)
     {
         if (_pollIntervalPerDevice > 0)
@@ -350,6 +361,13 @@ int parseInputArguments(int argumentsCount, char** arguments)
                 return -1;
             }
             break;
+        case 'i': // Device ID shift (id of the first device which is registered
+            // at the server by this poll generator (default is 0).
+            if (!parseLong(&_deviceIdShift, arg, 2))
+            {	// parsing failed
+                return -1;
+            }
+            break;
         default:
             {
                 printf("Unknown argument: %s\n", arg);
@@ -433,7 +451,7 @@ int generateConnectionConfig(IXML_Element* configXML)
 {
     // config file has one connection tag
     // we generate connection tag for each virtual device
-    int error;
+    int error = 0;
 
     IXML_Element* connectionTag =
         config_getChildTag(configXML, "connection", TRUE);
@@ -506,10 +524,13 @@ int generateConnectionConfig(IXML_Element* configXML)
     return 0;
 }
 
-int prepareDeviceData(IXML_Element* configXML)
+int extractDeviceData(IXML_Element* configXML)
 {
     // load device data which will be posted to the oBIX server by each device
-    _deviceXML = config_getChildTag(configXML, "device-info", TRUE);
+    _deviceXML =
+        config_getChildTag(config_getChildTag(configXML, "device-info", TRUE),
+                           "obj",
+                           TRUE);
     if (_deviceXML == NULL)
     {
         return -1;
@@ -558,7 +579,7 @@ int loadConfigFile()
         return error;
     }
 
-    error = prepareDeviceData(configXML);
+    error = extractDeviceData(configXML);
     if (error != 0)
     {
         config_finishInit(configXML, FALSE);
@@ -572,7 +593,8 @@ int loadConfigFile()
 char* getDeviceData(int deviceId)
 {
     // generate and set device URI
-    char* deviceUri = getStringFromLong("/obix/TestDevice%d/", deviceId);
+    char* deviceUri =
+        getStringFromLong("/obix/TestDevice%d/", deviceId + _deviceIdShift);
     if (deviceUri == NULL)
     {
         return NULL;
@@ -702,43 +724,50 @@ void taskPeriodicRead(void* arg)
         {
             pollListener(connectionId, 1, i, paramValue);
             free(paramValue);
+            pthread_mutex_lock(&_pollCounterMutex);
             _pollCounter++;
+            pthread_mutex_unlock(&_pollCounterMutex);
         }
         else
         {
             log_error("Device #%d: Unable to read parameter \"%s\".", paramUri);
+            pthread_mutex_lock(&_pollCounterMutex);
             _pollErrorCounter++;
+            pthread_mutex_unlock(&_pollCounterMutex);
         }
         free(paramUri);
     }
 }
 
-int startReadThread()
+int startThread(Task_Thread** thread)
 {
-    if (_readThread != NULL)
+    if (*thread != NULL)
     {
         // thread is already started
         return 0;
     }
 
-    _readThread = ptask_init();
-    if (_readThread == NULL)
+    *thread = ptask_init();
+    if (*thread == NULL)
     {
-        log_error("Unable to start reading thread.");
+        log_error("Unable to start a new thread.");
         return -1;
     }
     return 0;
 }
 
-void stopReadThread()
+void stopThread(Task_Thread* thread)
 {
-    if (_readThread == NULL)
+    if (thread == NULL)
     {
         // thread is not started - nothing to stop
         return;
     }
+    // try to cancel the first scheduling task. sometimes it helps to
+    // stop thread faster
+    ptask_cancel(thread, 1, FALSE);
 
-    int error = ptask_dispose(_readThread, TRUE);
+    int error = ptask_dispose(thread, TRUE);
     if (error != 0)
     {
         log_error("Unable to stop the reading thread.");
@@ -762,7 +791,7 @@ int scheduleReadTask(int deviceId)
 
 int startReadCycles()
 {
-    int error = startReadThread();
+    int error = startThread(&_readThread);
     if (error != 0)
     {
         return error;
@@ -797,13 +826,17 @@ void taskPeriodicWrite(void* arg)
     {
         log_error("Device #%d: Unable to write \"%s\" to parameter \"%s\".",
                   connectionId, newValue, paramUri);
+        pthread_mutex_lock(&_writeCounterMutex);
         _writeErrorCounter++;
+        pthread_mutex_unlock(&_writeCounterMutex);
     }
     else
     {
         log_debug("Device #%d: New value (\"%s\") is set to \"%s\".",
                   connectionId, newValue, paramUri);
+        pthread_mutex_lock(&_writeCounterMutex);
         _writeCounter++;
+        pthread_mutex_unlock(&_writeCounterMutex);
     }
     free(paramUri);
     free(newValue);
@@ -826,7 +859,7 @@ int scheduleWriteTask(int deviceId)
 int startWriteCycle()
 {
     srand(time(NULL));
-    int error = startReadThread();
+    int error = startThread(&_readThread);
     if (error != 0)
     {
         return error;
@@ -853,9 +886,11 @@ void taskShowCurrentRequestRate(void* arg)
     _executionTime++;
     printf("%ld:\t", _executionTime);
 
+    pthread_mutex_lock(&_pollCounterMutex);
     long pollPerSecond = getCounterGrowth(&_pollCounter, &_previousPollCount);
     long pollErrorPerSecond =
         getCounterGrowth(&_pollErrorCounter, &_previousPollErrorCount);
+    pthread_mutex_unlock(&_pollCounterMutex);
 
     printf("poll success (errors): %ld r/s (%ld);\t",
            pollPerSecond, pollErrorPerSecond);
@@ -863,10 +898,12 @@ void taskShowCurrentRequestRate(void* arg)
     if (_writeIntervalPerDevice > 0)
     {
         // gather also writing statistics
+        pthread_mutex_lock(&_writeCounterMutex);
         long writePerSecond =
             getCounterGrowth(&_writeCounter, &_previousWriteCount);
         long writeErrorPerSecond =
             getCounterGrowth(&_writeErrorCounter, &_previousWriteErrorCount);
+        pthread_mutex_unlock(&_writeCounterMutex);
         printf("write: %ld (%ld);\ttotal: %ld (%ld)\n",
                writePerSecond,
                writeErrorPerSecond,
@@ -881,13 +918,13 @@ void taskShowCurrentRequestRate(void* arg)
 
 int startStatisticsGathering()
 {
-    int error = startReadThread();
+    int error = startThread(&_statisticsThread);
     if (error != 0)
     {
         return error;
     }
 
-    int taskId = ptask_schedule(_readThread,
+    int taskId = ptask_schedule(_statisticsThread,
                                 &taskShowCurrentRequestRate,
                                 NULL,
                                 1000,
@@ -905,6 +942,8 @@ void showFinalStatistics()
     if (_pollType == POLL_T_READ)
     {
         // calculate request rate
+        pthread_mutex_lock(&_pollCounterMutex);
+        pthread_mutex_lock(&_writeCounterMutex);
         double pollRate = ((double)_pollCounter) / ((double)_executionTime);
         double writeRate = ((double)_writeCounter) / ((double)_executionTime);
         double totalRate = pollRate + writeRate;
@@ -920,7 +959,8 @@ void showFinalStatistics()
                _pollErrorCounter + _writeErrorCounter, totalRate);
 
         printf("Execution time: %ld seconds.\n", _executionTime);
-
+        pthread_mutex_unlock(&_pollCounterMutex);
+        pthread_mutex_unlock(&_writeCounterMutex);
     }
 }
 
@@ -996,7 +1036,8 @@ int main(int argumentsCount, char** arguments)
     }
 
     // shutdown gracefully
-    stopReadThread();
+    stopThread(_readThread);
+    stopThread(_statisticsThread);
     showFinalStatistics();
 
     // release all resources allocated by oBIX client library.

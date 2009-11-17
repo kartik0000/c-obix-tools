@@ -63,6 +63,10 @@ define Package/cot-adapters/install
 	$(INSTALL_DIR) $(1)/usr/bin $(1)/etc/cot
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/sensor_floor_driver $(1)/usr/bin/
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/res/sensor_floor_config.xml $(1)/etc/cot/
+#	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/memtest_adapter $(1)/usr/bin/
+#	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/adapters/max_mem_test.sh $(1)/usr/bin/
+#	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/adapters/max_mem_test_stop.sh $(1)/usr/bin/
+#	$(INSTALL_DATA) $(PKG_BUILD_DIR)/res/memtest_adapter_config.xml $(1)/etc/cot/
 endef
 
 define Package/libcot/install

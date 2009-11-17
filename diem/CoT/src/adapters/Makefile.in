@@ -218,6 +218,9 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
+EXTRA_DIST = max_mem_test.sh max_mem_test_stop.sh \
+								  poll_generator.sh
+
 example_timer_SOURCES = example_timer.c
 example_timer_CFLAGS = -I$(top_srcdir)/src/client \
 								  -I$(top_srcdir)/src/common

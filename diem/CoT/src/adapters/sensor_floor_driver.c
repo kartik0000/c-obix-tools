@@ -88,7 +88,7 @@ Target* _targets;
 /** Number of targets in the targets list. */
 int _targetsCount;
 /** Id of the device which is registered at the oBIX server. */
-int _deviceId;
+int _deviceIdShift;
 /** Thread for scheduling asynchronous tasks. */
 Task_Thread* _taskThread;
 /** Mutex for thread synchronization: Targets are changed from one thread and
@@ -212,7 +212,7 @@ int target_sendUpdate(Target* target)
         strcat(fullUri, "available");
 
         error = obix_batch_writeValue(batch,
-                                      _deviceId,
+                                      _deviceIdShift,
                                       fullUri,
                                       XML_TRUE,
                                       OBIX_T_BOOL);
@@ -224,7 +224,7 @@ int target_sendUpdate(Target* target)
         strcat(fullUri, "available");
 
         error = obix_batch_writeValue(batch,
-                                      _deviceId,
+                                      _deviceIdShift,
                                       fullUri,
                                       XML_FALSE,
                                       OBIX_T_BOOL);
@@ -240,7 +240,7 @@ int target_sendUpdate(Target* target)
     fullUri[targetUriLength + 1] = '\0';
 
     error = obix_batch_writeValue(batch,
-                                  _deviceId,
+                                  _deviceIdShift,
                                   fullUri,
                                   target->x,
                                   OBIX_T_REAL);
@@ -254,7 +254,7 @@ int target_sendUpdate(Target* target)
     fullUri[targetUriLength + 1] = '\0';
 
     error = obix_batch_writeValue(batch,
-                                  _deviceId,
+                                  _deviceIdShift,
                                   fullUri,
                                   target->y,
                                   OBIX_T_REAL);
@@ -535,7 +535,7 @@ int sendFallEventUpdate(IXML_Document* events)
             pthread_mutex_lock(&_targetMutex);
             log_warning("Somebody fell down..\n");
             int error = obix_writeValue(SERVER_CONNECTION,
-                                        _deviceId,
+                                        _deviceIdShift,
                                         "fall",
                                         XML_TRUE,
                                         OBIX_T_BOOL);
@@ -861,9 +861,9 @@ int main(int argc, char** argv)
 
     // register Sensor Floor at the target oBIX server
     char* deviceData = ixmlPrintDocument(_deviceData);
-    _deviceId = obix_registerDevice(SERVER_CONNECTION, deviceData);
+    _deviceIdShift = obix_registerDevice(SERVER_CONNECTION, deviceData);
     free(deviceData);
-    if (_deviceId < 0)
+    if (_deviceIdShift < 0)
     {
         log_error("Unable to register Sensor Floor at oBIX server.\n");
         return -1;

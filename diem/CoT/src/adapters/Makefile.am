@@ -2,6 +2,9 @@
 
 bin_PROGRAMS 					= example_timer sensor_floor_driver \
 								  memtest_adapter poll_generator
+## TODO distribute these scripts to the bin folder								  
+EXTRA_DIST						= max_mem_test.sh max_mem_test_stop.sh \
+								  poll_generator.sh
 
 example_timer_SOURCES			= example_timer.c
 
