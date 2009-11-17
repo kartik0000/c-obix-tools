@@ -21,7 +21,7 @@
    THE SOFTWARE.
 -->
 	<!--Lobby object for the oBIX server-->
-<obj href="/obix/" is="obix:Lobby /obix/def/SignUpLobby">
+<obj href="/obix/" is="obix:Lobby /obix/def/SignUpLobby /obix/def/DevicesLobby">
 	<ref name="watchService" href="watchService/" is="obix:WatchService" />
 	<ref name="about" href="about/" is="obix:About" />
 	<op name="batch" href="batch/" in="obix:BatchIn" out="obix:BatchOut">

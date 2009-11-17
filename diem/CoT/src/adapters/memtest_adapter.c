@@ -43,6 +43,7 @@
 
 #include <obix_utils.h>
 #include <obix_client.h>
+#include <log_utils.h>
 #include <ptask.h>
 
 /** ID of the connection which is described in configuration file. */
@@ -121,7 +122,7 @@ int resetListener(int connectionId,
         batch = obix_batch_create(connectionId);
         if (batch == NULL)
         {
-            printf("Unable to create Batch object!\n");
+            log_error("Unable to create Batch object!\n");
             return -1;
         }
         error = obix_batch_writeValue(batch,
@@ -131,7 +132,7 @@ int resetListener(int connectionId,
                                       OBIX_T_RELTIME);
         if (error < 0)
         {
-            printf("Unable to create Batch object!\n");
+        	log_error("Unable to create Batch object!\n");
             return error;
         }
         error = obix_batch_writeValue(batch,
@@ -141,7 +142,7 @@ int resetListener(int connectionId,
                                       OBIX_T_BOOL);
         if (error < 0)
         {
-            printf("Unable to create Batch object!\n");
+        	log_error("Unable to create Batch object!\n");
             return error;
         }
     }
@@ -160,7 +161,7 @@ int resetListener(int connectionId,
     error = obix_batch_send(batch);
     if (error != OBIX_SUCCESS)
     {
-        printf("Unable to update timer attributes using oBIX Batch.\n");
+    	log_error("Unable to update timer attributes using oBIX Batch.\n");
         return error;
     }
 
@@ -209,7 +210,7 @@ void timerTask(void* arg)
     int error = obix_writeValue(CONNECTION_ID, deviceId, "time", reltime, OBIX_T_RELTIME);
     if (error != OBIX_SUCCESS)
     {
-        printf("Unable to update timer value at the server.\n");
+    	log_error("Unable to update timer value at the server.\n");
     }
     free(reltime);
 }
@@ -235,8 +236,8 @@ char* getDeviceData(char* deviceUri)
 
 void signalHandler(int signal)
 {
-	_shutDown = TRUE;
-	printf("\nSignal %d is caught, terminating.\n", signal);
+    _shutDown = TRUE;
+    printf("\nSignal %d is caught, terminating.\n", signal);
 }
 
 /**
@@ -267,7 +268,7 @@ int main(int argc, char** argv)
     int error = obix_loadConfigFile(argv[1]);
     if (error != OBIX_SUCCESS)
     {
-        printf("Unable to load configuration file.\n");
+    	log_error("Unable to load configuration file.\n");
         return error;
     }
 
@@ -275,7 +276,7 @@ int main(int argc, char** argv)
     error = obix_openConnection(CONNECTION_ID);
     if (error != OBIX_SUCCESS)
     {
-        printf("Unable to establish connection with oBIX server.\n");
+    	log_error("Unable to establish connection with oBIX server.\n");
         return error;
     }
 
@@ -285,7 +286,7 @@ int main(int argc, char** argv)
     free(deviceData);
     if (deviceId < 0)
     {
-        printf("Unable to register device at oBIX server.\n");
+    	log_error("Unable to register device at oBIX server.\n");
         return deviceId;
     }
 
@@ -298,7 +299,7 @@ int main(int argc, char** argv)
                                            &resetListener);
     if (listenerId < 0)
     {
-        printf("Unable to register update listener.\n");
+    	log_error("Unable to register update listener.\n");
         return listenerId;
     }
 
@@ -306,7 +307,7 @@ int main(int argc, char** argv)
     _taskThread = ptask_init();
     if (_taskThread == NULL)
     {
-        printf("Unable to start separate thread for timer.\n");
+    	log_error("Unable to start separate thread for timer.\n");
         return -1;
     }
     // start updating time once in a second
@@ -322,6 +323,7 @@ int main(int argc, char** argv)
     if (additionalMemory == NULL)
     {
         printf("Unable to allocate %d bytes of memory!\n", size);
+        log_error("Unable to allocate %d bytes of memory!\n", size);
         return -1;
     }
     // fill allocated memory with very 'sensitive' data :)
@@ -357,7 +359,7 @@ int main(int argc, char** argv)
                                       &dummyListener);
         if (error < 0)
         {
-            printf("Unable to register the dummy listener number %d!\n", i + 1);
+        	log_error("Unable to register the dummy listener number %d!\n", i + 1);
             return -1;
         }
     }
@@ -376,6 +378,8 @@ int main(int argc, char** argv)
         {
             printf("Unable to allocate variable piece of memory - %d bytes!\n",
                    size);
+            log_error("Unable to allocate variable piece of memory - "
+                      "%d bytes!\n", size);
             return -1;
         }
         buffer[0] = '\0';
