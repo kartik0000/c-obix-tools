@@ -33,14 +33,40 @@
  - C oBIX Server and
  - C oBIX Client library
  
- oBIX Server is a stand-alone application 
- %%TODO%% Please, describe me :)
+ C oBIX Server is a stand-alone application intended for storing building 
+ automation data from various sources. It is a core for automation systems, 
+ which provides unified Web services interface to control connected devices 
+ (security sensors, heating/ventilation systems, lights, switches, etc.). 
+ Devices are connected to the server through oBIX adapters. These adapters are 
+ separate applications, which convert device specific protocol into oBIX 
+ messages. Thus, the server provides the same oBIX interface both for devices 
+ (device adapters) and for UI management applications. The main difference of 
+ this oBIX server from other available implementations, like oFMS 
+ (http://www.stok.fi/eng/ofms/index.html) or oX 
+ (http://obix-server.sourceforge.net) is that it is written in C and thus can be
+ run on cheap low-resource platforms.
+
+ C oBIX Server is implemented as a FastCGI (http://www.fastcgi.com) application 
+ and requires a Web server with FastCGI support. It was tested only with 
+ Lighttpd (http://www.lighttpd.net/), but theoretically, it can be used with any
+ other Web server. The only requirement is that the chosen Web server should 
+ support FastCGI multiplexing feature (ability to handle multiple requests 
+ simultaneously through one FastCGI connection), which is not supported, for 
+ instance, by Apache.
+ 
+ C oBIX Client Library (libcot) is intended mainly for the development of oBIX 
+ device adapters. It hides details of communication with oBIX server, providing 
+ a simple API to publish, read and write data at the server. The library should 
+ be compatible with any other oBIX server implementations (if not – please, 
+ report the bug). Together with C oBIX Server, the libcot library forms a 
+ complete suite for rapid development of embedded home or building automation 
+ server.
  
 ========>>
 
  --2-- Package contents
  
- Below is a short description of each folder contents:
+ Below is a short description of the main files in the package:
  
  README				This file. Contains project description.
  COPYING			Contains licensing terms for the project.
@@ -67,9 +93,9 @@
     
     ./doxygen/		Documentation source files.
  
- doc/				Contains project documentation, most of which is built by 
- 					Doxygen. HTML documentation is much more easier to read, but 
- 					.pdf files can be used to make a printed versions.
+ doc/				Contains project documentation, which is built by Doxygen. 
+ 					HTML documentation is much more easier to read, but .pdf
+ 					files can be used to make a hard copy versions.
  
  res/				Various configuration files.
  
@@ -81,7 +107,7 @@
  					
  res/obix-lighttpd.conf	
  					Lighttpd configuration file template. Used for configuring 
- 					oBIX server.
+ 					oBIX fcgi script.
  					
  res/sensor_floor_config.xml
  					Sensor floor adapter's configuration file.
