@@ -22,7 +22,7 @@
 -->
 	<!-- Place where the list of registered devices is stored. -->
 <list href="/obix/devices/" displayName="Device List" of="obix:ref">
-	<ref href="/obix/TestDevice/" name="TestDevice" displayName="Device for tests" />
+	<ref href="/obix/test/TestDevice/" name="TestDevice" displayName="Device for tests" />
 </list>
 
 
