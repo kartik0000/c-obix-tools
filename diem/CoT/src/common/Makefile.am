@@ -16,3 +16,4 @@ libcot_utils_la_CFLAGS		= $(WARN_FLAGS) $(UPNP_CFLAGS)
 
 libcot_utils_la_LIBADD		= $(UPNP_LIBS) $(RT_LIB) 
 
+libcot_utils_la_LDFLAGS	= -version-info ${LIBCOT_VERSION}

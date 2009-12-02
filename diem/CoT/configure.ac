@@ -2,15 +2,19 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.61)
-AC_INIT(cot, 0.0.0, Litvinov.Andrey@gmail.com)
+# If you are changing the version here, than update it also at ./README and
+# ./res/OpenWrt-SDK/cot/Makefile
+AC_INIT(cot, 0.1, Litvinov.Andrey@gmail.com)
 AM_INIT_AUTOMAKE([-Wall -Werror dist-bzip2])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADER([config.h])
 AC_CONFIG_MACRO_DIR([m4])
 
 # oBIX Client API version
-COT_CLIENT_VERSION="0:0:0"
-AC_SUBST(COT_CLIENT_VERSION)
+LIBCOT_VERSION="1:0:1"
+LIBCOT_VERSION_DOT="1.0.1"
+AC_SUBST(LIBCOT_VERSION)
+AC_SUBST(LIBCOT_VERSION_DOT)
 
 # Checks for programs.
 AC_PROG_AWK

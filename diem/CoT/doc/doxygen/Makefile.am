@@ -2,7 +2,7 @@
 
 ###########   libcot documentation   ###########
 ## archive with HTML documentation
-libcothtml = libcot-html-$(PACKAGE_VERSION).tar.gz
+libcothtml = libcot-html-$(LIBCOT_VERSION_DOT).tar.gz
 
 ## PDF file
 libcotpdf = libcot_manual.pdf
@@ -14,11 +14,10 @@ fullhtml = full-cot-html-$(PACKAGE_VERSION).tar.gz
 ## PDF file
 fullpdf = full_reference_manual.pdf
 
-
-dist_doc_DATA =  $(top_builddir)/doc/$(libcothtml) \
-				 $(top_builddir)/doc/$(libcotpdf) \
-				 $(top_builddir)/doc/$(fullhtml) \
-				 $(top_builddir)/doc/$(fullpdf)
+doc_DATA =  $(top_builddir)/doc/$(libcothtml) \
+			$(top_builddir)/doc/$(libcotpdf) \
+			$(top_builddir)/doc/$(fullhtml) \
+			$(top_builddir)/doc/$(fullpdf)
 
 libcot.doxygen.stamp: libcot.doxyfile
 	$(DOXYGEN) $(DOXYFLAGS) $<

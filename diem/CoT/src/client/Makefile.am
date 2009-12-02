@@ -17,4 +17,4 @@ libcot_client_la_CFLAGS		= $(WARN_FLAGS) \
 libcot_client_la_LIBADD		= $(CURL_LIBS) \
 							  $(top_builddir)/src/common/libcot-utils.la
 
-libcot_client_la_LDFLAGS	= -version-info ${COT_CLIENT_VERSION}
+libcot_client_la_LDFLAGS	= -version-info ${LIBCOT_VERSION}

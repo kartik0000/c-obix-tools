@@ -6,11 +6,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=cot
-PKG_VERSION:=0.0.0
+PKG_VERSION:=0.1
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
-PKG_SOURCE_URL:=http://www.tml.tkk.fi/~litvinov/
+PKG_SOURCE_URL:=http://c-obix-tools.googlecode.com/files/ \
+				http://www.tml.tkk.fi/~litvinov/
 
 include $(INCLUDE_DIR)/package.mk
 
