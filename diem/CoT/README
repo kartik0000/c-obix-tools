@@ -3,23 +3,24 @@
   
  A set of tools for developing oBIX-based solutions.
  
-========>>
+==============>>
 
  Copyright (c) 2009 Andrey Litvinov [litvinov.andrey@gmail.com]    
  
- CoT is a free software. It is licensed under MIT (X11) License. The text of the
+ CoT is a free software. It is licensed under MIT (X11) License. Text of the
  license can be found at the file COPYING.
  
-========>>  
+==============>>
     
  This file contains description of the project in the following sections:
  
- 1. Project overview
- 2. Package contents
- 3. Building instructions
- 4. Configuring oBIX server
+ 1. Project Overview
+ 2. System Requirements
+ 3. Package Contents
+ 4. Building Instructions
+ 5. Configuring oBIX Server
  
-========>>
+==============>>
 
  --1-- Project overview
  
@@ -30,8 +31,10 @@
  OpenWrt (http://openwrt.org).
  
  The project consists of 2 parts:
- - C oBIX Server and
- - C oBIX Client library
+  - C oBIX Server and
+  - C oBIX Client library
+ 
+ == C oBIX Server ==
  
  C oBIX Server is a stand-alone application intended for storing building 
  automation data from various sources. It is a core for automation systems, 
@@ -40,31 +43,111 @@
  Devices are connected to the server through oBIX adapters. These adapters are 
  separate applications, which convert device specific protocol into oBIX 
  messages. Thus, the server provides the same oBIX interface both for devices 
- (device adapters) and for UI management applications. The main difference of 
- this oBIX server from other available implementations, like oFMS 
- (http://www.stok.fi/eng/ofms/index.html) or oX 
- (http://obix-server.sourceforge.net) is that it is written in C and thus can be
- run on cheap low-resource platforms.
+ (device adapters) and for UI management applications. 
 
- C oBIX Server is implemented as a FastCGI (http://www.fastcgi.com) application 
- and requires a Web server with FastCGI support. It was tested only with 
- Lighttpd (http://www.lighttpd.net/), but theoretically, it can be used with any
- other Web server. The only requirement is that the chosen Web server should 
- support FastCGI multiplexing feature (ability to handle multiple requests 
- simultaneously through one FastCGI connection), which is not supported, for 
- instance, by Apache.
+ The main difference of this oBIX server from other available implementations 
+ (like oFMS http://www.stok.fi/eng/ofms/index.html or 
+ oX http://obix-server.sourceforge.net) is that it is written in C and thus can 
+ be run on cheap low-resource platforms. 
+
+ The whole project was developed with the main idea to minimize resource 
+ consumption and make the implementation as easy as possible. Thus, the server 
+ implements only basic oBIX functionality. If you are not going to run the 
+ server on embedded device than you may consider using another more complete 
+ oBIX implementation. 
+ Here is the list of currently implemented oBIX features:
+  - Read, write and invoke requests handling;
+  - Lobby object;
+  - Full implementation of WatchService;
+  - Batch operation;
+  - HTTP protocol binding.
+ Things that are NOT yet supported:
+  - Alarms;
+  - Feeds;
+  - Histories;
+  - Writable points (simple writable objects can be used instead);
+  - Permission based degradation;
+  - Localization;
+  - SOAP binding.
+ If some feature doesn’t appear in either of the lists above, most probably it 
+ is not implemented. 
+
+ In addition to standard oBIX functionality, the server has the following 
+ additional features:
+  - signUp operation, accessible from the Lobby object. It allows clients 
+    (device adapters) to publish new data at the server.
+  - Device list, showing all devices connected to the server. The list is also 
+    available from the Lobby object.
+  - Long polling mode for Watch objects. This mode allows clients to reduce 
+    amount of poll requests and in the same time receive immediate updates from 
+    the server. Additional information about this feature can be found at 
+    http://c-obix-tools.googlecode.com/files/long_polling.pdf .
+
+ An example of running server can be found at http://testbed.tml.hut.fi/obix/ 
+ 
+ == C oBIX Client Library ==
  
  C oBIX Client Library (libcot) is intended mainly for the development of oBIX 
  device adapters. It hides details of communication with oBIX server, providing 
  a simple API to publish, read and write data at the server. The library should 
  be compatible with any other oBIX server implementations (if not – please, 
  report the bug). Together with C oBIX Server, the libcot library forms a 
- complete suite for rapid development of embedded home or building automation 
- server.
- 
-========>>
+ complete framework for rapid development of embedded home or building 
+ automation server.
 
- --2-- Package contents
+ The library allows to perform the following oBIX actions:
+  - Read objects from oBIX server;
+  - Change object values at the server;
+  - Publish new data to the server (using signUp operation);
+  - Subscribe to data updates at the server. From the developer’s point of view 
+    it happens as a simple callback function registration, while library deals 
+    with oBIX Watch objects management. 
+  - Grouping several read and write operations in one Batch request. 
+ 
+ In addition, library contains a set of utilities, which can be useful during 
+ oBIX client application development (e.g., timer implementation, logging 
+ utilities, etc.). Several examples in distribution show how all these APIs can 
+ be used. 
+
+ Library documentation can be either taken from the project home page 
+ or (http://code.google.com/p/c-obix-tools) compiled from project sources (see 
+ building instructions for details).
+ 
+==============>>
+
+ --2-- System Requirements
+ 
+ The project is created for running on Linux platforms. It was tested on various 
+ platforms including embedded devices with OpenWrt (http://openwrt.org) 
+ installed. An example of tested embedded platform is Asus WL-500g Premium V2 
+ router (32 MB of RAM and 240 MHz CPU). Any other device capable to run OpenWrt 
+ can be used instead.
+
+ Other Linux distributions for embedded devices were not tested but can be 
+ possible used if all project dependencies are satisfied.
+
+ The project has the following library dependencies:
+  - libfcgi
+  - libupnp
+  - libcurl
+  
+ C oBIX Server is implemented as a FastCGI (http://www.fastcgi.com) application 
+ and requires, in addition, a Web server with FastCGI support. It was tested 
+ only with Lighttpd (http://www.lighttpd.net/), but theoretically, it can be 
+ used with any other Web server. The only requirement is that the chosen Web 
+ server should support FastCGI multiplexing feature (ability to handle multiple 
+ requests simultaneously through one FastCGI connection), which is not 
+ supported, for instance, by Apache.  
+
+ OpenWrt SDK is required in order to cross-compile the project for OpenWrt 
+ platform. Further instructions on cross-compiling can be found at 
+ ./res/OpenWrt-SDK/README file. Precompiled binaries for OpenWrt 7.09 are 
+ available at Download section of project home page 
+ (http://code.google.com/p/c-obix-tools/).
+ 
+==============>>
+
+ --3-- Package Contents
  
  Below is a short description of the main files in the package:
  
@@ -120,9 +203,9 @@
  res/OpenWrt-SDK/	Folder contains makefiles and instructions for building 
  					project for OpenWrt platform.            
  
-========>>
+==============>>
 
- --3-- Building instructions
+ --4-- Building Instructions
  
  Please refer to res/OpenWrt-SDK/README if you want to compile the project for 
  OpenWrt platform.
@@ -144,9 +227,15 @@
  
  You will need the following libraries to build CoT (configure script should 
  tell you which are missing):
- - libfcgi
- - libupnp
- - libcurl  					
+  - libfcgi
+  - libupnp
+  - libcurl  		
+ 
+ In order to build project documentation there should be following tools 
+ installed:
+  - Doxygen (http://www.doxygen.org/);
+  - A LaTeX distribution supported by Doxygen;
+  - dot tool for generating nice diagrams (http://www.graphviz.org/).		
   					
  After ./configure is successfully completed execute:
  
@@ -156,9 +245,9 @@
  make install		Will put binaries, config files and documentation to the 
  					installation directories. 
  
-========>>
+==============>>
 
- --4-- Configuring oBIX server
+ --5-- Configuring oBIX Server
  
  oBIX server is implemented as FastCGI script which can be executed by any HTTP
  server with FCGI support. This section describes how to use lighttpd 
@@ -246,4 +335,4 @@
     files. If it doesn't help than contact me, and I'll try to make better
     version of these instructions.
  
-========>>
+==============>>
