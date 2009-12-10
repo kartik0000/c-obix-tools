@@ -20,10 +20,9 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Implementation of HTTP client interface.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #include <stdlib.h>
@@ -130,6 +129,11 @@ static void curl_ext_freeMemory(CURL_EXT* handle)
     }
 }
 
+/**
+ * Allocates memory for a new extended CURL handle and sets all fields to
+ * default values.
+ * @return NULL on error.
+ */
 static CURL_EXT* curl_ext_allocateMemory()
 {
     // allocate space for new handle
@@ -299,7 +303,7 @@ static int sendRequest(CURL_EXT* handle, const char* uri)
     CURLcode code = curl_easy_setopt(handle->curl, CURLOPT_URL, uri);
     if (code != CURLE_OK)
     {
-        log_error("Unable to initialize HTTP GET request: "
+        log_error("Unable to initialize HTTP request: "
                   "Failed to set URL (%d).", code);
         return -1;
     }
@@ -337,100 +341,6 @@ int curl_ext_get(CURL_EXT* handle, const char* uri)
     log_debug("Requesting data from %s.", uri);
     return sendRequest(handle, uri);
 }
-
-/**
- * Helper function for curl_ext_put and curl_ext_post.
- * Both this requests send data to the server in the same manner.
- */
-//static int uploadData(CURL_EXT* handle, const char* uri, int requestType)
-//{
-//    char* requestName;
-//    CURLoption curlMode;
-//    CURLoption curlOutputSize;
-//    CURLcode code;
-//    CURL* curl = handle->curl;
-//
-//    // set required request type
-//    switch(requestType)
-//    {
-//    case REQUEST_HTTP_PUT:
-//        {
-//            // TODO remove this to methods upper
-//            // and use this method also for GET
-//            requestName = "PUT";
-//            curlMode = CURLOPT_UPLOAD;
-//            curlOutputSize = CURLOPT_INFILESIZE;
-//            //            code = curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
-//            //            if (code != CURLE_OK)
-//            //            {
-//            //                log_error("Unable to initialize HTTP PUT request: "
-//            //                          "Failed to switch to upload (%d).", code);
-//            //                return -1;
-//            //            }
-//            //
-//            //            code = curl_easy_setopt(curl, CURLOPT_PUT, 1L);
-//            break;
-//        }
-//    case REQUEST_HTTP_POST:
-//        {
-//            requestName = "POST";
-//            curlMode = CURLOPT_POST;
-//            curlOutputSize = CURLOPT_POSTFIELDSIZE;
-//            curl_easy_setopt(curl, CURLOPT_UPLOAD, 0L);
-//            break;
-//        }
-//    default:
-//        {
-//            log_error("Internal error: Unknown request type %d.", requestType);
-//            return -1;
-//        }
-//    }
-//
-//    // switch to the chosen mode
-//    code = curl_easy_setopt(curl, curlMode, 1L);
-//    if (code != CURLE_OK)
-//    {
-//        log_error("Unable to initialize HTTP %s request: "
-//                  "Failed to switch to %s (%d).",
-//                  requestName, requestName, code);
-//        return -1;
-//    }
-//
-//    code = curl_easy_setopt(curl, CURLOPT_URL, uri);
-//    if (code != CURLE_OK)
-//    {
-//        log_error("Unable to initialize HTTP %s request: "
-//                  "Failed to set URL (%d).", requestName, code);
-//        return -1;
-//    }
-//
-//    // Reset output counters
-//    handle->outputPos = 0;
-//    handle->outputSize = strlen(handle->outputBuffer);
-//    // Cleanup input buffer
-//    *(handle->inputBuffer) = '\0';
-//    handle->inputBufferFree = handle->inputBufferSize - 1;
-//
-//    // Set output length
-//    code = curl_easy_setopt(curl, curlOutputSize, handle->outputSize);
-//    if (code != CURLE_OK)
-//    {
-//        log_error("Unable to initialize HTTP %s request: "
-//                  "Failed to set output size (%d).", requestName, code);
-//        return -1;
-//    }
-//
-//    // Send the request
-//    code = curl_easy_perform(curl);
-//    if (code != CURLE_OK)
-//    {
-//        log_error("HTTP %s request to \"%s\" failed: %s.",
-//                  requestName, uri, handle->errorBuffer);
-//        return -1;
-//    }
-//
-//    return 0;
-//}
 
 int curl_ext_put(CURL_EXT* handle, const char* uri)
 {
@@ -512,6 +422,11 @@ int curl_ext_post(CURL_EXT* handle, const char* uri)
     return sendRequest(handle, uri);
 }
 
+/**
+ * Helper function for parsing received response at input buffer of provided
+ * handle.
+ * @return @a 0 on success; @a -1 on error.
+ */
 static int parseXmlInput(CURL_EXT* handle, IXML_Document** doc)
 {
     if (*(handle->inputBuffer) == '\0')

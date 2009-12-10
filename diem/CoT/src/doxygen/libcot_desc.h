@@ -23,6 +23,7 @@
  * @file
  * Doxygen documentation source file.
  * Contains source for @ref libcot_desc.
+ * @author Andrey Litvinov
  */
 /**
  * @page libcot_desc oBIX Client Library Overview

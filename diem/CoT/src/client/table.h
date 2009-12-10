@@ -20,31 +20,76 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Defines interface for a table storage (e.g. hashtable).
+ * The data is stored as key-value pairs, where key is a string and value can be
+ * of any type.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #ifndef TABLE_H_
 #define TABLE_H_
 
-typedef struct _Table
-{
-    int size;
-    int count;
+/** Table storage object. */
+typedef struct _Table Table;
 
-    char** keys;
-    void** values;
-}
-Table;
-
+/**
+ * Creates and returns new table storage.
+ *
+ * @param initialSize Storage size is auto adjusted every time when no more free
+ * 					space is left, but it takes time. So it is good idea to
+ * 					choose appropriate size from the beginning.
+ */
 Table* table_create(int initialSize);
+
+/**
+ * Adds new data pair to the specified table.
+ *
+ * @param key It should be unique and not @a NULL. No checks for these rules are
+ * 			done, so wrong key will cause unpredicted behavior. The key string
+ * 			is copied, so there is no need to keep the original string.
+ * @todo At least checking that the key is unique could be implemented.
+ * @param value Reference to any type of data.
+ * @return @a 0 if data was added successfully, @a -1 if error occurred.
+ */
 int table_put(Table* table, const char* key, void* value);
+
+/**
+ * Retrieves value corresponding to the provided key.
+ * @return @a NULL if no such key found.
+ */
 void* table_get(Table* table, const char* key);
+
+/**
+ * Removes key-value pair from the table.
+ * @return @a 0 if the pair was removed successfully, @a -1 otherwise.
+ */
 int table_remove(Table* table, const char* key);
+
+/**
+ * Releases memory allocated for the table.
+ */
 void table_free(Table* table);
+
+/**
+ * Returns amount of elements in the table.
+ */
+int table_getCount(Table* table);
+
+/**
+ * Returns array of keys.
+ *
+ * @param keys Reference to the keys array is returned here.
+ * @return Number of elements in the @a keys array.
+ */
 int table_getKeys(Table* table, const char*** keys);
+
+/**
+ * Returns array of values.
+ *
+ * @param values Reference to the values array is returned here.
+ * @return Number of elements in the @a values array.
+ */
 int table_getValues(Table* table, const void*** values);
 
 #endif /* TABLE_H_ */

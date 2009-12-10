@@ -20,10 +20,12 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Definitions of HTTP communication layer.
+ *
+ * HTTP communication layer provides stack of functions, which handle oBIX
+ * communication over HTTP connection.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #ifndef OBIX_HTTP_H_
@@ -33,6 +35,7 @@
 #include <table.h>
 #include <obix_comm.h>
 
+/** Extended Connection object, which stores HTTP specific settings. */
 typedef struct _Http_Connection
 {
     Connection c;
@@ -59,6 +62,7 @@ typedef struct _Http_Connection
 }
 Http_Connection;
 
+/** Extended Device object, which stores HTTP specific settings. */
 typedef struct _Http_Device
 {
     Device d;
@@ -68,48 +72,90 @@ typedef struct _Http_Device
 }
 Http_Device;
 
+/** Stack of HTTP communication functions. */
 extern const Comm_Stack OBIX_HTTP_COMM_STACK;
 
 /**
- * Subsequent calls have no effect
+ * Initializes HTTP communication layer.
+ * Subsequent calls have no effect.
+ *
+ * @return #OBIX_SUCCESS, or one of error codes defined by #OBIX_ERRORCODE.
  */
 int http_init();
 
 /**
- * Calls when HTTP stack is not initialized have no effect.
+ * Frees memory used by HTTP communication layer.
+ * When HTTP stack is not initialized calls of this function have no effect.
+ *
+ * @return #OBIX_SUCCESS, or one of error codes defined by #OBIX_ERRORCODE.
  */
 int http_dispose();
 
+/**
+ * Implements #comm_initConnection prototype.
+ */
 int http_initConnection(IXML_Element* connItem,
                         Connection** connection);
+/**
+ * Implements #comm_openConnection prototype.
+ */
 int http_openConnection(Connection* connection);
+/**
+ * Implements #comm_closeConnection prototype.
+ */
 int http_closeConnection(Connection* connection);
+/**
+ * Implements #comm_freeConnection prototype.
+ */
 void http_freeConnection(Connection* connection);
+/**
+ * Implements #comm_registerDevice prototype.
+ */
 int http_registerDevice(Connection* connection,
                         Device** device,
                         const char* data);
+/**
+ * Implements #comm_unregisterDevice prototype.
+ */
 int http_unregisterDevice(Connection* connection,
                           Device* device);
+/**
+ * Implements #comm_registerListener prototype.
+ */
 int http_registerListener(Connection* connection,
                           Device* device,
                           Listener** listener);
+/**
+ * Implements #comm_unregisterListener prototype.
+ */
 int http_unregisterListener(Connection* connection,
                             Device* device,
                             Listener* listener);
+/**
+ * Implements #comm_readValue prototype.
+ */
 int http_readValue(Connection* connection,
                         Device* device,
                         const char* paramUri,
                         char** output);
+/**
+ * Implements #comm_read prototype.
+ */
 int http_read(Connection* connection,
                    Device* device,
                    const char* paramUri,
                    IXML_Element** output);
+/**
+ * Implements #comm_writeValue prototype.
+ */
 int http_writeValue(Connection* connection,
                     Device* device, const
                     char* paramUri,
                     const char* newValue,
                     OBIX_DATA_TYPE dataType);
-
+/**
+ * Implements #comm_sendBatch prototype.
+ */
 int http_sendBatch(oBIX_Batch* batch);
 
 #endif /* OBIX_HTTP_H_ */

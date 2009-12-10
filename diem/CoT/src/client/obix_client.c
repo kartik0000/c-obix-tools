@@ -20,10 +20,9 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Contains implementation of C oBIX Client API front-end.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #include <stdlib.h>
@@ -34,26 +33,34 @@
 #include <obix_http.h>
 #include "obix_client.h"
 
+/** Default maximum amount of devices, which can be registered under one
+ * connection. */
 #define DEFAULT_MAX_DEVICES 10
+/** Default maximum amount of listeners, which can be set for each device */
 #define DEFAULT_MAX_LISTENERS 10
 
+/** @name Names of tags and attributes in XML configuration file
+ * @{ */
 static const char* CT_CONNECTION = "connection";
 static const char* CTA_CONNECTION_ID = "id";
 static const char* CTA_CONNECTION_TYPE = "type";
 static const char* CTAV_CONNECTION_TYPE_HTTP = "http";
 static const char* CT_MAX_DEVICES = "max-devices";
 static const char* CT_MAX_LISTENERS = "max-listeners";
+/** @} */
 
-/**Internal storage of connections*/
+/** Internal storage of all connections. */
 static Connection** _connections;
 static int _connectionCount;
 
+/** Frees memory allocated for Listener. */
 static void listener_free(Listener* listener)
 {
     free(listener->paramUri);
     free(listener);
 }
 
+/** Creates and registers new listener object for the provided device. */
 static int listener_register(Connection* connection,
                              Device* device,
                              int listenerId,
@@ -98,6 +105,7 @@ static int listener_register(Connection* connection,
     return listenerId;
 }
 
+/** Unregisters the specified listener and releases allocated memory. */
 static int listener_unregister(Connection* connection,
                                Device* device,
                                int listenerId)
@@ -122,6 +130,7 @@ static int listener_unregister(Connection* connection,
     return error;
 }
 
+/** Frees memory allocated for Device object (including its listeners). */
 static void device_free(Device* device)
 {
     if (device->listeners != NULL)
@@ -131,6 +140,7 @@ static void device_free(Device* device)
     free(device);
 }
 
+/** Creates new device object and registers it at the server. */
 static int device_register(Connection* connection, int deviceId, const char* data)
 {
     // create new device object
@@ -173,11 +183,10 @@ static int device_register(Connection* connection, int deviceId, const char* dat
     return OBIX_SUCCESS;
 }
 
-static int device_unregisterAllListeners(Connection* connection, int deviceId)
+static int device_unregisterAllListeners(
+    Connection* connection,
+    Device* device)
 {
-    // we do not check device id there because we assume that
-    // it was checked by caller
-    Device* device = connection->devices[deviceId];
     int i;
     int retVal = OBIX_SUCCESS;
     int error;
@@ -198,6 +207,7 @@ static int device_unregisterAllListeners(Connection* connection, int deviceId)
     return retVal;
 }
 
+/** Unregisters device from the server and completely deletes Device object. */
 static int device_unregister(Connection* connection, int deviceId)
 {
     // we do not check device id there because we assume that
@@ -205,7 +215,7 @@ static int device_unregister(Connection* connection, int deviceId)
     Device* device = connection->devices[deviceId];
 
     // unregister all listeners
-    int retVal = device_unregisterAllListeners(connection, deviceId);
+    int retVal = device_unregisterAllListeners(connection, device);
 
     // call connection type specific method for removing
     int error = (connection->comm->unregisterDevice)(connection, device);
@@ -240,6 +250,7 @@ int device_get(Connection* connection, int deviceId, Device** device)
     return OBIX_SUCCESS;
 }
 
+/** Frees memory allocated for the Connection object. */
 static int connection_free(Connection* connection)
 {
     if (connection->isConnected)
@@ -266,6 +277,11 @@ static int connection_free(Connection* connection)
     return OBIX_SUCCESS;
 }
 
+/**
+ * Creates new Connection object based on provided XML configuration.
+ * @param connItem XML element containing connection settings
+ * 				(#CT_CONNECTION tag).
+ */
 static int connection_create(IXML_Element* connItem)
 {
     Connection* connection;
@@ -557,7 +573,7 @@ int obix_closeConnection(int connectionId)
     }
 
     // remove all listeners from fake device
-    device_unregisterAllListeners(connection, 0);
+    device_unregisterAllListeners(connection, connection->devices[0]);
 
     // call connection type specific method
     error = (connection->comm->closeConnection)(connection);

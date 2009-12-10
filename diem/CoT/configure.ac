@@ -11,6 +11,7 @@ AC_CONFIG_HEADER([config.h])
 AC_CONFIG_MACRO_DIR([m4])
 
 # oBIX Client API version
+## if you are changing API version here, update is also at obix_client.h
 LIBCOT_VERSION="1:0:1"
 LIBCOT_VERSION_DOT="1.0.1"
 AC_SUBST(LIBCOT_VERSION)

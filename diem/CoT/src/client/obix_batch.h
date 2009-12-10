@@ -20,10 +20,12 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Defines types, which are used by C oBIX Client Batch implementation.
+ *
+ * These are internal for C oBIX Client API implementation. User should not be
+ * allowed to see contents of structures defined here.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #ifndef OBIX_BATCH_H_
@@ -31,6 +33,10 @@
 
 #include "obix_comm.h"
 
+/**
+ * List of operations, which can be executed in Batch command using C oBIX
+ * Client API (doesn't support operations so far).
+ */
 typedef enum
 {
     OBIX_BATCH_READ_VALUE,
@@ -38,6 +44,9 @@ typedef enum
     OBIX_BATCH_WRITE_VALUE
 } OBIX_BATCH_CMD_TYPE;
 
+/**
+ * Represents one command inside Batch request.
+ */
 typedef struct _oBIX_BatchCmd
 {
     OBIX_BATCH_CMD_TYPE type;
@@ -50,6 +59,9 @@ typedef struct _oBIX_BatchCmd
 }
 oBIX_BatchCmd;
 
+/**
+ * Represents a Batch object.
+ */
 struct _oBIX_Batch
 {
     Connection* connection;

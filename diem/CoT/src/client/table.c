@@ -20,15 +20,26 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo It supposed to be a hashtable, but now it is quite slow.
+ * Simple implementation of table storage.
+ *
+ * @todo It is supposed to be a hashtable, but now it is quite slow.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #include <string.h>
 #include <stdlib.h>
 #include <table.h>
+
+/** Table storage structure. */
+struct _Table
+{
+    int size;
+    int count;
+
+    char** keys;
+    void** values;
+};
 
 Table* table_create(int initialSize)
 {
@@ -52,6 +63,7 @@ Table* table_create(int initialSize)
     return table;
 }
 
+/** Extends size of the table. Size is multiplied by 2. */
 static int table_extend(Table* table)
 {
     // increase table size 2 times
@@ -158,6 +170,11 @@ void table_free(Table* table)
     free(table->values);
 
     free(table);
+}
+
+int table_getCount(Table* table)
+{
+	return table->count;
 }
 
 int table_getKeys(Table* table, const char*** keys)

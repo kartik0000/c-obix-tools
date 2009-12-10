@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /**@file
- * @brief oBIX Client API.
+ * @brief C oBIX Client API.
  *
  * oBIX Client API simplifies implementing oBIX client applications, such as
  * device drivers. Library hides all network calls and allows accessing
@@ -72,7 +72,7 @@
  * If not, please report the found error to the author of this distribution.
  *
  * @author Andrey Litvinov
- * @version 0.0.0
+ * @version 1.0.1
  */
 
 #ifndef OBIX_CLIENT_H_

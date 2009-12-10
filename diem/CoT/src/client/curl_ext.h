@@ -20,10 +20,20 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Defines simple API for HTTP client.
+ *
+ * This API is created specially for oBIX communication over HTTP.
+ * It allows to perform three HTTP request types:
+ * @li GET - oBIX read request;
+ * @li PUT - oBIX write request;
+ * @li POST - oBIX execute operation request.
+ *
+ * API is based on @a libcurl.
+ *
+ * It is internal library which is supposed to be used only by C oBIX Client API
+ * implementation.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #ifndef CURL_EXT_H_
@@ -32,36 +42,127 @@
 #include <ixml_ext.h>
 #include <curl/curl.h>
 
+/**
+ * Defines a handle for HTTP client, which wraps CURL handle.
+ */
 typedef struct _CURL_EXT
 {
-	CURL* curl;
+    /** CURL handle */
+    CURL* curl;
 
-	// buffer for storing incoming data
-	char* inputBuffer;
-	// counters for that buffer
-	int inputBufferSize; // size of buffer
-	int inputBufferFree; // free space in buffer
-	// buffer for storing sending data
-	const char* outputBuffer;
-	// counters for outgoing data
-	int outputSize; // size of output data
-	int outputPos; // number of sent bytes
-	// buffer for storing CURL error messages
-	char* errorBuffer;
-} CURL_EXT;
+    /** Buffer for storing incoming data.*/
+    char* inputBuffer;
+    // counters for that buffer:
+    int inputBufferSize;
+    int inputBufferFree;
+    /** Buffer for storing sending data.*/
+    const char* outputBuffer;
+    // counters for outgoing data
+    int outputSize; // size of output data
+    int outputPos; // number of sent bytes
+    /** buffer for storing CURL error messages.*/
+    char* errorBuffer;
+}
+CURL_EXT;
 
+/**
+ * Initialized HTTP client library. Must be called once, when the application is
+ * launched.
+ *
+ * @param defaultInputBufferSize Sets the default size for the input buffer. Can
+ * 				be useful to adjust this size if the amount of input data is
+ * 				expected to be always small (then small buffer will save memory)
+ * 				or big (then big buffer will be quicker).
+ * @return @a 0 if initialization was successful; @a -1 on error.
+ */
 int curl_ext_init(int defaultInputBufferSize);
+
+/**
+ * Cleans up everything allocated during initialization (but not created
+ * CURL_EXT handles). Should be called once during program shutdown.
+ */
 void curl_ext_dispose();
 
+/**
+ * Creates handle for HTTP client.
+ *
+ * @param handle A pointer to created handle is returned here.
+ * @return  @li @a 0 - On success.
+ * 			@li @a -2 - Not enough memory.
+ * 			@li @a -1 - Other error.
+ */
 int curl_ext_create(CURL_EXT** handle);
+
+/**
+ * Cleans memory allocated for HTTP client handle.
+ *
+ * @param handle A handle to free.
+ */
 void curl_ext_free(CURL_EXT* handle);
 
+/**
+ * Performs HTTP GET request using provided handle.
+ * Response will be stored at handle's input buffer.
+ *
+ * @param handle A handle which will be used to perform the request.
+ * @param uri    Requesting URI.
+ * @return @a 0 on success; @a -1 on error.
+ */
 int curl_ext_get(CURL_EXT* handle, const char* uri);
+
+/**
+ * Performs HTTP PUT request using provided handle.
+ * A reference to the data to be sent should be stored at handle's output buffer
+ * field. Don't forget to free memory allocated by sending data after the
+ * request.
+ *
+ * Response will be stored at handle's input buffer.
+ *
+ * @param handle A handle which will be used to perform the request.
+ * @param uri    Requesting URI.
+ * @return @a 0 on success; @a -1 on error.
+ */
 int curl_ext_put(CURL_EXT* handle, const char* uri);
+
+/**
+ * Performs HTTP POST request using provided handle.
+ * A reference to the data to be sent should be stored at handle's output buffer
+ * field. Don't forget to free memory allocated by sending data after the
+ * request.
+ *
+ * Response will be stored at handle's input buffer.
+ *
+ * @param handle A handle which will be used to perform the request.
+ * @param uri    Requesting URI.
+ * @return @a 0 on success; @a -1 on error.
+ */
 int curl_ext_post(CURL_EXT* handle, const char* uri);
 
-int curl_ext_getDOM(CURL_EXT* handle, const char* uri, IXML_Document** response);
-int curl_ext_putDOM(CURL_EXT* handle, const char* uri, IXML_Document** response);
-int curl_ext_postDOM(CURL_EXT* handle, const char* uri, IXML_Document** response);
+/**
+ * Works as #curl_ext_get. In addition, tries to parse received XML response.
+ *
+ * @param response A pointer to the parsed XML DOM structure is returned here.
+ */
+int curl_ext_getDOM(CURL_EXT* handle,
+                    const char* uri,
+                    IXML_Document** response);
+
+/**
+ * Works as #curl_ext_put. In addition, tries to parse received XML response.
+ *
+ * @param response A pointer to the parsed XML DOM structure is returned here.
+ */
+int curl_ext_putDOM(CURL_EXT* handle,
+                    const char* uri,
+                    IXML_Document** response);
+
+/**
+ * Works as #curl_ext_post. In addition, tries to parse received XML response.
+ *
+ * @param response A pointer to the parsed XML DOM structure is returned here.
+ */
+int curl_ext_postDOM(CURL_EXT* handle,
+                     const char* uri,
+                     IXML_Document** response);
 
 #endif /* CURL_EXT_H_ */

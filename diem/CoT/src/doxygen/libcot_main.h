@@ -23,6 +23,7 @@
  * @file
  * Doxygen documentation source file.
  * Contains source for @ref index.
+ * @author Andrey Litvinov
  */
 /**
  * @mainpage oBIX Client Library Documentation

@@ -25,6 +25,9 @@
 		This is a place where some permanent test contents can be added to the
 		server. This data will be loaded to the server's database during
 		startup.
+		If you want to emulate complete behaviour of the server, you should also
+		put a reference to your added device data at server_devices.xml file in
+		the same way as it is done for the TestDevice below.
 	-->
 <obj href="/obix/test/" displayName="Test Data Repository">
 	<!--

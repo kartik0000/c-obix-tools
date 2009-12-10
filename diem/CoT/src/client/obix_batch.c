@@ -20,10 +20,10 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Contains implementation of the part of C oBIX Client API, which deals with
+ * Batch operations.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #include <stdlib.h>
@@ -35,6 +35,7 @@
 
 #define OBIX_BATCH_EMPTY_RESULT 1
 
+/** Releases memory allocated for Batch command.*/
 static void obix_batch_commandFree(oBIX_BatchCmd* command)
 {
     if (command->paramUri != NULL)
@@ -48,6 +49,12 @@ static void obix_batch_commandFree(oBIX_BatchCmd* command)
     free(command);
 }
 
+/**
+ * Cleans stored results of Batch execution
+ *
+ * @param totally If #TRUE, then results array is deleted completely. Otherwise,
+ * 				only values of results array elements are cleared.
+ */
 static void obix_batch_resultClear(oBIX_Batch* batch, BOOL totally)
 {
     if (batch->result != NULL)
@@ -81,6 +88,10 @@ static void obix_batch_resultClear(oBIX_Batch* batch, BOOL totally)
     }
 }
 
+/**
+ * Creates results array for the provided Batch object.
+ * @return #OBIX_SUCCESS on success, negative error code otherwise.
+ */
 static int obix_batch_resultInit(oBIX_Batch* batch)
 {
     obix_batch_resultClear(batch, FALSE);
@@ -101,6 +112,8 @@ static int obix_batch_resultInit(oBIX_Batch* batch)
         for (i = 0; i < batch->commandCounter; i++)
         {
             result[i].status = OBIX_BATCH_EMPTY_RESULT;
+            result[i].obj = NULL;
+            result[i].value = NULL;
         }
 
         batch->result = result;
@@ -134,6 +147,14 @@ oBIX_Batch* obix_batch_create(int connectionId)
     return batch;
 }
 
+/**
+ * Makes a copy of string and returns a pointer to it.
+ * If source string is @a NULL, result copy is also @a NULL.
+ *
+ * @param dest A link to the copied string will be returned here.
+ * @param source String to be copied.
+ * @return @a 0 on success; -1 if there is not enough memory.
+ */
 static int strnullcpy(char** dest, const char* source)
 {
     if (source == NULL)
@@ -152,6 +173,7 @@ static int strnullcpy(char** dest, const char* source)
     return 0;
 }
 
+/** Adds new command to the Batch object*/
 static int obix_batch_addCommand(oBIX_Batch* batch,
                                  OBIX_BATCH_CMD_TYPE cmdType,
                                  int deviceId,
