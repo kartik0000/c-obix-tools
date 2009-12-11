@@ -73,7 +73,6 @@
  * #ptask_dispose().
  *
  * @author Andrey Litvinov
- * @version 1.1
  */
 
 #ifndef PTASK_H_

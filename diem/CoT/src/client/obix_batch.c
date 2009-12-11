@@ -23,6 +23,8 @@
  * Contains implementation of the part of C oBIX Client API, which deals with
  * Batch operations.
  *
+ * @see obix_batch.h
+ *
  * @author Andrey Litvinov
  */
 

@@ -24,6 +24,8 @@
  * Expands functionality of @a ixml library which provides DOM XML
  * parser functionality. @a ixml is distributed as a part of @a libupnp
  * (http://pupnp.sourceforge.net/).
+ *
+ * @author Andrey Litvinov
  */
 #ifndef IXML_EXT_H_
 #define IXML_EXT_H_

@@ -24,7 +24,6 @@
  * Just in case if nobody defined it before.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #ifndef BOOL_H_

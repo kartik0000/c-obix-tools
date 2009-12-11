@@ -22,6 +22,10 @@
 /** @file
  * Contains names of oBIX objects, contracts, facets, etc.
  * (http://obix.org/)
+ *
+ * @see obix_utils.h
+ *
+ * @author Andrey Litvinov
  */
 
 #include <stdlib.h>
@@ -30,10 +34,18 @@
 #include <limits.h>
 #include "obix_utils.h"
 
+/** @name oBIX Error Contracts' URIs
+ * Can be used to define the error type returned by an oBIX server.
+ * @{
+ */
 const char* OBIX_CONTRACT_ERR_BAD_URI = "obix:BadUriErr";
 const char* OBIX_CONTRACT_ERR_UNSUPPORTED = "obix:UnsupportedErr";
 const char* OBIX_CONTRACT_ERR_PERMISSION = "obix:PermissionErr";
+/** @} */
 
+/** @name oBIX Object Types (XML Element Types)
+ * @{
+ */
 const char* OBIX_OBJ = "obj";
 const char* OBIX_OBJ_REF = "ref";
 const char* OBIX_OBJ_OP = "op";
@@ -48,7 +60,12 @@ const char* OBIX_OBJ_ABSTIME = "abstime";
 const char* OBIX_OBJ_RELTIME = "reltime";
 const char* OBIX_OBJ_URI = "uri";
 const char* OBIX_OBJ_FEED = "feed";
+/** @} */
 
+/** @name oBIX Object Names
+ * Object names which are used in oBIX contracts.
+ * @{
+ */
 const char* OBIX_NAME_SIGN_UP = "signUp";
 const char* OBIX_NAME_BATCH = "batch";
 const char* OBIX_NAME_WATCH_SERVICE = "watchService";
@@ -62,9 +79,13 @@ const char* OBIX_NAME_WATCH_LEASE = "lease";
 const char* OBIX_NAME_WATCH_POLL_WAIT_INTERVAL = "pollWaitInterval";
 const char* OBIX_NAME_WATCH_POLL_WAIT_INTERVAL_MIN = "min";
 const char* OBIX_NAME_WATCH_POLL_WAIT_INTERVAL_MAX = "max";
+/** @} */
 
 const char* OBIX_OBJ_NULL_TEMPLATE = "<obj null=\"true\"/>";
 
+/** @name oBIX Object Attributes and Facets
+ * @{
+ */
 const char* OBIX_ATTR_IS = "is";
 const char* OBIX_ATTR_NAME = "name";
 const char* OBIX_ATTR_HREF = "href";
@@ -73,6 +94,7 @@ const char* OBIX_ATTR_NULL = "null";
 const char* OBIX_ATTR_WRITABLE = "writable";
 const char* OBIX_ATTR_DISPLAY = "display";
 const char* OBIX_ATTR_DISPLAY_NAME = "displayName";
+/** @} */
 
 const char* XML_TRUE = "true";
 const char* XML_FALSE = "false";

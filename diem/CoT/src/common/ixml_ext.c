@@ -21,6 +21,10 @@
  * ****************************************************************************/
 /** @file
  * Implements utility methods for work with XML DOM structure.
+ *
+ * @see ixml_ext.h
+ *
+ * @author Andrey Litvinov
  */
 
 #include <string.h>
@@ -201,6 +205,7 @@ IXML_Element* ixmlAttr_getOwnerElement(IXML_Attr* attr)
 }
 
 /**
+ * Helper function for #ixmlDocument_getElementByAttrValue.
  * It is not good idea to make it public, because it searches for the required
  * element also among neighbors of provided node
  * (not only among it's children).

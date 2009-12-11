@@ -24,6 +24,8 @@
  *
  * @todo It is supposed to be a hashtable, but now it is quite slow.
  *
+ * @see table.h
+ *
  * @author Andrey Litvinov
  */
 

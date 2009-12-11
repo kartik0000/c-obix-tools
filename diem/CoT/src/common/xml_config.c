@@ -20,10 +20,11 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description
+ * Implementation of XML configuration API.
+ *
+ * @see xml_config.h
  *
  * @author Andrey Litvinov
- * @version 1.1
  */
 #include <limits.h>
 #include <stdlib.h>
@@ -34,9 +35,14 @@
 #include "log_utils.h"
 #include "obix_utils.h"
 
+/**@name Common configuration file keywords
+ * @{ */
 const char* CT_CONFIG = "config";
 const char* CTA_VALUE = "val";
+/** @} */
 
+/**@name Log configuration keywords
+ * @{ */
 const char* CT_LOG = "log";
 const char* CT_LOG_LEVEL = "level";
 const char* CTAV_LOG_LEVEL_DEBUG = "debug";
@@ -48,7 +54,9 @@ const char* CTA_LOG_FACILITY = "facility";
 const char* CTAV_LOG_FACILITY_USER = "user";
 const char* CTAV_LOG_FACILITY_DAEMON = "daemon";
 const char* CTAV_LOG_FACILITY_LOCAL0 = "local0";
+/** @} */
 
+/** Stores address of resource folder. */
 static char* resourceFolder;
 
 IXML_Element* config_getChildTag(IXML_Element* conf,

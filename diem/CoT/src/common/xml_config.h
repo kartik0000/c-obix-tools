@@ -34,7 +34,6 @@
  * system configuration from an XML file.
  *
  * @author Andrey Litvinov
- * @version 1.1
  */
 
 #include <ixml_ext.h>

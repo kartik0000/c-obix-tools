@@ -36,7 +36,6 @@
  * - #log_error()
  *
  * @author Andrey Litvinov
- * @version 2.0
  */
 
 #ifndef LOG_UTILS_H_

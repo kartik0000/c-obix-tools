@@ -25,6 +25,8 @@
  * HTTP communication layer provides stack of functions, which handle oBIX
  * communication over HTTP connection.
  *
+ * @see obix_comm.h
+ *
  * @author Andrey Litvinov
  */
 

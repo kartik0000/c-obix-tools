@@ -24,6 +24,8 @@
  * Deals will all kind of oBIX over HTTP requests.
  * Encapsulates also the work with oBIX Watch objects.
  *
+ * @see obix_http.h
+ *
  * @author Andrey Litvinov
  */
 

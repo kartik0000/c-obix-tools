@@ -22,6 +22,8 @@
 /** @file
  * Contains implementation of C oBIX Client API front-end.
  *
+ * @see obix_client.h
+ *
  * @author Andrey Litvinov
  */
 

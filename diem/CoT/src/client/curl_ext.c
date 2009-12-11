@@ -22,6 +22,8 @@
 /** @file
  * Implementation of HTTP client interface.
  *
+ * @see curl_ext.h
+ *
  * @author Andrey Litvinov
  */
 

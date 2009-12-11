@@ -22,8 +22,9 @@
 /** @file
  * Contains implementation of logging tools.
  *
+ * @see log_utils.h
+ *
  * @author Andrey Litvinov
- * @version 2.0
  */
 
 #include <stdarg.h>
@@ -49,16 +50,20 @@ static void log_errorSyslog(char* fmt, ...);
 /** @} */
 
 /** @name Log handlers.
+ * Used to invoke quickly current logging function.
  * @{ */
 log_function log_debugHandler = &log_debugPrintf;
 log_function log_warningHandler = &log_warningPrintf;
 log_function log_errorHandler = &log_errorPrintf;
 /** @} */
 
+/** Defines global log level. */
 static int _log_level = LOG_LEVEL_DEBUG;
 
+/** Logging mode. */
 static BOOL _use_syslog = FALSE;
 
+/** Logs debug message using printf. */
 static void log_debugPrintf(char* fmt, ...)
 {
     printf("DEBUG ");
@@ -69,6 +74,7 @@ static void log_debugPrintf(char* fmt, ...)
     printf("\n");
 }
 
+/** Logs warning message using printf. */
 static void log_warningPrintf(char* fmt, ...)
 {
     printf("WARNING ");
@@ -79,6 +85,7 @@ static void log_warningPrintf(char* fmt, ...)
     printf("\n");
 }
 
+/** Logs error message using printf. */
 static void log_errorPrintf(char* fmt, ...)
 {
     printf("ERROR ");
@@ -89,6 +96,7 @@ static void log_errorPrintf(char* fmt, ...)
     printf("\n");
 }
 
+/** Logs debug message using syslog. */
 static void log_debugSyslog(char* fmt, ...)
 {
     va_list args;
@@ -97,6 +105,7 @@ static void log_debugSyslog(char* fmt, ...)
     va_end(args);
 }
 
+/** Logs warning message using syslog. */
 static void log_warningSyslog(char* fmt, ...)
 {
     va_list args;
@@ -105,6 +114,7 @@ static void log_warningSyslog(char* fmt, ...)
     va_end(args);
 }
 
+/** Logs error message using syslog. */
 static void log_errorSyslog(char* fmt, ...)
 {
     va_list args;
@@ -113,11 +123,15 @@ static void log_errorSyslog(char* fmt, ...)
     va_end(args);
 }
 
+/** Does not log anything.
+ * Used to ignore messages of some priorities according to the global log level.
+ */
 static void log_nothing(char* fmt, ...)
 {
     // dismiss the log message
 }
 
+/** Configures logging system in printf mode according to global log level. */
 static void setPrintf()
 {
     // drop all log functions
@@ -138,6 +152,7 @@ static void setPrintf()
     }
 }
 
+/** Configures logging system in syslog mode according to global log level. */
 static void setSyslog()
 {
     // drop all log functions
@@ -165,8 +180,6 @@ void log_usePrintf()
     closelog();
     setPrintf();
 }
-
-
 
 void log_useSyslog(int facility)
 {

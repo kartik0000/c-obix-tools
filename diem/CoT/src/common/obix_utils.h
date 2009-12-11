@@ -30,6 +30,8 @@
  * registering new device data).
  * @n
  * Read more about oBIX from http://obix.org/
+ *
+ * @author Andrey Litvinov
  */
 
 #ifndef OBIX_UTILS_H_
@@ -83,7 +85,7 @@ extern const char* OBIX_OBJ_FEED;
 /** @} */
 
 /** @name oBIX Object Names
- * Object names which are used in oBIX contracts.
+ * Object names (value of @a name attributes), which are used in oBIX contracts.
  * @{
  */
 /** Name of @a signUp operation in the Lobby object. */
@@ -114,7 +116,7 @@ extern const char* OBIX_NAME_WATCH_POLL_WAIT_INTERVAL_MIN;
 extern const char* OBIX_NAME_WATCH_POLL_WAIT_INTERVAL_MAX;
 /** @} */
 
-/** String which represents oBIX @a NULL object. */
+/** String representation of oBIX @a NULL object. */
 extern const char* OBIX_OBJ_NULL_TEMPLATE;
 
 /** @name oBIX Object Attributes and Facets

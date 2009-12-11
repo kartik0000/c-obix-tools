@@ -21,10 +21,11 @@
  * ****************************************************************************/
 /** @file
  *
- * @todo Add description
+ * Implementation of Periodic Task tool.
+ *
+ * @see ptask.h
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 #include <stdlib.h>
 #include <pthread.h>
@@ -34,38 +35,65 @@
 
 #include "ptask.h"
 
+/** Represents on periodic task and its properties. */
 typedef struct _Periodic_Task
 {
     int id;
+    /** Time when the task should be executed. */
     struct timespec nextScheduledTime;
+    /** Execution period. */
     struct timespec period;
+    /** How many times the task should be executed. */
     int executeTimes;
+    /** Task itself. */
     periodic_task task;
+    /** Argument, which should be passed to the task during execution. */
     void* arg;
+    /** @name State flags
+     * @{ */
     BOOL isCancelled;
     BOOL isExecuting;
+    /** @} */
+    /** @name Links to neighbor elements in task list.
+     * @see _Task_Thread::taskList
+    * @{ */
     struct _Periodic_Task* prev;
     struct _Periodic_Task* next;
+    /** @} */
 }
 Periodic_Task;
 
+/** Defines internal attributes of #Task_Thread. */
 struct _Task_Thread
 {
+    /** Used for unique ID generation. */
     int id_gen;
+    /** List of scheduled tasks. */
     Periodic_Task* taskList;
+    /** Thread handle. */
     pthread_t thread;
+    /** Synchronization mutex. */
     pthread_mutex_t taskListMutex;
+    /** Condition, which happens when task list is changed. */
     pthread_cond_t taskListUpdated;
+    /** Condition, which happens when task has been executed. */
     pthread_cond_t taskExecuted;
 };
 
-/**@name Utility methods for work with @a timespec structure @{*/
+/**@name Utility methods for work with @a timespec structure
+ * @{*/
+/** Converts milliseconds (represented as @a long) into @a timespec structure.*/
 static void timespec_fromMillis(struct timespec* time, long millis)
 {
     time->tv_sec = millis / 1000;
     time->tv_nsec = (millis % 1000) * 1000000;
 }
 
+/**
+ * Adds time from the second argument to the first one.
+ * @return  @li @a 1 if the resulting time in @a time1 is greater or equal @a 0;
+ *  		@li @a -1 if the result is less than @a 0.
+ */
 static int timespec_add(struct timespec* time1, const struct timespec* time2)
 {
     long newNano = time1->tv_nsec + time2->tv_nsec;
@@ -90,12 +118,19 @@ static int timespec_add(struct timespec* time1, const struct timespec* time2)
         return -1;
 }
 
+/** Copies time from @a source to @a dest. */
 static void timespec_copy(struct timespec* dest, const struct timespec* source)
 {
     dest->tv_sec = source->tv_sec;
     dest->tv_nsec = source->tv_nsec;
 }
 
+/**
+ * Compares value of two time structures.
+ * @return  @li @a 1  if @a time1 > @a time2;
+ * 			@li @a 0  if @a time1 == @a time2;
+ * 			@li @a -1 if @a time1 < @a time2.
+ */
 static int timespec_cmp(struct timespec* time1, struct timespec* time2)
 {
     // compare seconds first
@@ -125,12 +160,19 @@ static int timespec_cmp(struct timespec* time1, struct timespec* time2)
 }
 /**@}*/
 
-// this is called only from ptask_schedule() thus is thread safe
+/**
+ * Returns new unique ID for periodic task.
+ * @note This should be called only from synchronized context in order to be
+ * 		thread safe!
+ */
 static int generateId(Task_Thread* thread)
 {
     return thread->id_gen++;
 }
 
+/**@name Utility methods for work with #Periodic_Task structure
+ * @{*/
+/** Sets next execution time for the task. */
 static void periodicTask_generateNextExecTime(Periodic_Task* ptask)
 {
     // we generate next time, by adding period to last time when the task
@@ -138,12 +180,18 @@ static void periodicTask_generateNextExecTime(Periodic_Task* ptask)
     timespec_add(&(ptask->nextScheduledTime), &(ptask->period));
 }
 
-static void periodicTask_setPeriod(Periodic_Task* ptask, long period, int executeTimes)
+/** Updates task execution period. */
+static void periodicTask_setPeriod(Periodic_Task* ptask,
+                                   long period,
+                                   int executeTimes)
 {
     timespec_fromMillis(&(ptask->period), period);
     ptask->executeTimes = executeTimes;
 }
 
+/**
+ * Sets next execution time for the task as (current time + execution period).
+ */
 static void periodicTask_resetExecTime(Periodic_Task* ptask)
 {
     // set next execution time = current time + period
@@ -151,7 +199,16 @@ static void periodicTask_resetExecTime(Periodic_Task* ptask)
     periodicTask_generateNextExecTime(ptask);
 }
 
-static Periodic_Task* periodicTask_create(Task_Thread* thread, periodic_task task, void* arg, long period, int executeTimes)
+/**
+ * Creates new instance of periodic task based on provided parameters.
+ * @return @a NULL if there is not enough memory.
+ */
+static Periodic_Task* periodicTask_create(
+    Task_Thread* thread,
+    periodic_task task,
+    void* arg,
+    long period,
+    int executeTimes)
 {
     Periodic_Task* ptask = (Periodic_Task*) malloc(sizeof(Periodic_Task));
     if (ptask == NULL)
@@ -173,12 +230,15 @@ static Periodic_Task* periodicTask_create(Task_Thread* thread, periodic_task tas
     return ptask;
 }
 
+/** Releases memory allocated for periodic task. */
 static void periodicTask_free(Periodic_Task* ptask)
 {
     free(ptask);
 }
 
-static void periodicTask_removeFromList(Task_Thread* thread, Periodic_Task* ptask)
+/** Removes periodic task from scheduled task list (_Task_Thread::taskList). */
+static void periodicTask_removeFromList(Task_Thread* thread,
+                                        Periodic_Task* ptask)
 {
     if (ptask->prev != NULL)
     {
@@ -195,9 +255,11 @@ static void periodicTask_removeFromList(Task_Thread* thread, Periodic_Task* ptas
     }
 }
 
-// note that this is called only from synchronized context
-// i.e. thread->taskListMutex should be locked
-// after method execution this mutex remains locked
+/**
+ * Executes scheduled task and schedules it for next execution if needed.
+ * @note This should be called only from synchronized context, i.e.
+ *  	#_Task_Thread::taskListMutex should be locked.
+ */
 static void periodicTask_execute(Task_Thread* thread, Periodic_Task* ptask)
 {
     ptask->isExecuting = TRUE;
@@ -233,10 +295,17 @@ static void periodicTask_execute(Task_Thread* thread, Periodic_Task* ptask)
     else
     {
         // schedule next execution
+    	// TODO if time required to perform the task is bigger than execution
+    	// period, than next execution time would be smaller than current system
+    	// time. It would be useful to be able to choose whether periodic task
+    	// is executed at strict time intervals (like it is done now), or next
+    	// execution time is calculated as (time when task is completed +
+    	// execution period) like it is done at periodicTask_resetExecTime.
         periodicTask_generateNextExecTime(ptask);
     }
 }
 
+/** Returns task with provided id, or @a NULL if no such task found. */
 static Periodic_Task* periodicTask_get(Task_Thread* thread, int id)
 {
     Periodic_Task* ptask = thread->taskList;
@@ -247,7 +316,141 @@ static Periodic_Task* periodicTask_get(Task_Thread* thread, int id)
     return ptask;
 }
 
-int ptask_schedule(Task_Thread* thread, periodic_task task, void* arg, long period, int executeTimes)
+/** Returns task with the smallest scheduled time.
+ *
+ * @note Should be called from synchronized context only.
+ * @return @a NULL if there are no scheduled tasks.
+ */
+static Periodic_Task* periodicTask_getClosest(Task_Thread* thread)
+{
+    if (thread->taskList == NULL)
+    {
+        return NULL;
+    }
+    // search for the task with minimum next scheduled time
+    Periodic_Task* iterator;
+    Periodic_Task* closestTask = thread->taskList;
+
+    for (iterator = thread->taskList->next;
+            iterator != NULL;
+            iterator = iterator->next)
+    {
+        if (timespec_cmp(&(iterator->nextScheduledTime),
+                         &(closestTask->nextScheduledTime)) == -1)
+        {
+            closestTask = iterator;
+        }
+    }
+
+    return closestTask;
+}
+
+/** Releases memory allocated by whole tasks in the task list. */
+static void periodicTask_deleteRecursive(Periodic_Task* ptask)
+{
+    if (ptask == NULL)
+    {
+        return;
+    }
+
+    periodicTask_deleteRecursive(ptask->next);
+
+    periodicTask_free(ptask);
+}
+/** @} */
+
+/** Main working cycle which executed tasks. */
+static void* threadCycle(void* arg)
+{
+    Task_Thread* thread = (Task_Thread*) arg;
+    Periodic_Task* task;
+    int waitState;
+
+    log_debug("Periodic Task thread is started...");
+
+    pthread_mutex_lock(&(thread->taskListMutex));
+    // we have endless cycle there because thread is stopped
+    // by a separate task (see stopTask) which is executed inside the loop
+    while (1)
+    {
+        // find closest task
+        task = periodicTask_getClosest(thread);
+        if (task == NULL)
+        {
+            // wait until something is added to the taskList
+            // log_debug("wait until something is added to the task list");
+            pthread_cond_wait(&(thread->taskListUpdated),
+                              &(thread->taskListMutex));
+            // start cycle from the beginning
+            continue;
+        }
+
+        // wait for the time when task should be executed
+        // log_debug("wait for the time when the task should be executed");
+        waitState = pthread_cond_timedwait(&(thread->taskListUpdated),
+                                           &(thread->taskListMutex),
+                                           &(task->nextScheduledTime));
+
+        // check why we stopped waiting
+        switch (waitState)
+        {
+        case 0:
+            // condition _taskListUpdated is reached
+            // it means that we need to check once again for the closest task
+            // thus do nothing
+            break;
+        case ETIMEDOUT:
+            // Nothing happened when we waited for the task to be executed
+            // so let's execute it now
+            periodicTask_execute(thread, task);
+            break;
+        case EINVAL:
+            {
+                log_error("Periodic Task thread: Next scheduled time is wrong: "
+                          "%ld sec %ld nanosec. THAT IS A BIG BUG IN ptask! "
+                          "THIS SHOULD NEVER HAPPEN!!!",
+                          task->nextScheduledTime.tv_sec,
+                          task->nextScheduledTime.tv_nsec);
+                pthread_mutex_unlock(&(thread->taskListMutex));
+                ptask_cancel(thread, task->id, FALSE);
+                pthread_mutex_lock(&(thread->taskListMutex));
+            }
+            break;
+        default:
+            log_warning("Periodic Task thread: pthread_cond_timedwait() "
+                        "returned unknown result: %d", waitState);
+            // start from the beginning;
+            break;
+        }
+    }
+    // this line actually is never reached, see stopTask
+    return NULL;
+}
+
+/** A special task, which is scheduled in order to stop Task_Thread. */
+static void stopTask(void* arg)
+{
+    Task_Thread* thread = (Task_Thread*) arg;
+    // delete all tasks recursively
+    pthread_mutex_lock(&(thread->taskListMutex));
+    periodicTask_deleteRecursive(thread->taskList);
+    thread->taskList = NULL;
+    pthread_mutex_unlock(&(thread->taskListMutex));
+
+    // stop the thread
+    pthread_mutex_destroy(&(thread->taskListMutex));
+    pthread_cond_destroy(&(thread->taskListUpdated));
+    pthread_cond_destroy(&(thread->taskExecuted));
+    free(thread);
+    log_debug("Periodic Task thread is stopped.");
+    pthread_exit(NULL);
+}
+
+int ptask_schedule(Task_Thread* thread,
+                   periodic_task task,
+                   void* arg,
+                   long period,
+                   int executeTimes)
 {
     if (executeTimes == 0)
     {	// executeTimes can't be 0, but can be -1 (EXECUTE_INDEFINITE).
@@ -255,7 +458,8 @@ int ptask_schedule(Task_Thread* thread, periodic_task task, void* arg, long peri
     }
 
     pthread_mutex_lock(&(thread->taskListMutex));
-    Periodic_Task* ptask = periodicTask_create(thread, task, arg, period, executeTimes);
+    Periodic_Task* ptask =
+        periodicTask_create(thread, task, arg, period, executeTimes);
     if (ptask == NULL)
     {
         return -1;
@@ -426,95 +630,6 @@ int ptask_cancel(Task_Thread* thread, int taskId, BOOL wait)
     return 0;
 }
 
-static Periodic_Task* periodicTask_getClosest(Task_Thread* thread)
-{
-    // doesn't lock mutex because is called only from threadCycle
-    if (thread->taskList == NULL)
-    {
-        return NULL;
-    }
-    // search for the task with minimum next scheduled time
-    Periodic_Task* iterator;
-    Periodic_Task* closestTask = thread->taskList;
-
-    for (iterator = thread->taskList->next; iterator != NULL; iterator = iterator->next)
-    {
-        if (timespec_cmp(&(iterator->nextScheduledTime),
-                         &(closestTask->nextScheduledTime)) == -1)
-        {
-            closestTask = iterator;
-        }
-    }
-
-    return closestTask;
-}
-
-static void* threadCycle(void* arg)
-{
-    Task_Thread* thread = (Task_Thread*) arg;
-    Periodic_Task* task;
-    int waitState;
-
-    log_debug("Periodic Task thread is started...");
-
-    pthread_mutex_lock(&(thread->taskListMutex));
-    // we have endless cycle there because thread is stopped
-    // by a separate task (see stopTask) which is executed inside the loop
-    while (1)
-    {
-        // find closest task
-        task = periodicTask_getClosest(thread);
-        if (task == NULL)
-        {
-            // wait until something is added to the taskList
-            //        	log_debug("wait until something is added to the task list");
-            pthread_cond_wait(&(thread->taskListUpdated), &(thread->taskListMutex));
-            // start cycle from the beginning
-            continue;
-        }
-
-        // wait for the time when task should be executed
-        //        log_debug("wait for the time when the task should be executed");
-        waitState = pthread_cond_timedwait(&(thread->taskListUpdated),
-                                           &(thread->taskListMutex),
-                                           &(task->nextScheduledTime));
-
-        // check why we stopped waiting
-        switch (waitState)
-        {
-        case 0:
-            // condition _taskListUpdated is reached
-            // it means that we need to check once again for the closest task
-            // thus do nothing
-            break;
-        case ETIMEDOUT:
-            // Nothing happened when we waited for the task to be executed
-            // so let's execute it now
-            periodicTask_execute(thread, task);
-            break;
-        case EINVAL:
-            {
-                log_error("Periodic Task thread: Next scheduled time is wrong: "
-                          "%ld sec %ld nanosec. THAT IS A BIG BUG IN ptask! "
-                          "THIS SHOULD NEVER HAPPEN!!!",
-                          task->nextScheduledTime.tv_sec,
-                          task->nextScheduledTime.tv_nsec);
-                pthread_mutex_unlock(&(thread->taskListMutex));
-                ptask_cancel(thread, task->id, FALSE);
-                pthread_mutex_lock(&(thread->taskListMutex));
-            }
-            break;
-        default:
-            log_warning("Periodic Task thread: pthread_cond_timedwait() "
-                        "returned unknown result: %d", waitState);
-            // start from the beginning;
-            break;
-        }
-    }
-    // this line actually is never reached, see stopTask
-    return NULL;
-}
-
 Task_Thread* ptask_init()
 {
     Task_Thread* thread = (Task_Thread*) malloc(sizeof(Task_Thread));
@@ -564,36 +679,6 @@ Task_Thread* ptask_init()
     }
 
     return thread;
-}
-
-static void periodicTask_deleteRecursive(Periodic_Task* ptask)
-{
-    if (ptask == NULL)
-    {
-        return;
-    }
-
-    periodicTask_deleteRecursive(ptask->next);
-
-    periodicTask_free(ptask);
-}
-
-static void stopTask(void* arg)
-{
-    Task_Thread* thread = (Task_Thread*) arg;
-    // delete all tasks recursively
-    pthread_mutex_lock(&(thread->taskListMutex));
-    periodicTask_deleteRecursive(thread->taskList);
-    thread->taskList = NULL;
-    pthread_mutex_unlock(&(thread->taskListMutex));
-
-    // stop the thread
-    pthread_mutex_destroy(&(thread->taskListMutex));
-    pthread_cond_destroy(&(thread->taskListUpdated));
-    pthread_cond_destroy(&(thread->taskExecuted));
-    free(thread);
-    log_debug("Periodic Task thread is stopped.");
-    pthread_exit(NULL);
 }
 
 int ptask_dispose(Task_Thread* thread, BOOL wait)
