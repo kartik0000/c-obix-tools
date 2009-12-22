@@ -19,10 +19,18 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  * ****************************************************************************/
+/** @file
+ * Entry point of C oBIX Server.
+ * This file contains #main function of the server. It also handles
+ * communication through FastCGI interface.
+ *
+ * @see obix_fcgi.h
+ *
+ * @author Andrey Litvinov
+ */
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <pthread.h>
 #include <syslog.h>
 #include <fcgiapp.h>
 
@@ -35,53 +43,34 @@
 #include "request.h"
 #include "obix_fcgi.h"
 
-#define LISTENSOCK_FILENO 0
-#define LISTENSOCK_FLAGS 0
-
-#define MAX_PARALLEL_REQUEST_DEFAULT 10
-
+/** Name of server's main configuration file. */
 static const char* CONFIG_FILE = "server_config.xml";
 
+/** Name of configuration parameter, which defines value of #_requestMaxCount.*/
 static const char* CT_HOLD_REQUEST_MAX = "hold-request-max";
 
-/** Standard header of any server answer*/
+/** Standard header of any server answer. */
 static const char* HTTP_STATUS_OK = "Status: 200 OK\r\n"
                                     "Content-Type: text/xml\r\n";
 
+/** HTTP attribute, which is added when URI requested by user differs from
+ * real object's URI by a trailing slash. */
 static const char* HTTP_CONTENT_LOCATION = "Content-Location: %s\r\n";
 static const char* XML_HEADER = "\r\n<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n";
-// TODO think about stylesheet
-//                               "<?xml-stylesheet type=\'text/xsl\' href=\'/obix/xsl\'?>\r\n";
-/**
- * Header of error answer. Note that according oBIX
- * specification, oBIX error messages should still have
- * Status OK header
- */
-//static const char* HTTP_STATUS_ERROR = "Status: 200 OK\r\nContent-Type: text/xml\r\n\r\n";
+// TODO think about stylesheet:
+// "<?xml-stylesheet type=\'text/xsl\' href=\'/obix/xsl\'?>\r\n";
 
+/** Static error message. */
 static const char* ERROR_STATIC = "<err displayName=\"Internal Server Error\" "
                                   "display=\"Unable to process the request. "
                                   "This is a static error message which is "
-                                  "returned when things go really bad./>\"";
-struct _Request
-{
-    FCGX_Request r;
-    int id;
-    BOOL canWait;
-    struct _Request* next;
-};
+                                  "returned when things go really bad.\"/>";
 
-static Request* _requestList;
-static int _requestsInUse = 0;
-static int _requestIds = 0;
-static int _requestMaxCount = MAX_PARALLEL_REQUEST_DEFAULT + 1;
-pthread_mutex_t _requestListMutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t _requestListNew = PTHREAD_COND_INITIALIZER;
-
-static void obixRequest_release(Request* request);
-static Request* obixRequest_get();
-static void obixRequest_free(Request* request);
-
+/**
+ * Parses command line input arguments.
+ * @return Parsed path to server's resource folder (obligatory input argument).
+ * 		@a NULL in case if parsing failed.
+ */
 static char* parseArguments(int argc, char** argv)
 {
     void printUsageNotice(char* programName)
@@ -210,11 +199,12 @@ IXML_Element* obix_fcgi_loadConfig(char* resourceDir)
                               FALSE);
     if (configTag != NULL)
     {
-        _requestMaxCount = config_getTagAttrIntValue(
-                               configTag,
-                               CTA_VALUE,
-                               FALSE,
-                               MAX_PARALLEL_REQUEST_DEFAULT) + 1;
+        int requestMaxCount =
+            config_getTagAttrIntValue(configTag,
+                                      CTA_VALUE,
+                                      FALSE,
+                                      REQUEST_MAX_COUNT_DEFAULT) + 1;
+        obixRequest_setMaxCount(requestMaxCount);
     }
 
     return settings;
@@ -249,13 +239,7 @@ int obix_fcgi_init(char* resourceDir)
 void obix_fcgi_shutdown(FCGX_Request* request)
 {
     obix_server_shutdown();
-
-    pthread_mutex_lock(&_requestListMutex);
-    if (_requestList != NULL)
-    {
-        obixRequest_free(_requestList);
-    }
-    pthread_mutex_unlock(&_requestListMutex);
+    obixRequest_freeAll();
     FCGX_ShutdownPending();
 }
 
@@ -294,7 +278,7 @@ void obix_fcgi_handleRequest(Request* request)
 
     // prepare response object
 
-    Response* response = obixResponse_create(request, request->canWait);
+    Response* response = obixResponse_create(request);
     if (response == NULL)
     {
         log_error("Unable to create response object: Not enough memory.");
@@ -501,7 +485,7 @@ void obix_fcgi_dumpEnvironment(Response* response)
 
     obixResponse_setText(response, buffer, FALSE);
 
-    Response* nextPart = obixResponse_add(response);
+    Response* nextPart = obixResponse_getNewPart(response);
     if (nextPart == NULL)
     {
         log_error("Unable to create multipart response. Answer is not complete.");
@@ -509,12 +493,12 @@ void obix_fcgi_dumpEnvironment(Response* response)
         return;
     }
 
-    // retreive server storage dump
+    // retrieve server storage dump
     char* storageDump = xmldb_getDump();
     if (storageDump != NULL)
     {
         nextPart->body = storageDump;
-        obixResponse_add(nextPart);
+        obixResponse_getNewPart(nextPart);
         if (nextPart->next == NULL)
         {
             log_error("Unable to create multipart response. Answer is not complete.");
@@ -536,120 +520,4 @@ void obix_fcgi_dumpEnvironment(Response* response)
 
     // send response
     obixResponse_send(response);
-}
-
-// put request to the head of the list
-static void obixRequest_release(Request* request)
-{
-    pthread_mutex_lock(&_requestListMutex);
-    request->next = _requestList;
-    _requestList = request;
-    _requestsInUse--;
-    pthread_cond_signal(&_requestListNew);
-    pthread_mutex_unlock(&_requestListMutex);
-}
-
-static Request* obixRequest_getHead()
-{
-    Request* request = _requestList;
-    _requestList = request->next;
-    request->next = NULL;
-    // check whether this request object can be used for handling long poll
-    // last available request object should not be used for that, because
-    // otherwise it will block server from handling other requests.
-    if (++_requestsInUse == _requestMaxCount)
-    {
-        request->canWait = FALSE;
-    }
-    else
-    {
-        request->canWait = TRUE;
-    }
-    return request;
-}
-
-static Request* obixRequest_wait()
-{
-    // wait for some request instance to be free
-    pthread_cond_wait(&_requestListNew, &_requestListMutex);
-    return obixRequest_getHead();
-}
-
-static int obixRequest_create()
-{
-    Request* request = (Request*) malloc(sizeof(Request));
-    if (request == NULL)
-    {
-        log_error("Unable to create new request instance: "
-                  "Not enough memory.");
-        return -1;
-    }
-    // initalize FCGI request
-    request->next = NULL;
-    int error = FCGX_InitRequest(&(request->r),
-                                 LISTENSOCK_FILENO,
-                                 LISTENSOCK_FLAGS);
-    if (error != 0)
-    {
-        log_error("Unable to initialize FCGI request: "
-                  "FCGX_InitRequest returned %d.", error);
-        free(request);
-        return -1;
-    }
-
-    // store request at head
-    request->next = _requestList;
-    request->id = _requestIds++;
-    _requestList = request;
-    return 0;
-}
-
-static Request* obixRequest_get()
-{
-    Request* request;
-
-    pthread_mutex_lock(&_requestListMutex);
-
-    // if there are available request instances in the list...
-    if (_requestList != NULL)
-    {	// take head of the list
-        request = obixRequest_getHead();
-        pthread_mutex_unlock(&_requestListMutex);
-        return request;
-    }
-    // there is nothing in the list of requests.. check whether we can create a
-    // new one
-
-    if (_requestsInUse == _requestMaxCount)
-    {
-        log_error("Maximum number of concurrent requests exceeded. "
-                  "That should never happen! Waiting for some request object "
-                  "to be freed. Please, contact the developer if you see this "
-                  "message.");
-        request = obixRequest_wait();
-        pthread_mutex_unlock(&_requestListMutex);
-        return request;
-    }
-
-    // we can create a new one
-    if (obixRequest_create() != 0)
-    {
-        request = obixRequest_wait();
-        pthread_mutex_unlock(&_requestListMutex);
-        return request;
-    }
-
-    request = obixRequest_getHead();
-    pthread_mutex_unlock(&_requestListMutex);
-    return request;
-}
-
-static void obixRequest_free(Request* request)
-{
-    if (request->next != NULL)
-    {
-        FCGX_Free(&(request->r), TRUE);
-        free(request->next);
-    }
-    free(request);
 }

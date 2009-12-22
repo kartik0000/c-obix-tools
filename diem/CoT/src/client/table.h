@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * Defines interface for a table storage (e.g. hashtable).
+ * Defines interface for a table storage (like hashtable).
  * The data is stored as key-value pairs, where key is a string and value can be
  * of any type.
  *

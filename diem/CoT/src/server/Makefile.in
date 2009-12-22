@@ -51,7 +51,7 @@ PROGRAMS = $(bin_PROGRAMS)
 am_obix_fcgi_OBJECTS = obix_fcgi-obix_fcgi.$(OBJEXT) \
 	obix_fcgi-server.$(OBJEXT) obix_fcgi-xml_storage.$(OBJEXT) \
 	obix_fcgi-watch.$(OBJEXT) obix_fcgi-response.$(OBJEXT) \
-	obix_fcgi-post_handler.$(OBJEXT)
+	obix_fcgi-request.$(OBJEXT) obix_fcgi-post_handler.$(OBJEXT)
 obix_fcgi_OBJECTS = $(am_obix_fcgi_OBJECTS)
 am__DEPENDENCIES_1 =
 obix_fcgi_DEPENDENCIES = $(am__DEPENDENCIES_1) \
@@ -201,11 +201,12 @@ obix_fcgi_SOURCES = obix_fcgi.h obix_fcgi.c \
                     xml_storage.h xml_storage.c \
                     watch.h watch.c \
                     response.h response.c \
-                    request.h \
+                    request.h request.c \
                     post_handler.h post_handler.c
 
 obix_fcgi_CFLAGS = $(WARN_FLAGS) -I$(top_srcdir)/src/common 
 obix_fcgi_LDADD = $(FCGI_LIB) $(top_builddir)/src/common/libcot-utils.la
+EXTRA_DIST = doctree.h doctree.c
 all: all-am
 
 .SUFFIXES:
@@ -279,6 +280,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/obix_fcgi-obix_fcgi.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/obix_fcgi-post_handler.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/obix_fcgi-request.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/obix_fcgi-response.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/obix_fcgi-server.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/obix_fcgi-watch.Po@am__quote@
@@ -374,6 +376,20 @@ obix_fcgi-response.obj: response.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='response.c' object='obix_fcgi-response.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(obix_fcgi_CFLAGS) $(CFLAGS) -c -o obix_fcgi-response.obj `if test -f 'response.c'; then $(CYGPATH_W) 'response.c'; else $(CYGPATH_W) '$(srcdir)/response.c'; fi`
+
+obix_fcgi-request.o: request.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(obix_fcgi_CFLAGS) $(CFLAGS) -MT obix_fcgi-request.o -MD -MP -MF $(DEPDIR)/obix_fcgi-request.Tpo -c -o obix_fcgi-request.o `test -f 'request.c' || echo '$(srcdir)/'`request.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/obix_fcgi-request.Tpo $(DEPDIR)/obix_fcgi-request.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='request.c' object='obix_fcgi-request.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(obix_fcgi_CFLAGS) $(CFLAGS) -c -o obix_fcgi-request.o `test -f 'request.c' || echo '$(srcdir)/'`request.c
+
+obix_fcgi-request.obj: request.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(obix_fcgi_CFLAGS) $(CFLAGS) -MT obix_fcgi-request.obj -MD -MP -MF $(DEPDIR)/obix_fcgi-request.Tpo -c -o obix_fcgi-request.obj `if test -f 'request.c'; then $(CYGPATH_W) 'request.c'; else $(CYGPATH_W) '$(srcdir)/request.c'; fi`
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/obix_fcgi-request.Tpo $(DEPDIR)/obix_fcgi-request.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='request.c' object='obix_fcgi-request.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(obix_fcgi_CFLAGS) $(CFLAGS) -c -o obix_fcgi-request.obj `if test -f 'request.c'; then $(CYGPATH_W) 'request.c'; else $(CYGPATH_W) '$(srcdir)/request.c'; fi`
 
 obix_fcgi-post_handler.o: post_handler.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(obix_fcgi_CFLAGS) $(CFLAGS) -MT obix_fcgi-post_handler.o -MD -MP -MF $(DEPDIR)/obix_fcgi-post_handler.Tpo -c -o obix_fcgi-post_handler.o `test -f 'post_handler.c' || echo '$(srcdir)/'`post_handler.c

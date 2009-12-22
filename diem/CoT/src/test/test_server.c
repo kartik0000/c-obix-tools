@@ -239,6 +239,36 @@ int testDelete(const char* testName, const char* href, BOOL exists)
     return 0;
 }
 
+static Request* createDummyRequest(BOOL canWait)
+{
+	Request* request = (Request*) malloc(sizeof(Request));
+	if (request == NULL)
+	{
+		printf("ERROR: Unable to allocate memory for request object.\n");
+		return NULL;
+	}
+
+	request->canWait = canWait;
+	request->next = NULL;
+	return request;
+}
+
+static Response* createTestResponse(BOOL withRequest, BOOL canWait)
+{
+	Request* request = withRequest ? createDummyRequest(canWait) : NULL;
+	Response* response = obixResponse_create(request);
+	return response;
+}
+
+static void freeTestResponse(Response* response)
+{
+	if (response->request != NULL)
+	{
+		free(response->request);
+	}
+	obixResponse_free(response);
+}
+
 int testGenerateResponse(const char* testName, const char* uri, const char* newUrl)
 {
     IXML_Element* oBIXdoc = xmldb_getDOM(uri, NULL);
@@ -250,7 +280,7 @@ int testGenerateResponse(const char* testName, const char* uri, const char* newU
         return 1;
     }
 
-    Response* response = obixResponse_create((Request*)1, FALSE);
+    Response* response = createTestResponse(TRUE, FALSE);
     obix_server_generateResponse(response, oBIXdoc, newUrl, TRUE, FALSE, 0, FALSE);
 
     if ((response == NULL) || (response->body == NULL))
@@ -260,7 +290,7 @@ int testGenerateResponse(const char* testName, const char* uri, const char* newU
         return 1;
     }
     printf("normalized object = %s", response->body);
-    obixResponse_free(response);
+    freeTestResponse(response);
 
     if (testSearch("check object after normalization", newUrl, NULL, FALSE))
     {
@@ -269,7 +299,7 @@ int testGenerateResponse(const char* testName, const char* uri, const char* newU
         return 1;
     }
 
-    response = obixResponse_create((Request*)1, FALSE);
+    response = createTestResponse(TRUE, FALSE);
     obix_server_generateResponse(response, oBIXdoc, newUrl, TRUE, FALSE, 0, TRUE);
     if ((response == NULL) || (response->body == NULL))
     {
@@ -279,7 +309,7 @@ int testGenerateResponse(const char* testName, const char* uri, const char* newU
     }
 
     printf("normalized object = %s", response->body);
-    obixResponse_free(response);
+    freeTestResponse(response);
 
     if (testSearch("check object after normalization", newUrl, NULL, TRUE) ||
             testSearch("check object for \'meta\' tags after normalization",
@@ -668,7 +698,7 @@ int testWatchPollChanges(const char* testName,
                          BOOL waitResponse)
 {
     obixResponse_setListener(&dummyResponseListener);
-    Response* response = obixResponse_create((Request*)1, TRUE);
+    Response* response = createTestResponse(TRUE, TRUE);
     obix_server_handlePOST(response, uri, NULL);
     if (waitResponse)
     {
@@ -686,12 +716,14 @@ int testWatchPollChanges(const char* testName,
     {
         error += findInResponse(response, checkStrings[i], exists);
     }
+
+    freeTestResponse(response);
+
     if (error != 0)
     {
         printTestResult(testName, FALSE);
         return 1;
     }
-    obixResponse_free(response);
 
     printTestResult(testName, TRUE);
     return 0;
@@ -701,7 +733,7 @@ int testWatchRemove()
 {
     const char* testName = "Watch.remove test";
     obixResponse_setListener(&dummyResponseListener);
-    Response* response = obixResponse_create((Request*)1, FALSE);
+    Response* response = createTestResponse(TRUE, FALSE);
     obix_server_handlePOST(
         response,
         "/obix/watchService/watch1/remove",
@@ -717,11 +749,11 @@ int testWatchRemove()
         printTestResult(testName, FALSE);
         return 1;
     }
-    obixResponse_free(response);
+    freeTestResponse(response);
 
     // now try to poll refresh and check that we do not receive object which
     // we've just removed from the watch list
-    response = obixResponse_create((Request*)1, FALSE);
+    response = createTestResponse(TRUE, FALSE);
     obix_server_handlePOST(response,
                            "/obix/watchService/watch1/pollRefresh",
                            NULL);
@@ -736,7 +768,7 @@ int testWatchRemove()
         printTestResult(testName, FALSE);
         return 1;
     }
-    obixResponse_free(response);
+    freeTestResponse(response);
     // check that meta info was also removed
     int error = testSearch("oBIX Watch: check removed meta",
                            "/obix/kitchen/parent/",
@@ -755,14 +787,14 @@ int testWatchRemove()
 
 int testPutHandler(const char* testName, const char* uri, const char* data)
 {
-    Response* response = obixResponse_create((Request*)1, FALSE);
+    Response* response = createTestResponse(TRUE, FALSE);
     obix_server_handlePUT(response, uri, data);
     if (checkResponse(response, FALSE) != 0)
     {
         printTestResult(testName, FALSE);
         return 1;
     }
-    obixResponse_free(response);
+    freeTestResponse(response);
     printTestResult(testName, TRUE);
     return 0;
 }
@@ -772,14 +804,14 @@ int testWatch()
     const char* testName = "oBIX Watch test";
     // create new Watch object
     obixResponse_setListener(&dummyResponseListener);
-    Response* response = obixResponse_create((Request*)1, FALSE);
+    Response* response = createTestResponse(TRUE, FALSE);
     obix_server_handlePOST(response, "/obix/watchService/make", NULL);
     if (checkResponse(response, FALSE) != 0)
     {
         printTestResult(testName, FALSE);
         return 1;
     }
-    obixResponse_free(response);
+    freeTestResponse(response);
 
     // consider that we received a watch with name watch1
     // modify lease time
@@ -797,7 +829,7 @@ int testWatch()
     // + one with wrong trailing slash, one <op/> object,
     // one comment and one wrong object.
     // TODO check duplicate request for same object
-    response = obixResponse_create((Request*)1, FALSE);
+    response = createTestResponse(TRUE, FALSE);
     obix_server_handlePOST(
         response,
         "/obix/watchService/watch1/add",
@@ -821,7 +853,7 @@ int testWatch()
     // and error messages for wrong objects
     // we should 2 <err/> objects with links watchService/make and temperature2
     // and object testWatch1. We shouldn't have "testWatch2" and "Make new watch"
-    obixResponse_free(response);
+    freeTestResponse(response);
 
     //check that corresponding meta tags are added to the storage
     error = testSearch("oBIX Watch: check created meta",
@@ -907,7 +939,7 @@ int testWatch()
 
     // let's try to write once again to the same object, but write the same
     // value as it already has
-    response = obixResponse_create((Request*)1, FALSE);
+    response = createTestResponse(TRUE, FALSE);
     obix_server_handlePUT(
         response,
         "/obix/kitchen/temperature/",
@@ -917,7 +949,7 @@ int testWatch()
         printTestResult(testName, FALSE);
         return 1;
     }
-    obixResponse_free(response);
+    freeTestResponse(response);
     // updated object should not have updated meta tags (because actual value
     // did not change)
     error = testSearch("oBIX Watch: check that meta is not updated",
@@ -939,8 +971,6 @@ int testWatch()
         return 1;
     }
 
-
-
     printTestResult(testName, TRUE);
     return 0;
 }
@@ -953,14 +983,14 @@ int testSignUpHelper(const char* testName,
 {
     // invoke signup operation
 	obixResponse_setListener(&dummyResponseListener);
-    Response* response = obixResponse_create((Request*)1, FALSE);
+    Response* response = createTestResponse(TRUE, FALSE);
     obix_server_handlePOST(response, "/obix/signUp/", inputData);
     if (checkResponse(response, !shouldPass) != 0)
     {
         printTestResult(testName, FALSE);
         return 1;
     }
-    obixResponse_free(response);
+    freeTestResponse(response);
 
     // check that storage contains everything stored properly
     int result = testSearch("search for signed up object",
@@ -1014,7 +1044,7 @@ int testResponse_setRightUri(const char* testName,
                              int slashFlag,
                              const char* rightUri)
 {
-    Response* response = obixResponse_create(NULL, FALSE);
+    Response* response = createTestResponse(FALSE, FALSE);
     obixResponse_setRightUri(response, requestUri, slashFlag);
 
     if ((response->uri == NULL) || (strcmp(response->uri, rightUri) != 0))
@@ -1023,12 +1053,12 @@ int testResponse_setRightUri(const char* testName,
                "obixResponse_setRightUri(response, \"%s\", %d); is \"%s\", "
                "but should be \"%s\".\n",
                requestUri, slashFlag, response->uri, rightUri);
-        obixResponse_free(response);
+        freeTestResponse(response);
         printTestResult(testName, FALSE);
         return 1;
     }
 
-    obixResponse_free(response);
+    freeTestResponse(response);
     printTestResult(testName, TRUE);
     return 0;
 }

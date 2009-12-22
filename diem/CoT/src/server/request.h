@@ -19,16 +19,68 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  * ****************************************************************************/
-/*
- * request.h
+/**
+ * @file
+ * Defines Request type.
+ * It is a wrapper for FCGX_Request structure, which allows to manage several
+ * requests in concurrent mode.
  *
- *  Created on: Jun 14, 2009
- *      Author: andrey
+ * @author Andrey Litvinov
  */
 
 #ifndef REQUEST_H_
 #define REQUEST_H_
 
-typedef struct _Request Request;
+#include <fcgiapp.h>
+#include <bool.h>
+
+/** Default value of maximum amount of request instances in the system. */
+#define REQUEST_MAX_COUNT_DEFAULT 20
+
+/** Request structure.
+ * No field values should be changed outside #request.c. */
+typedef struct _Request
+{
+	/** Wrapped FCGI request instance. */
+    FCGX_Request r;
+    /** Unique id. */
+    int id;
+    /** Tells whether this request instance can be used for delayed request
+     * processing, or should be released immediately. */
+    BOOL canWait;
+
+    /** Next request instance in the list. For internal usage only. */
+    struct _Request* next;
+} Request;
+
+/**
+ * Should be called when request object is not needed anymore and can be
+ * released.
+ *
+ * Function puts such object back to the list of free requests.
+ */
+void obixRequest_release(Request* request);
+
+/**
+ * Returns free request object.
+ * If there are no free objects at the moment, creates a new one.
+ * If request limit is reached, then function blocks until some request get
+ * released.
+ */
+Request* obixRequest_get();
+
+/**
+ * Releases memory allocated for all request objects.
+ * Note that it is not possible to delete one request object separately (it
+ * should be reused instead).
+ */
+void obixRequest_freeAll();
+
+/**
+ * Sets the maximum count of request object which can be created.
+ * When this limit is reached, next call to #obixRequest_get would wait for
+ * some request object to be released instead of creating new one.
+ */
+void obixRequest_setMaxCount(int maxCount);
 
 #endif /* REQUEST_H_ */

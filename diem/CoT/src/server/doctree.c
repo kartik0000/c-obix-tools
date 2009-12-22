@@ -20,17 +20,17 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Implementation of tree storage for XML data.
+ *
+ * @see doctree.h
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #include "doctree.h"
 
 #include <string.h>
 
-typedef struct _TreeNode
 {
     char* name;
     struct _TreeNode* neighbor;

@@ -20,10 +20,11 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Implementation of Response structure utility functions.
+ *
+ * @see response.h
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #include <stdlib.h>
@@ -37,7 +38,7 @@
 const char* OBIX_OBJ_ERR_TEMPLATE = "<err displayName=\"Internal Server Error\""
                                     " display=\"%s\"/ >";
 
-// method which handles server responses is stored here
+/** Function which sends server responses to client is stored here. */
 static obix_response_listener _responseListener = NULL;
 
 void obixResponse_setListener(obix_response_listener listener)
@@ -45,7 +46,7 @@ void obixResponse_setListener(obix_response_listener listener)
 	_responseListener = listener;
 }
 
-Response* obixResponse_create(Request* request, BOOL canWait)
+Response* obixResponse_create(Request* request)
 {
     Response* response = (Response*) malloc(sizeof(Response));
     if (response == NULL)
@@ -54,7 +55,6 @@ Response* obixResponse_create(Request* request, BOOL canWait)
     }
     // init all values with default values;
     response->request = request;
-    response->canWait = canWait;
     response->body = NULL;
     response->uri = NULL;
     response->next = NULL;
@@ -63,11 +63,11 @@ Response* obixResponse_create(Request* request, BOOL canWait)
     return response;
 }
 
-Response* obixResponse_add(Response* response)
+Response* obixResponse_getNewPart(Response* response)
 {
     // create new response part. Request object is stored only in the head
     // element
-    Response* newPart = obixResponse_create(NULL, FALSE);
+    Response* newPart = obixResponse_create(NULL);
 
     response->next = newPart;
     return newPart;
@@ -211,4 +211,9 @@ int obixResponse_send(Response* response)
 	}
 
 	return -1;
+}
+
+BOOL obixResponse_canWait(Response* response)
+{
+	return response->request->canWait;
 }

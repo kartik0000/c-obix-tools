@@ -20,7 +20,11 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description there
+ * Implementation of request processing engine.
+ *
+ * @see server.h
+ *
+ * @author Andrey Litvinov
  */
 #include <stdlib.h>
 #include <string.h>
@@ -33,11 +37,11 @@
 #include "watch.h"
 #include "server.h"
 
-#define LISTENSOCK_FILENO 0
-#define LISTENSOCK_FLAGS 0
-
+/** Name of configuration parameter, which defines server address.*/
 static const char* CT_SERVER_ADDRESS = "server-address";
 
+/** Name of meta attribute, which is used to define handler functions for
+ * operations. */
 static const char* OBIX_META_ATTR_OP = "op";
 
 int obix_server_init(IXML_Element* settings)
@@ -147,7 +151,7 @@ void obix_server_read(Response* response, const char* uri)
     oBIX_Watch* watch = obixWatch_getByUri(uri);
     if (watch != NULL)
     {
-        obixWatch_resetLeaseTimer(watch, OBIX_WATCH_LEASE_NO_CHANGE);
+        obixWatch_resetLeaseTimer(watch);
     }
 
     obix_server_generateResponse(response,
@@ -182,7 +186,7 @@ static void updateMetaWatch(IXML_Node* node)
     }
 
     // get meta tag
-    IXML_Element* meta = getMetaInfo(ixmlNode_convertToElement(node));
+    IXML_Element* meta = xmldb_getMetaInfo(ixmlNode_convertToElement(node));
     if (meta != NULL)
     {
         obixWatch_updateMeta(meta);
@@ -330,7 +334,7 @@ void obix_server_invoke(Response* response,
     // get the corresponding operation handler
     // by default we use 0 handler which returns error message
     int handlerId = 0;
-    IXML_Element* meta = getMetaInfo(oBIXdoc);
+    IXML_Element* meta = xmldb_getMetaInfo(oBIXdoc);
 
     if (meta != NULL)
     {
@@ -381,14 +385,14 @@ void obix_server_shutdown()
 /**
  * Returns full URI corresponding to the request URI.
  * Adds server address to the requested URI and also adds/removes
- * ending slash ('/') if needed.
+ * trailing slash ('/') if needed.
  *
- * @param requestUri requested URI. It should be absolute (show address from
+ * @param requestUri Requested URI. It should be absolute (show address from
  *                   the server root)
- * @param doc requested oBIX document. Object should contain @a href
+ * @param doc Requested oBIX document. Object should contain @a href
  *            attribute. If NULL is provided than full URI is created only
  *            based on request URI.
- * @param slashFlag flag indicating difference in ending slash between
+ * @param slashFlag Flag indicating difference in trailing slash between
  *        requested URI and object's URI.
  * @return Full URI. If the original oBIX document already contains full URI
  *          then @a NULL will be returned. @note Don't forget to free memory
@@ -396,40 +400,26 @@ void obix_server_shutdown()
  */
 static char* normalizeUri(const char* requestUri, IXML_Element* doc, int slashFlag)
 {
-    const char* origUri = NULL;
-
-    if (doc != NULL)
-    {
-        origUri = ixmlElement_getAttribute(doc, OBIX_ATTR_HREF);
-        if (origUri == NULL)
-        {
-            // it should never happen because oBIX document is found
-            // in storage based on it's href attribute.
-            log_error("Requested oBIX document doesn't have href attribute.");
-            return NULL;
-        }
-
-        if (xmldb_compareServerAddr(origUri) == 0)
-        {
-            // original URI is already full URI. nothing to be done
-            return NULL;
-        }
-
-        // this check can be commented because all hrefs starting from server
-        // root should have server address included during storing in database
-        //        if (*origUri == '/')
-        //        {
-        //            // original URI is absolute so we can use it
-        //            // instead of requested URI
-        //            return xmldb_getFullUri(origUri, 0);
-        //        }
-    }
-
-    if (origUri == NULL)
+    if (doc == NULL)
     {
         // no need to consider trailing '/' of original the URI
         // so simply add server address to the request URI
         return xmldb_getFullUri(requestUri, 0);
+    }
+
+    const char* origUri = ixmlElement_getAttribute(doc, OBIX_ATTR_HREF);
+    if (origUri == NULL)
+    {
+        // it should never happen because oBIX document is found
+        // in storage based on it's href attribute.
+        log_error("Requested oBIX document doesn't have href attribute.");
+        return NULL;
+    }
+
+    if (xmldb_compareServerAddr(origUri) == 0)
+    {
+        // original URI is already full URI. nothing to be done
+        return NULL;
     }
 
     // original URI is local one: we should use request URI
@@ -439,7 +429,7 @@ static char* normalizeUri(const char* requestUri, IXML_Element* doc, int slashFl
 
 /**
  * Adds standard attributes to the parent node of the document and
- * returns string representation.
+ * returns its string representation.
  * - Modifies 'href' attribute to contain full URI including server address
  * - Adds following attributes:
  *    - xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -489,7 +479,7 @@ static char* normalizeObixDocument(IXML_Element* oBIXdoc,
         return NULL;
     }
 
-    removeMetaInfo(oBIXdoc);
+    xmldb_deleteMetaInfo(oBIXdoc);
 
     char* text = ixmlPrintNode(ixmlElement_getNode(oBIXdoc));
 

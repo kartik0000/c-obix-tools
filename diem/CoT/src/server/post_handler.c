@@ -24,16 +24,15 @@
  * Contains handlers for various oBIX invoke commands.
  *
  * The following oBIX commands are implemented:
- * - watchService.make	Creates new Watch object.
- * - Watch.add 			Adds object to the watch list.
- * - Watch.remove		Removes object from the watch list.
- * - Watch.pollChanges	Returns objects which are changed since last poll.
- * - Watch.pollRefresh	Returns all objects from the watch list.
- * - Watch.delete		Deletes the Watch object.
- * - signUp				Adds new device data to the server.
+ * - @a watchService.make	Creates new Watch object.
+ * - @a Watch.add 			Adds object to the watch list.
+ * - @a Watch.remove		Removes object from the watch list.
+ * - @a Watch.pollChanges	Returns objects which are changed since last poll.
+ * - @a Watch.pollRefresh	Returns all objects from the watch list.
+ * - @a Watch.delete		Deletes the Watch object.
+ * - @a signUp				Adds new device data to the server.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #include <stdlib.h>
@@ -45,16 +44,23 @@
 #include "server.h"
 #include "post_handler.h"
 
-
-#define WATCH_OUT_PREFIX "<obj is=\"obix:WatchOut\">\r\n  <list name=\"values\" of=\"obix:obj\">\r\n"
+/** @name Constants for quick oBIX WatchOut object generation.
+ * @{ */
+#define WATCH_OUT_PREFIX "<obj is=\"obix:WatchOut\">\r\n" \
+						 "  <list name=\"values\" of=\"obix:obj\">\r\n"
 #define WATCH_OUT_POSTFIX "\r\n  </list>\r\n</obj>\r\n"
+/** @} */
 
+/** @name Constants for quick oBIX BatchOut object generation.
+ * @{ */
 #define BATCH_OUT_PREFIX "<list is=\"obix:BatchOut\" of=\"obix:obj\">\r\n"
 #define BATCH_OUT_POSTFIX "\r\n</list>\r\n"
+/** @} */
 
+/** Link to the list of references for each connected device. */
 #define DEVICE_LIST_URI "/obix/devices/"
 
-// handler definitions
+// handler definitions. See their description near implementation.
 void handlerError(Response* response,
                   const char* uri,
                   IXML_Element* input);
@@ -83,6 +89,7 @@ void handlerBatch(Response* response,
                   const char* uri,
                   IXML_Element* input);
 
+/** Array of all available post handlers. */
 static const obix_server_postHandler POST_HANDLER[] =
     {
         &handlerError,				//0 default handler which returns error
@@ -96,6 +103,7 @@ static const obix_server_postHandler POST_HANDLER[] =
         &handlerBatch				//8 Batch
     };
 
+/** Amount of available post handlers. */
 static const int POST_HANDLERS_COUNT = 9;
 
 obix_server_postHandler obix_server_getPostHandler(int id)
@@ -110,6 +118,12 @@ obix_server_postHandler obix_server_getPostHandler(int id)
     }
 }
 
+/**
+ * Default handler, which sends error message telling that this operation
+ * is not supported.
+ *
+ * @see obix_server_postHandler
+ */
 void handlerError(Response* response,
                   const char* uri,
                   IXML_Element* input)
@@ -155,6 +169,11 @@ static void sendErrorMessage(Response* response,
     obixResponse_send(response);
 }
 
+/**
+ * Handler for WatchService.make operation. Creates new Watch object.
+ *
+ * @see obix_server_postHandler
+ */
 void handlerWatchServiceMake(Response* response,
                              const char* uri,
                              IXML_Element* input)
@@ -261,6 +280,15 @@ static int getUriSet(IXML_NodeList* nodeList, const char*** uriSet)
     return length;
 }
 
+/**
+ * Helper function for parsing WatchIn object.
+ *
+ * @param input Request input data (WatchIn object).
+ * @param uriSet Reference to the array of URIs from WatchIn object is returned
+ * 				here. This array contains only unique URIs.
+ * @return Number of URIs in returned array, or @a -1 if error occurred during
+ * 				parsing.
+ */
 static int processWatchIn(IXML_Element* input, const char*** uriSet)
 {
     // check input
@@ -304,7 +332,7 @@ static Response* addResponsePart(Response* respHead,
                                  const char* uri,
                                  const char* operationName)
 {
-    Response* newPart = obixResponse_add(respTail);
+    Response* newPart = obixResponse_getNewPart(respTail);
     if (newPart == NULL)
     {
         log_error("Unable to create multipart response object.");
@@ -316,6 +344,11 @@ static Response* addResponsePart(Response* respHead,
     return newPart;
 }
 
+/**
+ * Handler for Watch.add operation. Adds new items to the Watch.
+ *
+ * @see obix_server_postHandler
+ */
 void handlerWatchAdd(Response* response,
                      const char* uri,
                      IXML_Element* input)
@@ -334,7 +367,7 @@ void handlerWatchAdd(Response* response,
     }
 
     // reset lease timer
-    obixWatch_resetLeaseTimer(watch, OBIX_WATCH_LEASE_NO_CHANGE);
+    obixWatch_resetLeaseTimer(watch);
 
     // prepare response header
     obixResponse_setText(response, WATCH_OUT_PREFIX, TRUE);
@@ -439,6 +472,11 @@ void handlerWatchAdd(Response* response,
     obixResponse_send(response);
 }
 
+/**
+ * Handler for Watch.remove operation. Removes items from the Watch.
+ *
+ * @see obix_server_postHandler
+ */
 void handlerWatchRemove(Response* response,
                         const char* uri,
                         IXML_Element* input)
@@ -457,7 +495,7 @@ void handlerWatchRemove(Response* response,
     }
 
     // reset lease timer
-    obixWatch_resetLeaseTimer(watch, OBIX_WATCH_LEASE_NO_CHANGE);
+    obixWatch_resetLeaseTimer(watch);
 
     // get list of URI's to be removed
     const char** uriSet = NULL;
@@ -505,6 +543,10 @@ void handlerWatchRemove(Response* response,
     obixResponse_send(response);
 }
 
+/** Completes the WatchOut message and sends it to the client.
+ *
+ * @param operationName Name of oBIX operation, which generated this response.
+ */
 static void completeWatchPollResponse(const char* operationName,
                                       Response* respHead,
                                       Response* respTail,
@@ -522,11 +564,15 @@ static void completeWatchPollResponse(const char* operationName,
     obixResponse_send(respHead);
 }
 
-static Response* pollWatchItemIterator(const char* operationName,
-                                       BOOL changedOnly,
-                                       oBIX_Watch* watch,
-                                       Response* response,
-                                       const char* uri)
+/** Iterates through Watch items and adds updated ones to the response.
+ *
+ * @param operationName Name of oBIX operation, which generated this response.
+ */
+static Response* generateWatchOutBody(const char* operationName,
+                                      BOOL changedOnly,
+                                      oBIX_Watch* watch,
+                                      Response* response,
+                                      const char* uri)
 {
     oBIX_Watch_Item* watchItem = watch->items;
     Response* respPart = response;
@@ -566,7 +612,7 @@ static Response* pollWatchItemIterator(const char* operationName,
 }
 
 /**
- * This method is used to perform delayed poll response
+ * This method is used to perform delayed poll request processing.
  */
 void handlerWatchLongPoll(oBIX_Watch* watch,
                           Response* response,
@@ -574,7 +620,7 @@ void handlerWatchLongPoll(oBIX_Watch* watch,
 {
     log_debug("Handling long poll request.");
     //iterate through all watch items and generate response
-    Response* respTail = pollWatchItemIterator(
+    Response* respTail = generateWatchOutBody(
                              "Watch.pollChanges",
                              TRUE,
                              watch,
@@ -612,13 +658,13 @@ static void handlerWatchPollHelper(Response* response,
     }
 
     // reset lease timer
-    obixWatch_resetLeaseTimer(watch, OBIX_WATCH_LEASE_NO_CHANGE);
+    obixWatch_resetLeaseTimer(watch);
 
     // prepare response header
     obixResponse_setText(response, WATCH_OUT_PREFIX, TRUE);
 
     //iterate through all watch items and generate response
-    Response* respTail = pollWatchItemIterator(
+    Response* respTail = generateWatchOutBody(
                              operationName,
                              changedOnly,
                              watch,
@@ -631,7 +677,7 @@ static void handlerWatchPollHelper(Response* response,
     }
 
     // if we are not processing long poll request of Watch.pollChanges...
-    if (!obixWatch_isLongPoll(watch) || !changedOnly)
+    if (!obixWatch_isLongPollMode(watch) || !changedOnly)
     {
         // complete and send response
         completeWatchPollResponse(operationName, response, respTail, uri);
@@ -644,7 +690,7 @@ static void handlerWatchPollHelper(Response* response,
     if (respTail == response)
     {
         // hold the response for max time (or until something happens)
-        error = obixWatch_holdPoll(&handlerWatchLongPoll,
+        error = obixWatch_holdPollRequest(&handlerWatchLongPoll,
                                    watch,
                                    response,
                                    uri,
@@ -657,7 +703,7 @@ static void handlerWatchPollHelper(Response* response,
         // clean everything from response except header, because delayed
         // poll handler will create the rest of the answer again
         obixResponse_free(response->next);
-        error = obixWatch_holdPoll(&handlerWatchLongPoll,
+        error = obixWatch_holdPollRequest(&handlerWatchLongPoll,
                                    watch,
                                    response,
                                    uri,
@@ -694,6 +740,11 @@ static void handlerWatchPollHelper(Response* response,
     // answer will be sent by scheduled task, so we don't need to do it now
 }
 
+/**
+ * Handler of Watch.pollChanges operation. Returns list of updated items.
+ *
+ * @see obix_server_postHandler
+ */
 void handlerWatchPollChanges(Response* response,
                              const char* uri,
                              IXML_Element* input)
@@ -702,6 +753,11 @@ void handlerWatchPollChanges(Response* response,
     handlerWatchPollHelper(response, uri, TRUE);
 }
 
+/**
+ * Handler of Watch.pollRefresh operation. Returns all items in the Watch.
+ *
+ * @see obix_server_postHandler
+ */
 void handlerWatchPollRefresh(Response* response,
                              const char* uri,
                              IXML_Element* input)
@@ -710,6 +766,11 @@ void handlerWatchPollRefresh(Response* response,
     handlerWatchPollHelper(response, uri, FALSE);
 }
 
+/**
+ * Handler of Watch.delete operation. Deletes Watch object.
+ *
+ * @see obix_server_postHandler
+ */
 void handlerWatchDelete(Response* response,
                         const char* uri,
                         IXML_Element* input)
@@ -757,9 +818,15 @@ void handlerWatchDelete(Response* response,
     }
 }
 
+/**
+ * Creates a reference to the new device. This reference is stored at the
+ * server in special list of devices accessible from Lobby object.
+ *
+ * @param newDevice Data of the new device.
+ */
 static int putDeviceReference(IXML_Element* newDevice)
 {
-    IXML_Element* devices = xmldb_getDOM("/obix/devices/", NULL);
+    IXML_Element* devices = xmldb_getDOM(DEVICE_LIST_URI, NULL);
     if (devices == NULL)
     {
         // database failure
@@ -782,8 +849,8 @@ static int putDeviceReference(IXML_Element* newDevice)
 
     // copy attribute uri
     int error = ixmlElement_copyAttributeWithLog(newDevice, ref,
-            OBIX_ATTR_HREF,
-            TRUE);
+                OBIX_ATTR_HREF,
+                TRUE);
     if (error != IXML_SUCCESS)
     {
         ixmlElement_free(ref);
@@ -823,6 +890,11 @@ static int putDeviceReference(IXML_Element* newDevice)
     return 0;
 }
 
+/**
+ * Handles signUp operation. Adds new device data to the server.
+ *
+ * @see obix_server_postHandler
+ */
 void handlerSignUp(Response* response, const char* uri, IXML_Element* input)
 {
     if (input == NULL)
@@ -892,6 +964,11 @@ void handlerSignUp(Response* response, const char* uri, IXML_Element* input)
     obixResponse_send(response);
 }
 
+/**
+ * Handles Batch operation.
+ *
+ * @see obix_server_postHandler
+ */
 void handlerBatch(Response* response,
                   const char* uri,
                   IXML_Element* input)

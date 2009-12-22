@@ -21,7 +21,11 @@
  * ****************************************************************************/
 /** @file
  * Simple implementation of XML storage.
- * All data is stored in one DOM structure in memory.
+ * All data is stored in one DOM structure in memory. Nothing is saved on disk.
+ *
+ * @see xml_storage.h
+ *
+ * @author Andrey Litvinov
  */
 #include <stdlib.h>
 #include <stdio.h>
@@ -32,8 +36,11 @@
 #include <log_utils.h>
 #include "xml_storage.h"
 
-const char* DEVICE_URI_PREFIX = "/obix";
-const int DEVICE_URI_PREFIX_LENGTH = 5;
+/** Prefix for all paths inside oBIX server. Only system objects have another
+ * URI and they are not accessible for a client. */
+static const char* DEVICE_URI_PREFIX = "/obix";
+/** Length of #DEVICE_URI_PREFIX */
+static const int DEVICE_URI_PREFIX_LENGTH = 5;
 
 const char* OBIX_SYS_WATCH_STUB = "/sys/watch-stub/";
 const char* OBIX_SYS_ERROR_STUB = "/sys/error-stub/";
@@ -41,6 +48,7 @@ const char* OBIX_SYS_WATCH_OUT_STUB = "/sys/watch-out-stub/";
 
 const char* OBIX_META = "meta";
 
+/** Files with initial storage contents. */
 static const char* OBIX_STORAGE_FILES[] =
     {"server_lobby.xml",		//Lobby object
      "server_about.xml",		//About object
@@ -50,15 +58,19 @@ static const char* OBIX_STORAGE_FILES[] =
      "server_def.xml",			//Custom contracts
      "server_test_device.xml"	//Test device object
     };
+
+/** Number of file names in #OBIX_STORAGE_FILES */
 static const int OBIX_STORAGE_FILES_COUNT = 7;
 
-/**The place where all data is stored.*/
+/** The place where all data is stored. */
 static IXML_Document* _storage = NULL;
 
-/**Address of the current server.*/
-char* _serverAddress = NULL;
-int _serverAddressLength;
+/** Address of the current server. */
+static char* _serverAddress = NULL;
+/** Length of #_serverAddress */
+static int _serverAddressLength;
 
+/** Prints contents of XML node to debug log. */
 static void printXMLContents(IXML_Node* node, const char* title)
 {
     DOMString str = ixmlPrintNode(node);
@@ -66,61 +78,15 @@ static void printXMLContents(IXML_Node* node, const char* title)
     ixmlFreeDOMString(str);
 }
 
-int xmldb_init(const char* serverAddr)
-{
-    if (_storage != NULL)
-    {
-        //TODO: replace with mega log
-        log_error("Storage has been already initialized!");
-        return -1;
-    }
-
-    int error = ixmlDocument_createDocumentEx(&_storage);
-    if (error != IXML_SUCCESS)
-    {
-        log_error("Unable to initialize the storage. (error %d).", error);
-        return error;
-    }
-
-    // load server address
-    if (serverAddr == NULL)
-    {
-        log_error("No server address provided. Storage initialization failed.");
-        return -1;
-    }
-    else
-    {
-        _serverAddressLength = strlen(serverAddr);
-        _serverAddress = (char*) malloc(_serverAddressLength + 1);
-        strcpy(_serverAddress, serverAddr);
-    }
-    log_debug("Storage is initialized with server address: %s", _serverAddress);
-
-    // load storage contents from files:
-    int i;
-    for (i = 0; i < OBIX_STORAGE_FILES_COUNT; i++)
-    {
-        error = xmldb_loadFile(OBIX_STORAGE_FILES[i]);
-        if (error != 0)
-        {
-            return error;
-        }
-    }
-
-    return 0;
-}
-
-void xmldb_dispose()
-{
-    ixmlDocument_free(_storage);
-    _storage = NULL;
-    if (_serverAddress != NULL)
-    {
-        free(_serverAddress);
-    }
-    _serverAddress = NULL;
-}
-
+/**
+ * Helper function which searches for last slash in the provided string.
+ * Search is performed backwards from the provided position.
+ * @note Function assumes that there is at least one slash in the string.
+ *
+ * @param str String where search should be performed.
+ * @param startPosition Position from which search should be started.
+ * @return Position of found slash.
+ */
 static int getLastSlashPosition(const char* str, int startPosition)
 {
     const char* temp = str + startPosition;
@@ -131,45 +97,6 @@ static int getLastSlashPosition(const char* str, int startPosition)
 
     return temp - str;
 }
-
-//static int _lastUriCompSlashMatch = 0;
-//
-//int xmldb_getLastUriCompSlashFlag()
-//{
-//    return _lastUriCompSlashMatch;
-//}
-
-//BOOL xmldb_compareUri(const char* uri1, const char* uri2)
-//{
-//    _lastUriCompSlashMatch = 0;
-//    int pos1 = strlen(uri1) - 1;
-//    int pos2 = strlen(uri2) - 1;
-//
-//    if (uri1[pos1] == '/')
-//    {
-//        pos1--;
-//        _lastUriCompSlashMatch++;
-//    }
-//
-//    if (uri2[pos2] == '/')
-//    {
-//        pos2--;
-//        _lastUriCompSlashMatch--;
-//    }
-//
-//    if (pos1 != pos2)
-//        return FALSE;
-//
-//    // compare URI's in backwards direction, because
-//    // most of them have the same beginning
-//    for (; pos1 >=0; pos1--)
-//    {
-//        if (uri1[pos1] != uri2[pos1])
-//            return FALSE;
-//    }
-//
-//    return TRUE;
-//}
 
 /**
  * Compares URIs. Helper function.
@@ -190,7 +117,7 @@ static int compare_uri(const char* currentUri,
                        int checked,
                        int* slashFlag)
 {
-    //    log_debug("comparing: \"%s\" and \"%s\"", currentUri, requiredUri + checked);
+    //log_debug("comparing: \"%s\" and \"%s\"", currentUri, requiredUri + checked);
     if (xmldb_compareServerAddr(currentUri) == 0)
     {
         // currentUri is absolute, compare from the beginning
@@ -216,17 +143,16 @@ static int compare_uri(const char* currentUri,
     BOOL currUriHasRemaining;
     if (currentUri[currLength - 1] == '/')
     {
-        //        log_debug("Uri \"%s\" ends with slash", currentUri);
+        // log_debug("Uri \"%s\" ends with slash", currentUri);
         // ignore ending '/' during comparison
         currUriHasRemaining = FALSE;
         currLength--;
-        // see xmldb_getLastUriCompSlashFlag for explanation
+        // see xmldb_get docs for explanation
         (*slashFlag)++;
     }
     else
     {
-        //        log_debug("Uri \"%s\" doesn't end with slash", currentUri);
-
+        // log_debug("Uri \"%s\" doesn't end with slash", currentUri);
         int slashPos = getLastSlashPosition(currentUri, currLength - 1);
         if (slashPos <= 0)
         {
@@ -243,11 +169,11 @@ static int compare_uri(const char* currentUri,
 
     if (strncmp(currentUri, requiredUri + checked, currLength) != 0)
     {
-        //        log_debug("Uri %s and %s doens't match", currentUri, requiredUri + checked);
+        //log_debug("Uri %s and %s doens't match", currentUri, requiredUri + checked);
         // uri's do not match
         return -1;
     }
-    //    log_debug("Uri %s and %s match at least partially (%d)", currentUri, requiredUri + checked, currLength);
+    //log_debug("Uri %s and %s match at least partially (%d)", currentUri, requiredUri + checked, currLength);
     // currentUri matches with some piece of requiredUri
 
     // calculate size of requiredUri remaining
@@ -259,10 +185,10 @@ static int compare_uri(const char* currentUri,
         // see xmldb_getLastUriCompSlashFlag for explanation
         (*slashFlag)--;
     }
-    //    log_debug("checked %d, required %d, requiredUri ends with \'%c\'", currLength, requiredLength, requiredUri[checked + requiredLength]);
+    //log_debug("checked %d, required %d, requiredUri ends with \'%c\'", currLength, requiredLength, requiredUri[checked + requiredLength]);
     if ((currLength == requiredLength) && !currUriHasRemaining)
     {
-        //        log_debug("full match");
+        //log_debug("full match");
         // currentUri matches with the end of requiredUri
         return 0;
     }
@@ -272,7 +198,9 @@ static int compare_uri(const char* currentUri,
         // try to check remainder
         int remainderLength = strlen(currentUri) - currLength;
         if (((currLength + remainderLength) == requiredLength) &&
-                (strncmp(currentUri + currLength, requiredUri + checked + currLength, strlen(currentUri) - currLength) == 0))
+                (strncmp(currentUri + currLength,
+                         requiredUri + checked + currLength,
+                         strlen(currentUri) - currLength) == 0))
         {
             // reminders match completely
             return 0;
@@ -304,20 +232,22 @@ static IXML_Node* getNodeByHrefRecursive(IXML_Node* node, const char* href,
 
     IXML_Node* match = NULL;
     IXML_Element* element = ixmlNode_convertToElement(node);
-    const char* currentUri;
     int compareResult = 0;
-    // ignore all nodes which are not tags or are reference tags
+    // ignore all nodes which are not tags, are reference tags
     // or do not have 'href' attribute
-    if ((element != NULL)
-            && (strcmp(ixmlElement_getTagName(element), OBIX_OBJ_REF) != 0)
-            && ((currentUri = ixmlElement_getAttribute(element, OBIX_ATTR_HREF)) != NULL))
+    if (element != NULL)
     {
-
-        compareResult = compare_uri(currentUri, href, checked, slashFlag);
-        if (compareResult == 0)
+        const char* currentUri =
+            ixmlElement_getAttribute(element, OBIX_ATTR_HREF);
+        if ((strcmp(ixmlElement_getTagName(element), OBIX_OBJ_REF) != 0)
+                && (currentUri != NULL))
         {
-            // we found the required node
-            return node;
+            compareResult = compare_uri(currentUri, href, checked, slashFlag);
+            if (compareResult == 0)
+            {
+                // we found the required node
+                return node;
+            }
         }
     }
 
@@ -326,25 +256,46 @@ static IXML_Node* getNodeByHrefRecursive(IXML_Node* node, const char* href,
     // were not compared at all
     if (compareResult == 0)
     {
-        match = getNodeByHrefRecursive(ixmlNode_getFirstChild(node), href, checked, slashFlag);
+        match = getNodeByHrefRecursive(ixmlNode_getFirstChild(node),
+                                       href,
+                                       checked,
+                                       slashFlag);
     }
     else if (compareResult > 0)
     {
         // we found part of the uri on this step
         // continue search in children the remaining address
-        match = getNodeByHrefRecursive(ixmlNode_getFirstChild(node), href, compareResult, slashFlag);
+        match = getNodeByHrefRecursive(ixmlNode_getFirstChild(node),
+                                       href,
+                                       compareResult,
+                                       slashFlag);
     }
     // do not check children if compareResult < 0
 
     if (match == NULL)
     {
-        match = getNodeByHrefRecursive(ixmlNode_getNextSibling(node), href, checked, slashFlag);
+        match = getNodeByHrefRecursive(ixmlNode_getNextSibling(node),
+                                       href,
+                                       checked,
+                                       slashFlag);
     }
 
     return match;
 }
 
-static IXML_Node* getNodeByHref(IXML_Document* doc, const char* href, int* slashFlag)
+/**
+ * Retrieves XML node with provided URI from the storage.
+ * @param slashFlag Slash flag is returned here. This flag shows whether
+ * 			requested URI differs from URI of returned object in trailing slash.
+ * 			@li @a 0 if both URI had the same ending symbol;
+ * 			@li @a 1 if the object in the storage had trailing slash but
+ * 					requested URI hadn't;
+ *			@li @a -1 if requested URI had trailing slash, but the object
+ *					hadn't.
+ */
+static IXML_Node* getNodeByHref(IXML_Document* doc,
+                                const char* href,
+                                int* slashFlag)
 {
     // TODO think whether leave it here and remove checks in other places
     // or remove it from here and make a special method which will be
@@ -361,22 +312,21 @@ static IXML_Node* getNodeByHref(IXML_Document* doc, const char* href, int* slash
     {
         slashFlag = &temp;
     }
-    return getNodeByHrefRecursive(ixmlDocument_getNode(doc), href, 0, slashFlag);
+    return getNodeByHrefRecursive(ixmlDocument_getNode(doc),
+                                  href,
+                                  0,
+                                  slashFlag);
 }
 
-IXML_Element* xmldb_getDOM(const char* href, int* slashFlag)
-{
-    return ixmlNode_convertToElement(getNodeByHref(_storage, href, slashFlag));
-}
-
-char* xmldb_get(const char* href, int* slashFlag)
-{
-    return ixmlPrintNode(getNodeByHref(_storage, href, slashFlag));
-}
-
-// checks for all href attributes in the provided piece of XML and inserts
-// server address (and /obix/ prefix if necessary) to all URI's which are
-// absolute
+/**
+ * Checks for all href attributes in the provided piece of XML and inserts
+ * server address (and @A /obix prefix if necessary) to all URI's which are
+ * absolute.
+ *
+ * @param checkPrefix if @a TRUE, than all absolute URIs will have (server
+ * 			address + /obix) in the beginning. Otherwise only server address
+ * 			will be added when needed.
+ */
 static void insertServerAddress(IXML_Node* node, BOOL checkPrefix)
 {
     if (node == NULL)
@@ -467,6 +417,12 @@ static const char* checkNode(IXML_Node* node, BOOL checkPrefix)
     return ixmlElement_getAttribute(element, OBIX_ATTR_HREF);
 }
 
+/**
+ * Adds provided data to the storage.
+ * @param checkPrefix If @a TRUE than all nodes with absolute URIs will be
+ *                    checked to have /obix prefix.
+ * @return @a 0 on success; error code otherwise.
+ */
 static int xmldb_putDOMHelper(IXML_Element* data, BOOL checkPrefix)
 {
     IXML_Node* node = ixmlElement_getNode(data);
@@ -502,12 +458,16 @@ static int xmldb_putDOMHelper(IXML_Element* data, BOOL checkPrefix)
     IXML_Node* nodeInStorage = getNodeByHref(_storage, href, NULL);
     if (nodeInStorage != NULL)
     {
-        log_warning("Unable to write to the storage: The object with the same URI (%s) already exists.", href);
+        log_warning("Unable to write to the storage: The object with the same "
+                    "URI (%s) already exists.", href);
         onError();
         return -2;
-        //         overwrite existing node
-        //        ixmlNode_replaceChild(ixmlNode_getParentNode(nodeInStorage), newNode, nodeInStorage, &nodeInStorage);
-        //        ixmlNode_free(nodeInStorage);
+        // overwrite existing node
+        //ixmlNode_replaceChild(ixmlNode_getParentNode(nodeInStorage),
+        //                      newNode,
+        //                      nodeInStorage,
+        //                      &nodeInStorage);
+        //ixmlNode_free(nodeInStorage);
     }
 
     // append as a new node
@@ -522,13 +482,8 @@ static int xmldb_putDOMHelper(IXML_Element* data, BOOL checkPrefix)
     return 0;
 }
 
-int xmldb_putDOM(IXML_Element* data)
-{
-    return xmldb_putDOMHelper(data, TRUE);
-}
-
 /**
- * Adds XML node to the storage.
+ * Saves provided data into storage.
  * The data is stored in the root of the document.
  */
 static int xmldb_putHelper(const char* data, BOOL checkPrefix)
@@ -550,6 +505,76 @@ static int xmldb_putHelper(const char* data, BOOL checkPrefix)
     ixmlDocument_free(ixmlNode_getOwnerDocument(node));
 
     return error;
+}
+
+IXML_Element* xmldb_getDOM(const char* href, int* slashFlag)
+{
+    return ixmlNode_convertToElement(getNodeByHref(_storage, href, slashFlag));
+}
+
+char* xmldb_get(const char* href, int* slashFlag)
+{
+    return ixmlPrintNode(getNodeByHref(_storage, href, slashFlag));
+}
+
+int xmldb_putDOM(IXML_Element* data)
+{
+    return xmldb_putDOMHelper(data, TRUE);
+}
+
+int xmldb_init(const char* serverAddr)
+{
+    if (_storage != NULL)
+    {
+        //TODO: replace with mega log
+        log_error("Storage has been already initialized!");
+        return -1;
+    }
+
+    int error = ixmlDocument_createDocumentEx(&_storage);
+    if (error != IXML_SUCCESS)
+    {
+        log_error("Unable to initialize the storage. (error %d).", error);
+        return error;
+    }
+
+    // load server address
+    if (serverAddr == NULL)
+    {
+        log_error("No server address provided. Storage initialization failed.");
+        return -1;
+    }
+    else
+    {
+        _serverAddressLength = strlen(serverAddr);
+        _serverAddress = (char*) malloc(_serverAddressLength + 1);
+        strcpy(_serverAddress, serverAddr);
+    }
+    log_debug("Storage is initialized with server address: %s", _serverAddress);
+
+    // load storage contents from files:
+    int i;
+    for (i = 0; i < OBIX_STORAGE_FILES_COUNT; i++)
+    {
+        error = xmldb_loadFile(OBIX_STORAGE_FILES[i]);
+        if (error != 0)
+        {
+            return error;
+        }
+    }
+
+    return 0;
+}
+
+void xmldb_dispose()
+{
+    ixmlDocument_free(_storage);
+    _storage = NULL;
+    if (_serverAddress != NULL)
+    {
+        free(_serverAddress);
+    }
+    _serverAddress = NULL;
 }
 
 int xmldb_put(const char* data)
@@ -627,7 +652,8 @@ int xmldb_delete(const char* href)
     IXML_Node* node = getNodeByHref(_storage, href, NULL);
     if (node == NULL)
     {
-        log_warning("Unable to delete data. Provided URI (%s) doesn't exist.", href);
+        log_warning("Unable to delete data. Provided URI (%s) doesn't "
+                    "exist.", href);
         return -1;
     }
 
@@ -688,7 +714,8 @@ int xmldb_loadFile(const char* filename)
     free(data);
     if (error != 0)
     {
-        log_error("Unable to update storage. File \"%s\" is corrupted (error %d).", xmlFile, error);
+        log_error("Unable to update storage. File \"%s\" is corrupted "
+                  "(error %d).", xmlFile, error);
         free(xmlFile);
         return error;
     }
@@ -774,10 +801,12 @@ int xmldb_getServerAddressLength()
     return _serverAddressLength;
 }
 
-IXML_Node* xmldb_putMeta(IXML_Element* element, const char* name, const char* value)
+IXML_Node* xmldb_putMetaVariable(IXML_Element* element,
+                                 const char* name,
+                                 const char* value)
 {
     int error;
-    IXML_Element* meta = getMetaInfo(element);
+    IXML_Element* meta = xmldb_getMetaInfo(element);
     if (meta == NULL)
     {
         // create a new meta tag
@@ -808,19 +837,22 @@ IXML_Node* xmldb_putMeta(IXML_Element* element, const char* name, const char* va
     }
 
     // return link to the created attribute
-    return ixmlAttr_getNode(ixmlElement_getAttributeNode(metaItem, OBIX_ATTR_VAL));
+    return ixmlAttr_getNode(
+               ixmlElement_getAttributeNode(metaItem, OBIX_ATTR_VAL));
 }
 
-int xmldb_deleteMeta(IXML_Node* meta)
+int xmldb_deleteMetaVariable(IXML_Node* meta)
 {
     IXML_Node* metaItem = ixmlElement_getNode(
                               ixmlAttr_getOwnerElement(
                                   ixmlNode_convertToAttr(meta)));
 
-    int error = ixmlNode_removeChild(ixmlNode_getParentNode(metaItem), metaItem, &metaItem);
+    int error = ixmlNode_removeChild(
+                    ixmlNode_getParentNode(metaItem), metaItem, &metaItem);
     if (error != IXML_SUCCESS)
     {
-        log_error("Unable to delete meta data: ixmlNode_removeChild() returned %d", error);
+        log_error("Unable to delete meta data: ixmlNode_removeChild() "
+                  "returned %d", error);
         return -1;
     }
 
@@ -828,12 +860,12 @@ int xmldb_deleteMeta(IXML_Node* meta)
     return 0;
 }
 
-int xmldb_updateMeta(IXML_Node* meta, const char* newValue)
+int xmldb_changeMetaVariable(IXML_Node* meta, const char* newValue)
 {
     return ixmlNode_setNodeValue(meta, newValue);
 }
 
-IXML_Element* getMetaInfo(IXML_Element* doc)
+IXML_Element* xmldb_getMetaInfo(IXML_Element* doc)
 {
     IXML_NodeList* list = ixmlElement_getElementsByTagName(doc, OBIX_META);
     if (list == NULL)
@@ -862,15 +894,7 @@ IXML_Element* getMetaInfo(IXML_Element* doc)
     return NULL;
 }
 
-
-/**
- * Removes all #OBIX_META tags from the document.
- * @a For <op/> objects these tags contain id of the operation handler. For any
- * other objects they can contain ids of watches subscribed for those object
- * changes.
- * @param doc Node which should be cleaned.
- */
-void removeMetaInfo(IXML_Element* doc)
+void xmldb_deleteMetaInfo(IXML_Element* doc)
 {
     IXML_NodeList* list = ixmlElement_getElementsByTagName(doc, OBIX_META);
     if (list == NULL)
@@ -891,7 +915,8 @@ void removeMetaInfo(IXML_Element* doc)
         error = ixmlNode_removeChild(ixmlNode_getParentNode(node), node, &node);
         if (error != IXML_SUCCESS)
         {
-            log_warning("Unable to clean the oBIX object from meta information (error %d).", error);
+            log_warning("Unable to clean the oBIX object from meta information "
+                        "(error %d).", error);
             ixmlNodeList_free(list);
             return;
         }

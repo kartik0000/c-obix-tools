@@ -34,7 +34,7 @@
   	 handled by the server in parallel. (Long poll request is requesting 
   	 Watch.pollChanges with Watch.pollWaitTime set - see README for more info).
   	 Note that all other requests are handled consequently so far. Default value 
-  	 is 10.   
+  	 is 20.   
   -->
   <hold-request-max val="20"/>
 

@@ -20,10 +20,10 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Interface of Watch module.
+ * This module implements oBIX Watch logic at the server.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #ifndef WATCH_H_
@@ -34,10 +34,12 @@
 #include <ixml_ext.h>
 #include "response.h"
 
+/** @name Values of XML meta attributes.
+ * These are used to mark watched objects in the storage.
+ * @{ */
 extern const char* OBIX_META_WATCH_UPDATED_YES;
 extern const char* OBIX_META_WATCH_UPDATED_NO;
-
-extern const long OBIX_WATCH_LEASE_NO_CHANGE;
+/** @} */
 
 /**
  * Represents a separate watch item.
@@ -47,8 +49,6 @@ extern const long OBIX_WATCH_LEASE_NO_CHANGE;
  */
 typedef struct oBIX_Watch_Item
 {
-    //TODO: place here link to the monitored object
-    // and link to the value of meta tag 'updated'
     /**
      * URI of the object which state is monitored.
      */
@@ -96,15 +96,23 @@ typedef struct oBIX_Watch
 }
 oBIX_Watch;
 
+/**
+ * Prototype of a function, which handles delayed Watch.pollChanges request.
+ */
 typedef void (*obixWatch_pollHandler)(oBIX_Watch* watch,
                                       Response* response,
                                       const char* uri);
 
-/**@name oBIX Watch utilities @{*//////////////////////////////////////////////
-// TODO: what about creating a separate file for these watch utilities?
-
+/**
+ * Initializes Watch engine.
+ * @return @a 0 on success; negative error code otherwise.
+ */
 int obixWatch_init();
 
+/**
+ * Stops Watch engine and releases all allocated memory.
+ * @return @a 0 on success; negative error code otherwise.
+ */
 int obixWatch_dispose();
 
 /**
@@ -129,18 +137,28 @@ int obixWatch_create(IXML_Element** watchDOM);
  */
 int obixWatch_delete(oBIX_Watch* watch);
 
+/**
+ * Returns Watch object with specified id.
+ * @return @a NULL if no object which such id found.
+ */
 oBIX_Watch* obixWatch_get(int watchId);
 
+/**
+ * Generates URI of the provided Watch object.
+ * @note Don't forget to free memory after usage.
+ */
 char* obixWatch_getUri(oBIX_Watch* watch);
 
+/**
+ * Returns Watch object, which has provided URI.
+ * @return @a NULL if no object with such URI found.
+ */
 oBIX_Watch* obixWatch_getByUri(const char* uri);
 
-
 /**
- * @todo describe me; rename to createWatchItem
- * @param watch
- * @param uri
- * @param watchItem
+ * Subscribes Watch object to receive updates of provided URI.
+ * @param uri Uri, which should be added to the watch list.
+ * @param watchItem Reference to the created WatchItem is returned here.
  * @return @li @a  0 - Watch item is added successfully;
  *         @li @a -1 - URI not found;
  *         @li @a -2 - URI is an @a <op/> object;
@@ -150,28 +168,66 @@ int obixWatch_createWatchItem(oBIX_Watch* watch,
                               const char* uri,
                               oBIX_Watch_Item** watchItem);
 
-
-int obixWatch_appendWatchItem(oBIX_Watch* watch, oBIX_Watch_Item* item);
-
+/**
+ * Removes provided URI from subscribed items.
+ * @return @a 0 on success; @a -1 on error.
+ */
 int obixWatch_deleteWatchItem(oBIX_Watch* watch, const char* watchItemUri);
 
-oBIX_Watch_Item* obixWatch_getWatchItem(oBIX_Watch* watch, const char* watchItemUri);
-
+/**
+ * Tells whether provided Watch Item has beed updated or not.
+ */
 BOOL obixWatchItem_isUpdated(oBIX_Watch_Item* item);
 
+/**
+ * Changes updated state of provided Watch Item.
+ * @return @a 0 on success; error code otherwise.
+ */
 int obixWatchItem_setUpdated(oBIX_Watch_Item* item, BOOL isUpdated);
 
+/**
+ * Sets Watch attributes of the provided meta tag to "updated" state.
+ */
 void obixWatch_updateMeta(IXML_Element* meta);
 
+/**
+ * Checks whether provided URI is an URI of Watch object.
+ */
 BOOL obixWatch_isWatchUri(const char* uri);
 
-int obixWatch_resetLeaseTimer(oBIX_Watch* watch, long newPeriod);
+/**
+ * Restarts Watch.lease timer. It should be restarted every time when somebody
+ * access the Watch.
+ * @return @a 0 on success; @a -1 on error.
+ */
+int obixWatch_resetLeaseTimer(oBIX_Watch* watch);
 
+/**
+ * Handles update of the following time configuration variables of a Watch
+ * object: @a Watch.lease, @a Watch.pollWaitInterval.min and
+ * @a Watch.pollWaitInterval.max
+ */
 int obixWatch_processTimeUpdates(const char* uri, IXML_Element* element);
 
-BOOL obixWatch_isLongPoll(oBIX_Watch* watch);
+/**
+ * Checks whether provided Watch object has long poll mode enabled.
+ */
+BOOL obixWatch_isLongPollMode(oBIX_Watch* watch);
 
-int obixWatch_holdPoll(obixWatch_pollHandler pollHandler,
+/**
+ * Holds processing of the Watch.pollChanges request.
+ * Processing is blocked until:
+ * @li At least one of Watch Items has been updated and
+ * 		@a Watch.pollWaitInterval.min is reached;
+ * @li Or Watch.pollWaitInterval.max is reached.
+ *
+ * @param pollHandler Function, which will be invoked to process the request.
+ * @param maxWait If @a FALSE, than the request processing will be delayed for
+ * 				@a Watch.pollWaitInterval.min. Otherwise, it will be delayed for
+ * 				@a Watch.pollWaitInterval.max, but later this interval can be
+ * 				reduced if some of Watch Items are updated.
+ */
+int obixWatch_holdPollRequest(obixWatch_pollHandler pollHandler,
                        oBIX_Watch* watch,
                        Response* response,
                        const char* uri,

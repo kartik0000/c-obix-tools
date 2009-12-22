@@ -5,9 +5,12 @@ obix_fcgi_SOURCES = obix_fcgi.h obix_fcgi.c \
                     xml_storage.h xml_storage.c \
                     watch.h watch.c \
                     response.h response.c \
-                    request.h \
+                    request.h request.c \
                     post_handler.h post_handler.c
                     
 obix_fcgi_CFLAGS  = $(WARN_FLAGS) -I$(top_srcdir)/src/common 
 
 obix_fcgi_LDADD   = $(FCGI_LIB) $(top_builddir)/src/common/libcot-utils.la
+
+## Not implemented part of the server.
+EXTRA_DIST		  = doctree.h doctree.c

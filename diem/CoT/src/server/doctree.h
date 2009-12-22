@@ -20,10 +20,16 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * This is an attempt to implement storing server's database on a disk.
+ * Implementation is not complete and this code is not included into server.
+ * The idea was that each major XML object (like Lobby, or Watch, or About) -
+ * are separate files in corresponding folders. Nothing is kept in memory (may
+ * be except Watch objects). When some URI is requested, first, the
+ * corresponding file should be opened; second, the complete URI should be found
+ * in that file. The references to files are stored as a tree, for faster
+ * search. This header file describes interface of that tree of XML files.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #ifndef DOCTREE_H_
@@ -31,8 +37,10 @@
 
 #include <ixml_ext.h>
 
+/** Retrieves a piece of XML with provided URI from the tree. */
 IXML_Element* doctree_get(const char* uri);
 
+/** Adds new XML document to the three. */
 int doctree_put(const char* uri, IXML_Element* data);
 
 #endif /* DOCTREE_H_ */

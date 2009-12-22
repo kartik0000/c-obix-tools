@@ -21,31 +21,42 @@
  * ****************************************************************************/
 /** @file
  * Defines the interface to the XML storage.
- * TODO: Add error codes enumeration
+ * @todo Add error codes enumeration for storage errors.
+ *
+ * @author Andrey Litvinov
  */
 #ifndef XML_STORAGE_H_
 #define XML_STORAGE_H_
 
 #include <ixml_ext.h>
 
-// TODO global refactor - think whether we can use only DOM structures and no char arrays
-//TODO add description
+// TODO think whether we can use only DOM structures and no char arrays
 
+/** @name URIs of various system objects.
+ * These objects are not accessible for a client. They are used by server to
+ * generate quickly XML data structures.
+ * @{ */
+/** URI of Watch object stub. */
 extern const char* OBIX_SYS_WATCH_STUB;
+/** URI of Error object stub. */
 extern const char* OBIX_SYS_ERROR_STUB;
+/** URI of WatchOut object stub. */
 extern const char* OBIX_SYS_WATCH_OUT_STUB;
+/** @} */
 
+/** Name of meta tag. This tag is used to store meta variables for any object
+ * in storage, which is not visible for clients. */
 extern const char* OBIX_META;
 
 /**
  * Initializes storage. Should be executed only once on startup.
  *
- * @param serverAddr of the server. Storage should know it in cases
- *        when requested URI contains full address. If NULL is
- *        provided that address will be retrieved from the Lobby
+ * @param serverAddr Address of the server. Storage should know it in cases
+ *        when requested URI contains full address. If @a NULL is
+ *        provided than address will be retrieved from the Lobby
  *        object.
  *
- * @return error code or 0 on success.
+ * @return error code or @a 0 on success.
  */
 int xmldb_init(const char* serverAddr);
 
@@ -57,7 +68,14 @@ void xmldb_dispose();
 /**
  * Retrieves XML node with specified URI from the storage.
  *
- * @param href address of the XML node to be retrieved.
+ * @param href Address of the XML node to be retrieved.
+ * @param slashFlag Slash flag is returned here. This flag shows whether
+ * 			requested URI differs from URI of returned object in trailing slash.
+ * 			@li @a 0 if both URI had the same ending symbol;
+ * 			@li @a 1 if the object in the storage had trailing slash but
+ * 					requested URI hadn't;
+ *			@li @a -1 if requested URI had trailing slash, but the object
+ *					hadn't.
  * @return XML data in plain text format or NULL on error.
  */
 char* xmldb_get(const char* href, int* slashFlag);
@@ -65,46 +83,24 @@ char* xmldb_get(const char* href, int* slashFlag);
 /**
  * Retrieves DOM structure of XML node with specified URI from the storage.
  *
- * @param href address of the XML node to be retrieved.
+ * @param href Address of the XML node to be retrieved.
+ * @param slashFlag Slash flag is returned here. This flag shows whether
+ * 			requested URI differs from URI of returned object in trailing slash.
+ * 			@li @a 0 if both URI had the same ending symbol;
+ * 			@li @a 1 if the object in the storage had trailing slash but
+ * 					requested URI hadn't;
+ *			@li @a -1 if requested URI had trailing slash, but the object
+ *					hadn't.
  * @return XML data as a DOM structure NULL on error.
  */
 IXML_Element* xmldb_getDOM(const char* href, int* slashFlag);
 
+/**
+ * Retrieves DOM structure of system object from the storage.
+ *
+ * @param objType URI of the system object (e.g. #OBIX_SYS_WATCH_STUB).
+ */
 IXML_Element* xmldb_getObixSysObject(const char* objType);
-
-/**
- * Returns the remaining slash flag of the last URI comparison operation.
- * URI comparison in database is done ignoring ending slash ('/'). It is done
- * every time when some object is retrieved from the storage.
- * Slash flag shows whether requested URI and URI found in storage contain
- * ending slash.
- *
- * Slash flag is set by following functions:
- * @li #xmldb_get;
- * @li #xmldb_getDOM;
- * @li #xmldb_update;
- * @li #xmldb_put.
- * //@li #xmldb_compareUri.
- * @note The value of the flag can be changed also by other xmldb
- * functions.
- *
- * @return @li @b 0 if both URI had the same ending symbol;
- *         @li @b 1 if the object in the storage had ending slash but requested
- *                  URI hadn't;
- *         @li @b -1 if requested URI had ending slash, but the object hadn't.
- */
-//int xmldb_getLastUriCompSlashFlag();
-
-/**
- * Compares two URI ignoring ending slash ('/').
- * This function also sets the slash flag.
- *
- * @see #xmldb_getLastUriCompSlashFlag
- * @param uri1 first URI to compare (object's URI for the slash flag).
- * @param uri2 second URI to compare (request URI for the slash flag).
- * @return #TRUE is URI match, #FALSE otherwise.
- */
-//BOOL xmldb_compareUri(const char* uri1, const char* uri2);
 
 /**
  * Adds new XML node to the storage. The node should contain
@@ -112,7 +108,7 @@ IXML_Element* xmldb_getObixSysObject(const char* objType);
  * the storage then new node is not added.
  *
  * @param data XML node represented in plain text format.
- * @return error code or @a 0 on success.
+ * @return Error code or @a 0 on success.
  */
 int xmldb_put(const char* data);
 
@@ -129,6 +125,13 @@ int xmldb_putDOM(IXML_Element* data);
  * @param href URI of the object to be updated.
  * @param updatedNode If not @a NULL is provided and update is successful than
  *                    the address of the updated node will be written there.
+ * @param slashFlag Slash flag is returned here. This flag shows whether
+ * 			requested URI differs from URI of returned object in trailing slash.
+ * 			@li @a 0 if both URI had the same ending symbol;
+ * 			@li @a 1 if the object in the storage had trailing slash but
+ * 					requested URI hadn't;
+ *			@li @a -1 if requested URI had trailing slash, but the object
+ *					hadn't.
  * @return @li @b 0 if value is successfully overwritten;
  * 		   @li @b 1 if request is processed but new value is the same;
  * 		   @li @b -1 if request data is corrupted/wrong format;
@@ -144,49 +147,94 @@ int xmldb_updateDOM(IXML_Element* input,
 /**
  * Removes XML node from the storage.
  *
- * @param href address of the node to be deleted.
+ * @param href Address of the node to be deleted.
  */
 int xmldb_delete(const char* href);
 
 /**
- * Loads xml file to the storage.
+ * Loads XML file to the storage.
  *
- * @param filename name of the xml file to load.
- * @return error code or 0 on success.
+ * @param filename Name of the XML file to load.
+ * @return Error code or 0 on success.
  */
 int xmldb_loadFile(const char* filename);
 
 /**
- * Prints to standard log current contents of the storage.
+ * Prints to standard log the current contents of the storage.
  */
 void xmldb_printDump();
 
+/**
+ * Returns string representation of current storage contents.
+ * @note Don't forget to free memory allocated for the dump after usage.
+ */
 char* xmldb_getDump();
 
+/**
+ * Checks that provided URI starts with server's URI
+ * @return @a 0 if provided URI starts with server's URI.
+ */
 int xmldb_compareServerAddr(const char* uri);
 
+/**
+ * Creates full URI consisting of server's URI + @a absUri +/- trailing slash.
+ *
+ * @param slashFlag Defines whether trailing slash should be added or removed
+ * 			from @a absUri
+ * 			@li @a 0 nothing to be done;
+ * 			@li @a 1 add trailing slash;
+ *			@li @a -1 remove trailing slash.
+ * @note Don't forget to clear memory after usage of the string.
+ */
 char* xmldb_getFullUri(const char* absUri, int slashFlag);
 
+/**
+ * Returns server's URI.
+ * @see xmldb_getServerAddressLength
+ */
 const char* xmldb_getServerAddress();
 
+/**
+ * Returns length of server's URI.
+ * @see xmldb_getServerAddress
+ */
 int xmldb_getServerAddressLength();
 
+/**
+ * Adds new meta variable to the provided element in the storage.
+ *
+ * @param name Name of the meta variable.
+ * @param value Value of meta variable.
+ * @return Link to the meta value node.
+ */
+IXML_Node* xmldb_putMetaVariable(IXML_Element* element,
+                                 const char* name,
+                                 const char* value);
 
-//TODO rename and describe
+/**
+ * Deletes meta variable.
+ *
+ * @return @a 0 on success; @a -1 on error.
+ */
+int xmldb_deleteMetaVariable(IXML_Node* meta);
 
-IXML_Node* xmldb_putMeta(IXML_Element* element, const char* name, const char* value);
-
-int xmldb_deleteMeta(IXML_Node* attr);
-
-int xmldb_updateMeta(IXML_Node* meta, const char* newValue);
+/**
+ * Sets new value for provided meta variable.
+ *
+ * @return 0 on success; error code otherwise.
+ */
+int xmldb_changeMetaVariable(IXML_Node* meta, const char* newValue);
 
 /**
  * Returns meta tag of the object.
- * @param doc Node whose meta data should be retrieved.
+ * @param doc Object, whose meta data should be retrieved.
  * @return Meta tag if exists, @a NULL otherwise.
  */
-IXML_Element* getMetaInfo(IXML_Element* doc);
+IXML_Element* xmldb_getMetaInfo(IXML_Element* doc);
 
-void removeMetaInfo(IXML_Element* doc);
+/**
+ * Removes all #OBIX_META tags from the document.
+ */
+void xmldb_deleteMetaInfo(IXML_Element* doc);
 
 #endif /*XML_STORAGE_H_*/

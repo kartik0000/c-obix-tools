@@ -20,10 +20,11 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description
+ * Implementation of oBIX Watch engine.
+ *
+ * @see watch.h
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #include <stdio.h>
@@ -37,6 +38,8 @@
 #include "xml_storage.h"
 #include "watch.h"
 
+/** Structure used to store parameters for delayed @a Watch.pollChanges request
+ * processing. */
 typedef struct PollTaskParams
 {
     obixWatch_pollHandler pollHandler;
@@ -49,15 +52,22 @@ PollTaskParams;
 const char* OBIX_META_WATCH_UPDATED_YES = "y";
 const char* OBIX_META_WATCH_UPDATED_NO  = "n";
 
-const long OBIX_WATCH_LEASE_NO_CHANGE = -1;
-
-// TODO: load this parameter from settings file
+/**
+ * Maximum amount of Watch objects which can exist simultaneously in the system.
+ * @todo Load this parameter from settings file.
+ */
 static const int MAX_WATCH_COUNT = 50;
 
-static const char* OBIX_META_ATTR_WATCH_TEMPLATE = "wi-%d";
+/**
+ * Template for the name of meta tag, which is added to every object in storage
+ * subscribed by some Watch.
+ */
+static const char* OBIX_META_TAG_WATCH_TEMPLATE = "wi-%d";
 
+/** Template for Watch URI. */
 static const char* WATCH_URI_TEMPLATE = "/obix/watchService/watch%d/";
-// length of watch uri prefix, but not of the whole template
+/** Length of watch uri prefix from #WATCH_URI_TEMPLATE, but not of the whole
+ * template. */
 static const int WATCH_URI_PREFIX_LENGTH = 24;
 
 /**
@@ -70,74 +80,6 @@ static Task_Thread* _threadLease;
 /** Thread for parking long poll requests. */
 static Task_Thread* _threadLongPoll;
 
-int obixWatch_init()
-{
-    // check whether watches storage is initialized
-    if (_watches != NULL)
-    {
-        log_warning("Watches are already initialized.");
-        return -1;
-    }
-
-    _watches = (oBIX_Watch**) calloc(MAX_WATCH_COUNT, sizeof(oBIX_Watch*));
-    if (_watches == NULL)
-    {
-        log_error("Unable to allocate memory for Watch cache.");
-        return -2;
-    }
-
-    _watchesCount = 0;
-
-    // initialize thread which will be used to remove old watch objects
-    _threadLease = ptask_init();
-    if (_threadLease == NULL)
-    {
-        return -3;
-    }
-    // initialize thread which will be used to park long poll requests
-    _threadLongPoll = ptask_init();
-    if (_threadLongPoll == NULL)
-    {
-        return -3;
-    }
-
-    log_debug("Watches are successfully initialized.");
-    return 0;
-}
-
-int obixWatch_dispose()
-{
-    if (_watches == NULL)
-    {	// nothing to be done
-        return 0;
-    }
-
-    int i;
-    int error = 0;
-    for (i = 0; (_watchesCount > 0) && (i < MAX_WATCH_COUNT); i++)
-    {
-        if (_watches[i] != NULL)
-        {
-            error += obixWatch_delete(_watches[i]);
-        }
-    }
-
-    free(_watches);
-    _watches = NULL;
-
-    // stop threads
-    if (_threadLease != NULL)
-    {
-        ptask_dispose(_threadLease, TRUE);
-    }
-    if (_threadLongPoll != NULL)
-    {
-        ptask_dispose(_threadLongPoll, TRUE);
-    }
-
-    return error;
-}
-
 /**
  * Frees memory, allocated for provided watch item.
  * Also removes meta tag associated with that watch item.
@@ -149,15 +91,19 @@ static oBIX_Watch_Item* obixWatchItem_free(oBIX_Watch_Item* item)
 {
     oBIX_Watch_Item* next = item->next;
     free(item->uri);
-    if (xmldb_deleteMeta(item->updated) != 0)
+    if (xmldb_deleteMetaVariable(item->updated) != 0)
     {
-        log_error("Unable to delete meta data corresponding to the deleted watch item.");
+        log_error("Unable to delete meta data corresponding to the deleted "
+                  "watch item.");
     }
     free(item);
 
     return next;
 }
 
+/**
+ * Deletes recursively list of Watch Items starting from provided item.
+ */
 static void obixWatchItem_freeRecursive(oBIX_Watch_Item* item)
 {
     if (item->next != NULL)
@@ -168,6 +114,99 @@ static void obixWatchItem_freeRecursive(oBIX_Watch_Item* item)
     obixWatchItem_free(item);
 }
 
+/**
+ * Helper function which searches for Watch Item with specified URI in the list
+ * of Watch Items. On success, both the item and its parent are returned.
+ * @return  @li @a 0  - Success;
+ * 			@li @a -1 - No items found;
+ * 			@li @a -2 - Wrong input arguments.
+ */
+static int findWatchItem(oBIX_Watch* watch,
+                         const char* watchItemUri,
+                         oBIX_Watch_Item** item,
+                         oBIX_Watch_Item** parent)
+{
+    if ((watch == NULL) || (watchItemUri == NULL))
+    {
+        return -2;
+    }
+
+    oBIX_Watch_Item* child = watch->items;
+    oBIX_Watch_Item* p = NULL;
+
+    // iterate through item list searching for URI match
+    while (child != NULL)
+    {
+        if (strcmp(child->uri, watchItemUri) == 0)
+        {
+            *item = child;
+            if (parent != NULL)
+            {
+                *parent = p;
+            }
+            return 0;
+        }
+
+        p = child;
+        child = child->next;
+    }
+
+    // nothing is found
+    *item = NULL;
+    if (parent != NULL)
+    {
+        *parent = NULL;
+    }
+    return -1;
+}
+
+/** Searches for Watch Item corresponding to the provided URI. */
+static oBIX_Watch_Item* obixWatch_getWatchItem(
+    oBIX_Watch* watch,
+    const char* watchItemUri)
+{
+    oBIX_Watch_Item* item = NULL;
+
+    int error = findWatchItem(watch, watchItemUri, &item, NULL);
+    if (error == -2)
+    {
+        log_error("Wrong parameters passed to obixWatch_getWatchItem.");
+    }
+
+    return item;
+}
+
+/** Adds Watch Item to items list of the provided Watch object. */
+static int obixWatch_appendWatchItem(oBIX_Watch* watch, oBIX_Watch_Item* item)
+{
+    if ((watch == NULL) || (item == NULL))
+    {
+        log_error("Wrong parameters passed to obixWatch_appendWatchItem.");
+        return -1;
+    }
+
+    oBIX_Watch_Item* p = watch->items;
+
+    if (p == NULL)
+    {
+        // this is the first watch item for provided watch
+        watch->items = item;
+        return 0;
+    }
+
+    // find the last watch item in the list
+    while (p->next != NULL)
+    {
+        p = p->next;
+    }
+    // append new item to the end
+    p->next = item;
+    return 0;
+}
+
+/**
+ * Frees allocated memory for the Watch object including all its Watch Items.
+ */
 static int obixWatch_free(oBIX_Watch* watch)
 {
     int watchId = watch->id;
@@ -190,6 +229,11 @@ static int obixWatch_free(oBIX_Watch* watch)
     return 0;
 }
 
+/**
+ * Helper function which deletes Watch object. It removes the object from the
+ * storage, cancels delayed poll request processing if any, and frees any
+ * allocated memory.
+ */
 static int obixWatch_deleteHelper(oBIX_Watch* watch)
 {
     // remove watch from the storage
@@ -237,21 +281,65 @@ static int obixWatch_deleteHelper(oBIX_Watch* watch)
     return 0;
 }
 
-
-int obixWatch_delete(oBIX_Watch* watch)
+/**
+ * Notifies delayed poll request processing task that subscribed value has been
+ * changed. In case if the task was delayed for @a Watch.pollWaitInterval.max,
+ * than it is rescheduled to be executed earlier.
+ *
+ * @param meta Meta tag, which has changed it's state to updated (meaning that
+ * corresponding object has been changed).
+ */
+static void obixWatch_notifyPollTask(IXML_Element* meta)
 {
-    // remove watch deleting task
-    int error = ptask_cancel(_threadLease, watch->leaseTimerId, TRUE);
-    if (error != 0)
+    // Let's find out what Watch does this meta tag belongs to.
+    // Extract watch id from the meta tag name
+    const char* tagName = ixmlElement_getTagName(meta);
+    int watchId = strtol(tagName + 3, NULL, 10);
+    oBIX_Watch* watch = obixWatch_get(watchId);
+    if (watch == NULL)
     {
-        log_error("Unable to cancel watch lease timer: "
-                  "ptask_cancel() returned %d.", error);
-        return -3;
+        log_error("There is no watch corresponding to %s meta tag.",
+                  tagName);
+        return;
     }
 
-    return obixWatch_deleteHelper(watch);
+    pthread_mutex_lock(&(watch->pollTaskMutex));
+    // if poll response is scheduled to execute with maximum delay, than
+    // reduce delay to the minimum
+    if ((watch->pollTaskId > 0) && (watch->isPollWaitingMax))
+    {
+        watch->isPollWaitingMax = FALSE;
+        ptask_reschedule(_threadLongPoll,
+                         watch->pollTaskId,
+                         watch->pollWaitMin - watch->pollWaitMax,
+                         1,
+                         TRUE);
+    }
+    pthread_mutex_unlock(&(watch->pollTaskMutex));
 }
 
+/** Sets @a Watch.lease time. Watch object is expired (and deleted) if nobody
+ * accesses it for this interval. */
+static int obixWatch_setLeaseTimer(oBIX_Watch* watch, long newPeriod)
+{
+    // set new lease time and reset timer
+    int error = ptask_reschedule(_threadLease,
+                                 watch->leaseTimerId,
+                                 newPeriod,
+                                 1,
+                                 FALSE);
+    if (error != 0)
+    {
+        log_error("Unable to reschedule Watch lease timer for the watch "
+                  "#%d. New lease value is %d.", watch->id, newPeriod);
+        return -1;
+    }
+
+    return 0;
+}
+
+/** Task, which is scheduled to delete unused Watch object after
+ * @a Watch.lease interval. */
 static void taskDeleteWatch(void* arg)
 {
     oBIX_Watch* watch =(oBIX_Watch*) arg;
@@ -264,6 +352,8 @@ static void taskDeleteWatch(void* arg)
     }
 }
 
+/** Creates and returns URI for the watch with specified id.
+ * @note Don't forget to free returned string after usage. */
 static char* generateWatchUri(int watchId)
 {
     char* watchUri = (char*) malloc(WATCH_URI_PREFIX_LENGTH + 8);
@@ -284,6 +374,7 @@ static char* generateWatchUri(int watchId)
     return watchUri;
 }
 
+/** Returns the value of @a Watch.lease interval from provided XML document. */
 static long getLeaseTime(IXML_Element* watchDOM)
 {
     // find <lease/> tag
@@ -430,7 +521,8 @@ int obixWatch_create(IXML_Element** watchDOM)
     free(watchUri);
 
     // create task for removing unused watch
-    watch->leaseTimerId = ptask_schedule(_threadLease, &taskDeleteWatch, watch, leaseTime, 1);
+    watch->leaseTimerId =
+        ptask_schedule(_threadLease, &taskDeleteWatch, watch, leaseTime, 1);
     if (watch->leaseTimerId < 0)
     {
         log_error("Unable to schedule watch deleting task: "
@@ -442,6 +534,20 @@ int obixWatch_create(IXML_Element** watchDOM)
     *watchDOM = watchElement;
 
     return watch->id;
+}
+
+int obixWatch_delete(oBIX_Watch* watch)
+{
+    // remove watch deleting task
+    int error = ptask_cancel(_threadLease, watch->leaseTimerId, TRUE);
+    if (error != 0)
+    {
+        log_error("Unable to cancel watch lease timer: "
+                  "ptask_cancel() returned %d.", error);
+        return -3;
+    }
+
+    return obixWatch_deleteHelper(watch);
 }
 
 oBIX_Watch* obixWatch_get(int watchId)
@@ -484,7 +590,9 @@ oBIX_Watch* obixWatch_getByUri(const char* uri)
     return obixWatch_get(watchId);
 }
 
-int obixWatch_createWatchItem(oBIX_Watch* watch, const char* uri, oBIX_Watch_Item** watchItem)
+int obixWatch_createWatchItem(oBIX_Watch* watch,
+                              const char* uri,
+                              oBIX_Watch_Item** watchItem)
 {
     // check that the provided URI was not added earlier
     *watchItem = obixWatch_getWatchItem(watch, uri);
@@ -520,7 +628,7 @@ int obixWatch_createWatchItem(oBIX_Watch* watch, const char* uri, oBIX_Watch_Ite
 
     // add meta info to the object
     char attrName[10];
-    int error = sprintf(attrName, OBIX_META_ATTR_WATCH_TEMPLATE, watch->id);
+    int error = sprintf(attrName, OBIX_META_TAG_WATCH_TEMPLATE, watch->id);
     if (error < 0)
     {
         log_error("Unable to create meta attribute. sprintf() returned %d.",
@@ -528,9 +636,9 @@ int obixWatch_createWatchItem(oBIX_Watch* watch, const char* uri, oBIX_Watch_Ite
         return -3;
     }
 
-    IXML_Node* metaAttr = xmldb_putMeta(element,
-                                        attrName,
-                                        OBIX_META_WATCH_UPDATED_NO);
+    IXML_Node* metaAttr = xmldb_putMetaVariable(element,
+                          attrName,
+                          OBIX_META_WATCH_UPDATED_NO);
     if (metaAttr == NULL)
     {
         log_error("Unable to save meta attribute.");
@@ -541,7 +649,7 @@ int obixWatch_createWatchItem(oBIX_Watch* watch, const char* uri, oBIX_Watch_Ite
     oBIX_Watch_Item* item = (oBIX_Watch_Item*) malloc(sizeof(oBIX_Watch_Item));
     if (item == NULL)
     {
-        xmldb_deleteMeta(metaAttr);
+        xmldb_deleteMetaVariable(metaAttr);
         log_error("Unable to create watch item: Not enough memory.");
         return -3;
     }
@@ -549,7 +657,7 @@ int obixWatch_createWatchItem(oBIX_Watch* watch, const char* uri, oBIX_Watch_Ite
     if (item->uri == NULL)
     {
         free(item);
-        xmldb_deleteMeta(metaAttr);
+        xmldb_deleteMetaVariable(metaAttr);
         log_error("Unable to create watch item: Not enough memory.");
         return -3;
     }
@@ -563,72 +671,6 @@ int obixWatch_createWatchItem(oBIX_Watch* watch, const char* uri, oBIX_Watch_Ite
     *watchItem = item;
 
     return 0;
-}
-
-int obixWatch_appendWatchItem(oBIX_Watch* watch, oBIX_Watch_Item* item)
-{
-    if ((watch == NULL) || (item == NULL))
-    {
-        log_error("Wrong parameters passed to obixWatch_appendWatchItem.");
-        return -1;
-    }
-
-    oBIX_Watch_Item* p = watch->items;
-
-    if (p == NULL)
-    {
-        // this is the first watch item for provided watch
-        watch->items = item;
-        return 0;
-    }
-
-    // find the last watch item in the list
-    while (p->next != NULL)
-    {
-        p = p->next;
-    }
-    // append new item to the end
-    p->next = item;
-    return 0;
-}
-
-static int findWatchItem(oBIX_Watch* watch,
-                         const char* watchItemUri,
-                         oBIX_Watch_Item** item,
-                         oBIX_Watch_Item** parent)
-{
-    if ((watch == NULL) || (watchItemUri == NULL))
-    {
-        return -2;
-    }
-
-    oBIX_Watch_Item* child = watch->items;
-    oBIX_Watch_Item* p = NULL;
-
-    // iterate through item list searching for URI match
-    while (child != NULL)
-    {
-        if (strcmp(child->uri, watchItemUri) == 0)
-        {
-            *item = child;
-            if (parent != NULL)
-            {
-                *parent = p;
-            }
-            return 0;
-        }
-
-        p = child;
-        child = child->next;
-    }
-
-    // nothing is found
-    *item = NULL;
-    if (parent != NULL)
-    {
-        *parent = NULL;
-    }
-    return -1;
 }
 
 int obixWatch_deleteWatchItem(oBIX_Watch* watch, const char* watchItemUri)
@@ -662,19 +704,6 @@ int obixWatch_deleteWatchItem(oBIX_Watch* watch, const char* watchItemUri)
     return 0;
 }
 
-oBIX_Watch_Item* obixWatch_getWatchItem(oBIX_Watch* watch, const char* watchItemUri)
-{
-    oBIX_Watch_Item* item = NULL;
-
-    int error = findWatchItem(watch, watchItemUri, &item, NULL);
-    if (error == -2)
-    {
-        log_error("Wrong parameters passed to obixWatch_getWatchItem.");
-    }
-
-    return item;
-}
-
 BOOL obixWatchItem_isUpdated(oBIX_Watch_Item* item)
 {
     const char* updated = ixmlNode_getNodeValue(item->updated);
@@ -698,36 +727,7 @@ int obixWatchItem_setUpdated(oBIX_Watch_Item* item, BOOL isUpdated)
                            OBIX_META_WATCH_UPDATED_YES :
                            OBIX_META_WATCH_UPDATED_NO;
 
-    return xmldb_updateMeta(item->updated, newValue);
-}
-
-static void obixWatch_notifyPollTask(IXML_Element* meta)
-{
-    // let's find out what Watch does this meta tag belongs to
-    // extract watch id from the meta tag name
-    const char* tagName = ixmlElement_getTagName(meta);
-    int watchId = strtol(tagName + 3, NULL, 10);
-    oBIX_Watch* watch = obixWatch_get(watchId);
-    if (watch == NULL)
-    {
-        log_error("There is no watch corresponding to %s meta tag.",
-                  tagName);
-        return;
-    }
-
-    pthread_mutex_lock(&(watch->pollTaskMutex));
-    // if poll response is scheduled to execute with maximum delay, than
-    // reduce delay to the minimum
-    if ((watch->pollTaskId > 0) && (watch->isPollWaitingMax))
-    {
-        watch->isPollWaitingMax = FALSE;
-        ptask_reschedule(_threadLongPoll,
-                         watch->pollTaskId,
-                         watch->pollWaitMin - watch->pollWaitMax,
-                         1,
-                         TRUE);
-    }
-    pthread_mutex_unlock(&(watch->pollTaskMutex));
+    return xmldb_changeMetaVariable(item->updated, newValue);
 }
 
 void obixWatch_updateMeta(IXML_Element* meta)
@@ -745,7 +745,8 @@ void obixWatch_updateMeta(IXML_Element* meta)
             continue;
         }
 
-        const char* value = ixmlElement_getAttribute(metaElement, OBIX_ATTR_VAL);
+        const char* value =
+            ixmlElement_getAttribute(metaElement, OBIX_ATTR_VAL);
         // we compare only one char of the value so there is no need
         // to use strcmp()
         if ((value != NULL) && (*value == *OBIX_META_WATCH_UPDATED_NO))
@@ -780,32 +781,14 @@ BOOL obixWatch_isWatchUri(const char* uri)
     }
 }
 
-int obixWatch_resetLeaseTimer(oBIX_Watch* watch, long newPeriod)
+int obixWatch_resetLeaseTimer(oBIX_Watch* watch)
 {
-    int error;
-    if (newPeriod >= 0)
-    {	// set new lease time and reset timer
-        error = ptask_reschedule(_threadLease,
-                                 watch->leaseTimerId,
-                                 newPeriod,
-                                 1,
-                                 FALSE);
-        if (error != 0)
-        {
-            log_error("Unable to reschedule Watch lease timer for the watch "
-                      "#%d. New lease value is %d.", watch->id, newPeriod);
-            return -1;
-        }
-    }
-    else
-    {	// reset lease timer
-        error = ptask_reset(_threadLease, watch->leaseTimerId);
-        if (error != 0)
-        {
-            log_error("Unable to reset watch lease timer: "
-                      "ptask_reset() returned %d.", error);
-            return -1;
-        }
+    int error = ptask_reset(_threadLease, watch->leaseTimerId);
+    if (error != 0)
+    {
+        log_error("Unable to reset watch lease timer: "
+                  "ptask_reset() returned %d.", error);
+        return -1;
     }
 
     return 0;
@@ -846,7 +829,7 @@ int obixWatch_processTimeUpdates(const char* uri, IXML_Element* element)
     switch(uri[lastSymbol])
     {
     case 'e': // /lease
-        return obixWatch_resetLeaseTimer(watch, time);
+        return obixWatch_setLeaseTimer(watch, time);
         break;
     case 'n': // /pollWaitInterval/min
         {
@@ -878,7 +861,7 @@ int obixWatch_processTimeUpdates(const char* uri, IXML_Element* element)
     return 0;
 }
 
-BOOL obixWatch_isLongPoll(oBIX_Watch* watch)
+BOOL obixWatch_isLongPollMode(oBIX_Watch* watch)
 {
     return (watch->pollWaitMax > 0) ? TRUE : FALSE;
 }
@@ -897,11 +880,11 @@ void obixWatch_longPollTask(void* arg)
     free(params);
 }
 
-int obixWatch_holdPoll(obixWatch_pollHandler pollHandler,
-                       oBIX_Watch* watch,
-                       Response* response,
-                       const char* uri,
-                       BOOL maxWait)
+int obixWatch_holdPollRequest(obixWatch_pollHandler pollHandler,
+                              oBIX_Watch* watch,
+                              Response* response,
+                              const char* uri,
+                              BOOL maxWait)
 {
     // check whether there is already scheduled poll response for this watch
     pthread_mutex_lock(&(watch->pollTaskMutex));
@@ -925,7 +908,7 @@ int obixWatch_holdPoll(obixWatch_pollHandler pollHandler,
     }
 
     // check that we are able to hold this request
-    if (!(response->canWait))
+    if (!obixResponse_canWait(response))
     {
         pthread_mutex_unlock(&(watch->pollTaskMutex));
         return -2;
@@ -966,3 +949,72 @@ int obixWatch_holdPoll(obixWatch_pollHandler pollHandler,
 
     return 0;
 }
+
+int obixWatch_init()
+{
+    // check whether watches storage is initialized
+    if (_watches != NULL)
+    {
+        log_warning("Watches are already initialized.");
+        return -1;
+    }
+
+    _watches = (oBIX_Watch**) calloc(MAX_WATCH_COUNT, sizeof(oBIX_Watch*));
+    if (_watches == NULL)
+    {
+        log_error("Unable to allocate memory for Watch cache.");
+        return -2;
+    }
+
+    _watchesCount = 0;
+
+    // initialize thread which will be used to remove old watch objects
+    _threadLease = ptask_init();
+    if (_threadLease == NULL)
+    {
+        return -3;
+    }
+    // initialize thread which will be used to park long poll requests
+    _threadLongPoll = ptask_init();
+    if (_threadLongPoll == NULL)
+    {
+        return -3;
+    }
+
+    log_debug("Watches are successfully initialized.");
+    return 0;
+}
+
+int obixWatch_dispose()
+{
+    if (_watches == NULL)
+    {	// nothing to be done
+        return 0;
+    }
+
+    int i;
+    int error = 0;
+    for (i = 0; (_watchesCount > 0) && (i < MAX_WATCH_COUNT); i++)
+    {
+        if (_watches[i] != NULL)
+        {
+            error += obixWatch_delete(_watches[i]);
+        }
+    }
+
+    free(_watches);
+    _watches = NULL;
+
+    // stop threads
+    if (_threadLease != NULL)
+    {
+        ptask_dispose(_threadLease, TRUE);
+    }
+    if (_threadLongPoll != NULL)
+    {
+        ptask_dispose(_threadLongPoll, TRUE);
+    }
+
+    return error;
+}
+

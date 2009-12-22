@@ -20,10 +20,15 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Defines interface of POST Handler module.
+ *
+ * This module is responsible for handling POST requests, i.e. invoke
+ * operations. Each operation has its unique id, which is stored in XML meta
+ * data ('op' attribute). When server receives a POST request, it takes id of
+ * called operation from its meta tag and then uses POST handler to execute
+ * corresponding task.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #ifndef POST_HANDLER_H_
@@ -32,26 +37,23 @@
 #include <ixml_ext.h>
 #include "response.h"
 
-/**@todo describe me*/
+/**
+ * Prototype of a POST Handler function.
+ *
+ * @param response Response object, which should be used to send operation
+ * 					results.
+ * @param URI Requested URI.
+ * @param input Parsed request input.
+ */
 typedef void (*obix_server_postHandler)(Response* response,
                                         const char* uri,
                                         IXML_Element* input);
 
+/**
+ * Returns handler with specified id.
+ * Never returns @a NULL. If there is no handler with specified id, then it
+ * returns a handler, which sends error message to the user.
+ */
 obix_server_postHandler obix_server_getPostHandler(int id);
-
-/**@name POST handlers management @{*/
-///**
-// * Adds new POST request handler for the specified URI.
-// * @param uri POST requests with this URI will be forwarded to the specified
-// *            handler.
-// * @param handlerFunc Function which should handle the POST request and return
-// *                    oBIX answer.
-// */
-//int obix_server_addPostHandler(const char* uri, obix_server_postHandler handlerFunc);
-//
-///**@todo describe me*/
-//obix_server_postHandler obix_server_getPostHandlerByUri(const char* uri);
-//int obix_server_deletePostHandler(const char* uri);
-/**@}*/
 
 #endif /* POST_HANDLER_H_ */

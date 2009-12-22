@@ -20,10 +20,9 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description
+ * Defines main functions of FastCGI communication interface.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #ifndef OBIX_FCGI_H_
@@ -32,18 +31,45 @@
 #include "request.h"
 #include "response.h"
 
+/**
+ * Initializes oBIX server.
+ *
+ * @return @a 0 on success, negative error code otherwise.
+ */
 int obix_fcgi_init();
 
+/**
+ * Stops work of the server.
+ */
 void obix_fcgi_shutdown();
 
+/**
+ * Handles incoming request.
+ */
 void obix_fcgi_handleRequest(Request* request);
 
+/**
+ * Sends response back to the client.
+ * @param response Should contain generated response message.
+ */
 void obix_fcgi_sendResponse(Response* response);
 
+/**
+ * Sends default error message as a response to the client.
+ * Method should be called only when it is not possible to generate custom
+ * message, explaining the error.
+ */
 void obix_fcgi_sendStaticErrorMessage(Request* request);
 
+/**
+ * Reads request input message into character buffer.
+ * @return Full input message in a buffer, or @a NULL if error occurred.
+ */
 char* obix_fcgi_readRequestInput(Request* request);
 
+/**
+ * Generates a response object with full dump of server database.
+ */
 void obix_fcgi_dumpEnvironment(Response* response);
 
 #endif /* OBIX_FCGI_H_ */
