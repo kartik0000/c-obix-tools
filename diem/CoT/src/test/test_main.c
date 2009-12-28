@@ -19,6 +19,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  * ****************************************************************************/
+/** @file
+ * Entry point for tests.
+ *
+ * @author Andrey Litvinov
+ */
 #include <stdio.h>
 #include "test_client.h"
 #include "test_server.h"
@@ -27,6 +32,15 @@
 #include "test_ptask.h"
 #include "test_main.h"
 
+/**
+ * Runs automatic (unit) tests.
+ * Launches test sets for different modules. When new test module is created,
+ * its main function should be invoked from here. If only one module needs to
+ * be tested during development, other calls can be commented.
+ *
+ * @param resFolder Resource folder of the project.
+ * @return Number of failed tests.
+ */
 static int runAutomaticTests(const char* resFolder)
 {
     int result = 0;
@@ -42,11 +56,17 @@ static int runAutomaticTests(const char* resFolder)
     return result;
 }
 
+/**
+ * Runs manual tests (tests with user interaction, or manual result analysis).
+ * If some new manual test set is created, it should be called from here.
+ * Most of the time during development all manual tests should be disabled in
+ * order to make test system fully automatic.
+ */
 static void runManualTests()
 {
     // test_ptask_byHands();
     // test_common_byHands();
-//	test_client_byHands();
+    // test_client_byHands();
 }
 
 void printTestResult(const char* name, BOOL successfull)
@@ -54,9 +74,10 @@ void printTestResult(const char* name, BOOL successfull)
     printf("--------------------------------------------------------------------------------\n"
            "%s:\t\tTEST: %s.\n"
            "--------------------------------------------------------------------------------\n\n",
-           successfull ? "PASSED" : "!FAILED!", name);
+           successfull ? "PASSED" : "! FAILED !", name);
 }
 
+/** Test entry point. */
 int main(int argc, char** argv)
 {
     printf("Test is started..\n");
@@ -87,3 +108,4 @@ int main(int argc, char** argv)
 
     return result;
 }
+

@@ -20,15 +20,18 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Interface to test module, which checks Table (#table.c).
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #ifndef TEST_TABLE_H_
 #define TEST_TABLE_H_
 
+/**
+ * Runs a set of Table tests.
+ * @return Number of failed tests.
+ */
 int test_table();
 
 #endif /* TEST_TABLE_H_ */

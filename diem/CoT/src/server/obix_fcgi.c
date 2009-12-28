@@ -157,7 +157,7 @@ int main(int argc, char** argv)
     {
         // get free request object
         request = obixRequest_get();
-        log_debug("Waiting for the request.. (hadler #%d)", request->id);
+        log_debug("Waiting for the request.. (handler #%d)", request->id);
         int error = FCGX_Accept_r(&(request->r));
         if (error)
         {
@@ -165,9 +165,9 @@ int main(int argc, char** argv)
             break;
         }
 
-        log_debug("Request accepted.. (hadler #%d)", request->id);
+        log_debug("Request accepted.. (handler #%d)", request->id);
         obix_fcgi_handleRequest(request);
-        log_debug("Request handled. (hadler #%d)", request->id);
+        log_debug("Request handled. (handler #%d)", request->id);
     }
 
     // shut down

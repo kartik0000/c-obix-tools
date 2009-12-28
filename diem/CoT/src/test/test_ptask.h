@@ -20,17 +20,23 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Interface of Periodic Task testing module.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #ifndef TEST_PTASK_H_
 #define TEST_PTASK_H_
 
+/**
+ * Runs a set of tests for Periodic Task.
+ * @return Number of failed tests.
+ */
 int test_ptask();
 
+/**
+ * Runs manual tests for Periodic Task.
+ */
 void test_ptask_byHands();
 
 #endif /* TEST_PTASK_H_ */

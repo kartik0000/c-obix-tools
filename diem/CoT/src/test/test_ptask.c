@@ -19,11 +19,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  * ****************************************************************************/
-/*
- * test_part.c
+/** @file
+ * Tests for Periodic Task
  *
- *  Created on: Mar 20, 2009
- *      Author: andrey
+ * @see ptask.h
+ *
+ * @author Andrey Litvinov
  */
 #include <stdio.h>
 #include <unistd.h>
@@ -32,13 +33,26 @@
 
 #include <ptask.c>
 
+/** Dummy task, which is scheduled by tests. */
 void testTask(void* arg)
 {
     time_t now = time(NULL);
     printf("%sHello, I'm test task. My arg is \"%s\".\n", ctime(&now), (char*) arg) ;
 }
 
-int testGetClosestTask(Task_Thread* thread, char* testName, int checkIds[], int iterations)
+/**
+ * Tests #periodicTask_getClosest function.
+ *
+ * @param thread Task thread with several tasks scheduled.
+ * @param checkIds Array of task IDs, which should be returned by consequent
+ * 				calls to #periodicTask_getClosest.
+ * @param iterations Number of iterations to do (i.e. number of elements in
+ * 				@a checkIds array).
+ */
+static int testGetClosestTask(Task_Thread* thread,
+                              char* testName,
+                              int checkIds[],
+                              int iterations)
 {
     int i;
     Periodic_Task* ptask;
@@ -62,6 +76,9 @@ int testGetClosestTask(Task_Thread* thread, char* testName, int checkIds[], int 
     return 0;
 }
 
+/**
+ * Task, which can be scheduled to kill Task Thread after some delay.
+ */
 void taskStopThread(void* arg)
 {
     time_t now = time(NULL);
@@ -69,29 +86,20 @@ void taskStopThread(void* arg)
     ptask_dispose((Task_Thread*) arg, TRUE);
 }
 
-void test_ptask_byHands()
-{
-    Task_Thread* thread;
-    thread = ptask_init();
-    time_t now = time(NULL);
-    printf("%sScheduling tasks..\n", ctime(&now));
-    ptask_schedule(thread, &testTask, (void*) "2,5 seconds",
-                   2500, EXECUTE_INDEFINITE);
-    ptask_schedule(thread, &testTask, (void*) "3 seconds",
-                   3000, EXECUTE_INDEFINITE);
-    ptask_schedule(thread, &testTask, (void*) "1 seconds",
-                   1000, EXECUTE_INDEFINITE);
-    ptask_schedule(thread, &taskStopThread, NULL,
-                   10000, EXECUTE_INDEFINITE);
-    // wait until all tasks are executed
-    sleep(11);
-}
-
-int testPtaskReschedule(Task_Thread* thread,
-                        const char* testName,
-                        long period,
-                        BOOL add,
-                        BOOL shouldPass)
+/**
+ * Tests #ptask_reschedule function.
+ * Schedules a task, then reschedules it and checks that next execution time
+ * of the rescheduled task is correct.
+ *
+ * @param period Time interval to which the task should be rescheduled.
+ * @param add Parameter passed to #ptask_reschedule
+ * @param shouldPass If @a FALSE, then the operation is expected to fail.
+ */
+static int testPtaskReschedule(Task_Thread* thread,
+                               const char* testName,
+                               long period,
+                               BOOL add,
+                               BOOL shouldPass)
 {
     // schedule task and save it's next execution time
     struct timespec scheduledTime;
@@ -167,7 +175,11 @@ int testPtaskReschedule(Task_Thread* thread,
     return 0;
 }
 
-int testPeriodicTask(Task_Thread* thread)
+/**
+ * Tests Periodic Task scheduling system.
+ * Schedules several tasks and checking the order in which they are executing.
+ */
+static int testPeriodicTask(Task_Thread* thread)
 {
     const char* testName = "PeriodicTask test";
     int id200 = ptask_schedule(thread, &testTask, (void*) "200",
@@ -294,4 +306,22 @@ int test_ptask()
 
 
     return result;
+}
+
+void test_ptask_byHands()
+{
+    Task_Thread* thread;
+    thread = ptask_init();
+    time_t now = time(NULL);
+    printf("%sScheduling tasks..\n", ctime(&now));
+    ptask_schedule(thread, &testTask, (void*) "2,5 seconds",
+                   2500, EXECUTE_INDEFINITE);
+    ptask_schedule(thread, &testTask, (void*) "3 seconds",
+                   3000, EXECUTE_INDEFINITE);
+    ptask_schedule(thread, &testTask, (void*) "1 seconds",
+                   1000, EXECUTE_INDEFINITE);
+    ptask_schedule(thread, &taskStopThread, NULL,
+                   10000, EXECUTE_INDEFINITE);
+    // wait until all tasks are executed
+    sleep(11);
 }

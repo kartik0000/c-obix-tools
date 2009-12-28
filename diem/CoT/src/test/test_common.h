@@ -20,17 +20,23 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Interface of testing module, which tests common library sources.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #ifndef TEST_COMMON_H_
 #define TEST_COMMON_H_
 
+/**
+ * Runs a set of tests for common library.
+ * @return Number of failed tests.
+ */
 int test_common();
 
+/**
+ * Runs manual tests for common library.
+ */
 void test_common_byHands();
 
 #endif /* TEST_COMMON_H_ */

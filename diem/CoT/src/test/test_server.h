@@ -20,15 +20,18 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Interface of server test module.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #ifndef TEST_SERVER_H_
 #define TEST_SERVER_H_
 
+/**
+ * Runs a set of server tests.
+ * @return Number of failed tests.
+ */
 int test_server(const char* resFolder);
 
 #endif /* TEST_SERVER_H_ */

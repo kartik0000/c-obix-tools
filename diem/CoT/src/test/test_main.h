@@ -19,11 +19,21 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  * ****************************************************************************/
+/** @file
+ * Declares log function which should be used by all tests to show test result.
+ *
+ * @author Andrey Litvinov
+ */
 #ifndef TEST_MAIN_H_
 #define TEST_MAIN_H_
 
-#include <ixml_ext.h>
+#include <bool.h>
 
-void printTestResult(const char* name, BOOL successfull);
+/**
+ * Prints result of test execution.
+ * @param successful @a TRUE if test is completed successfully, @a FALSE
+ * 			otherwise.
+ */
+void printTestResult(const char* testName, BOOL successful);
 
 #endif /* TEST_MAIN_H_ */

@@ -20,7 +20,9 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * That's a temporary file to test various pieces of functionality.
+ * Tests for oBIX server.
+ *
+ * @author Andrey Litvinov
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,11 +39,18 @@
 #include <obix_fcgi.h>
 #include "test_main.h"
 
+/** @name Global server test variables.
+ * Used in tests, where response is handled in a separate thread.
+ * @{ */
 BOOL _responseIsSent = FALSE;
 Response* _lastResponse;
 pthread_mutex_t _responseMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t _responseReceived = PTHREAD_COND_INITIALIZER;
+/** @} */
 
+/**
+ * Listener, which finally receives generated response from server.
+ */
 void dummyResponseListener(Response* response)
 {
     pthread_mutex_lock(&_responseMutex);
@@ -51,6 +60,8 @@ void dummyResponseListener(Response* response)
     pthread_mutex_unlock(&_responseMutex);
 }
 
+/** Checks whether any response has been received since last call to this
+ * function. */
 static BOOL isResponseSent()
 {
     // reset flag
@@ -64,6 +75,7 @@ static BOOL isResponseSent()
     return FALSE;
 }
 
+/** Waits for response to be generated in a separate thread. */
 static Response* waitForResponse()
 {
     pthread_mutex_lock(&_responseMutex);
@@ -76,7 +88,51 @@ static Response* waitForResponse()
     return response;
 }
 
-int testSearch(const char* testName, const char* href, const char* checkStr, BOOL exists)
+/** Creates request object for tests. */
+static Request* createDummyRequest(BOOL canWait)
+{
+    Request* request = (Request*) malloc(sizeof(Request));
+    if (request == NULL)
+    {
+        printf("ERROR: Unable to allocate memory for request object.\n");
+        return NULL;
+    }
+
+    request->canWait = canWait;
+    request->next = NULL;
+    return request;
+}
+
+/** Creates response object for tests. */
+static Response* createTestResponse(BOOL withRequest, BOOL canWait)
+{
+    Request* request = withRequest ? createDummyRequest(canWait) : NULL;
+    Response* response = obixResponse_create(request);
+    return response;
+}
+
+/**
+ * Deletes test response object.
+ */
+static void freeTestResponse(Response* response)
+{
+    if (response->request != NULL)
+    {
+        free(response->request);
+    }
+    obixResponse_free(response);
+}
+
+/**
+ * Checks how #xmldb_get searches for required oBIX object in the storage.
+ * @param href URI to search for.
+ * @param checkStr String, which should be present in found object.
+ * @param exists if @a FALSE, than search is supposed to fail.
+ */
+static int testSearch(const char* testName,
+                      const char* href,
+                      const char* checkStr,
+                      BOOL exists)
 {
     char* node = xmldb_get(href, NULL);
     printf("\nnode uri=%s: %s\n", href, node);
@@ -106,19 +162,33 @@ int testSearch(const char* testName, const char* href, const char* checkStr, BOO
     }
     else
     {
-        printf("Search test failed. Current db contents:\n");
+        printf("Search test failed.\n");
+        //        printf("Search test failed. Current db contents:\n");
         //        xmldb_printDump();
         printTestResult(testName, FALSE);
         return 1;
     }
 }
 
-int testWriteToDatabase(const char* testName,
-                        BOOL writeNew,
-                        const char* newData,
-                        const char* href,
-                        const char* checkString,
-                        BOOL shouldPass)
+/**
+ * Checks #xmldb_put or #xmldb_updateDOM function.
+ *
+ * @param writeNew If @a TRUE, than #xmldb_put is used to put new data to the
+ * 				storage. If @a FALSE, than #xmldb_updateDOM is used to update
+ * 				value of existing object in the storage.
+ * @param newData Data, which should be written.
+ * @param href URI to where data should be written (in case of
+ * 				#xmldb_updateDOM).
+ * @param checkString String, which should appear in storage somewhere under
+ * 				provided @a href after new data has been written.
+ * @param shouldPass If @a FALSE, than the test is supposed to fail.
+ */
+static int testWriteToDatabase(const char* testName,
+                               BOOL writeNew,
+                               const char* newData,
+                               const char* href,
+                               const char* checkString,
+                               BOOL shouldPass)
 {
     // add data to the database
     int error;
@@ -128,7 +198,7 @@ int testWriteToDatabase(const char* testName,
     }
     else
     {
-    	IXML_Element* data = ixmlElement_parseBuffer(newData);
+        IXML_Element* data = ixmlElement_parseBuffer(newData);
         error = xmldb_updateDOM(data, href, NULL, NULL);
         ixmlElement_freeOwnerDocument(data);
     }
@@ -197,7 +267,10 @@ int testWriteToDatabase(const char* testName,
 
 }
 
-int testDelete(const char* testName, const char* href, BOOL exists)
+/**
+ * Tests #xmldb_delete function.
+ */
+static int testDelete(const char* testName, const char* href, BOOL exists)
 {
     int error = xmldb_delete(href);
 
@@ -239,37 +312,16 @@ int testDelete(const char* testName, const char* href, BOOL exists)
     return 0;
 }
 
-static Request* createDummyRequest(BOOL canWait)
-{
-	Request* request = (Request*) malloc(sizeof(Request));
-	if (request == NULL)
-	{
-		printf("ERROR: Unable to allocate memory for request object.\n");
-		return NULL;
-	}
-
-	request->canWait = canWait;
-	request->next = NULL;
-	return request;
-}
-
-static Response* createTestResponse(BOOL withRequest, BOOL canWait)
-{
-	Request* request = withRequest ? createDummyRequest(canWait) : NULL;
-	Response* response = obixResponse_create(request);
-	return response;
-}
-
-static void freeTestResponse(Response* response)
-{
-	if (response->request != NULL)
-	{
-		free(response->request);
-	}
-	obixResponse_free(response);
-}
-
-int testGenerateResponse(const char* testName, const char* uri, const char* newUrl)
+/**
+ * Tests #obix_server_generateResponse function.
+ * Takes object from the storage, and generates a server response from it.
+ * @param uri URI where source object should be taken from.
+ * @param newUrl URI which should be assigned to the object by
+ * 			#obix_server_generateResponse
+ */
+static int testGenerateResponse(const char* testName,
+                                const char* uri,
+                                const char* newUrl)
 {
     IXML_Element* oBIXdoc = xmldb_getDOM(uri, NULL);
     if (oBIXdoc == NULL)
@@ -281,7 +333,13 @@ int testGenerateResponse(const char* testName, const char* uri, const char* newU
     }
 
     Response* response = createTestResponse(TRUE, FALSE);
-    obix_server_generateResponse(response, oBIXdoc, newUrl, TRUE, FALSE, 0, FALSE);
+    obix_server_generateResponse(response,
+                                 oBIXdoc,
+                                 newUrl,
+                                 TRUE,
+                                 FALSE,
+                                 0,
+                                 FALSE);
 
     if ((response == NULL) || (response->body == NULL))
     {
@@ -294,13 +352,20 @@ int testGenerateResponse(const char* testName, const char* uri, const char* newU
 
     if (testSearch("check object after normalization", newUrl, NULL, FALSE))
     {
-        printf("Changes in object are saved after normalization (but they shouldn't).\n");
+        printf("Changes in object are saved after normalization "
+               "(but they shouldn't).\n");
         printTestResult(testName, FALSE);
         return 1;
     }
 
     response = createTestResponse(TRUE, FALSE);
-    obix_server_generateResponse(response, oBIXdoc, newUrl, TRUE, FALSE, 0, TRUE);
+    obix_server_generateResponse(response,
+                                 oBIXdoc,
+                                 newUrl,
+                                 TRUE,
+                                 FALSE,
+                                 0,
+                                 TRUE);
     if ((response == NULL) || (response->body == NULL))
     {
         printf("oBIX normalization with saving is failed.\n");
@@ -315,7 +380,8 @@ int testGenerateResponse(const char* testName, const char* uri, const char* newU
             testSearch("check object for \'meta\' tags after normalization",
                        newUrl, OBIX_META, FALSE))
     {
-        printf("Changes in object are not saved after normalization (but they should).\n");
+        printf("Changes in object are not saved after normalization (but "
+               "they should).\n");
         printTestResult(testName, FALSE);
         return 1;
     }
@@ -324,281 +390,8 @@ int testGenerateResponse(const char* testName, const char* uri, const char* newU
     return 0;
 }
 
-//int testCompareUri(const char* testName, const char* uri1, const char* uri2, BOOL result, int slashFlag)
-//{
-//    if (xmldb_compareUri(uri1, uri2) != result)
-//    {
-//        printf("Compare result of \"%s\" and \"%s\" is not %s.\n", uri1, uri2,
-//               result ? XML_TRUE : XML_FALSE);
-//        printTestResult(testName, FALSE);
-//        return 1;
-//    }
-//
-//    int flag = xmldb_getLastUriCompSlashFlag();
-//    if (flag != slashFlag)
-//    {
-//        printf("Slash flag after comparison of \"%s\" and \"%s\" is %d but should be %d.\n",
-//               uri1, uri2, flag, slashFlag);
-//        printTestResult(testName, FALSE);
-//        return 1;
-//    }
-//
-//    printTestResult(testName, TRUE);
-//    return 0;
-//
-//}
-
-Response* testPostHandler(const char* uri, IXML_Document* input)
-{
-    printf("Test handler for \"%s\"\n", uri);
-    return NULL;
-}
-
-//int testGetHandler(const char* testName, const char* uri, BOOL exists)
-//{
-//    obix_server_postHandler handler = obix_server_getPostHandlerByUri(uri);
-//    if ((handler != NULL) && !exists)
-//    {
-//        printf("No handlers should be returned for this request (\"%s\").\n", uri);
-//        printTestResult(testName, FALSE);
-//        return 1;
-//    }
-//
-//    if ((handler == NULL) && exists)
-//    {
-//        printf("No handlers returned for this request (\"%s\"), but there should be something.\n", uri);
-//        printTestResult(testName, FALSE);
-//        return 1;
-//    }
-//
-//    if (handler != NULL)
-//    {
-//        printf("Handler received, trying to execute...\n");
-//        (*handler)(NULL, uri);
-//    }
-//
-//    return 0;
-//}
-
-//int testServerPostHandlers()
-//{
-//    char* testName = "obix_server_*PostHandler";
-//
-//    //try to get and remove from empty list
-//    if (testGetHandler(testName, "/obix/operation1", FALSE) != 0)
-//    {
-//        return 1;
-//    }
-//    int error = obix_server_deletePostHandler("/obix/operation1");
-//    if (error = 0)
-//    {
-//        printf("Deleting non-existing node some why was successful.\n");
-//        printTestResult(testName, FALSE);
-//        return 1;
-//    }
-//
-//    // put some data
-//    error  = obix_server_addPostHandler("/obix/op1", &testPostHandler);
-//    error += obix_server_addPostHandler("/obix/op2", &testPostHandler);
-//    error += obix_server_addPostHandler("/obix/op3", &testPostHandler);
-//    error += obix_server_addPostHandler("/obix/op4", &testPostHandler);
-//    error += obix_server_addPostHandler("/obix/op5", &testPostHandler);
-//
-//    if (error != 0)
-//    {
-//        printf("Unable to add POST handlers.\n");
-//        printTestResult(testName, FALSE);
-//        return 1;
-//    }
-//
-//    // search for handlers
-//    if (testGetHandler(testName, "/obix/op1", TRUE) != 0)
-//    {
-//        return 1;
-//    }
-//    if (testGetHandler(testName, "/obix/op5", TRUE) != 0)
-//    {
-//        return 1;
-//    }
-//
-//    // delete and then search for it
-//    error = obix_server_deletePostHandler("/obix/op3");
-//    error = obix_server_deletePostHandler("/obix/op1");
-//    error = obix_server_deletePostHandler("/obix/op5");
-//    if (error != 0)
-//    {
-//        printf("Unable to delete POST handlers.\n");
-//        printTestResult(testName, FALSE);
-//        return 1;
-//    }
-//
-//    error = testGetHandler(testName, "/obix/op1", FALSE);
-//    error += testGetHandler(testName, "/obix/op2", TRUE);
-//    error += testGetHandler(testName, "/obix/op3", FALSE);
-//    error += testGetHandler(testName, "/obix/op4", TRUE);
-//    error += testGetHandler(testName, "/obix/op5", FALSE);
-//
-//    if (error != 0)
-//    {
-//        return error;
-//    }
-//
-//    printTestResult(testName, TRUE);
-//    return 0;
-//}
-
-// TODO in order to test dump_environment, obix_fcgi should be stated as on of
-// the sources for test application, but it already contains main function
-//int testDumpEnvironment()
-//{
-//    char* testName = "obix_fcgi_dumpEnvironment";
-//
-//    obix_server_setResponseListener(&dummyResponseListener);
-//    Response* response = obixResponse_create(NULL);
-//
-//    obix_fcgi_dumpEnvironment(response);
-//
-//    if ((response == NULL) || (response->body == NULL) || !isResponseSent())
-//    {
-//        printf("Dump environment returned NULL.\n");
-//        printTestResult(testName, FALSE);
-//        return 1;
-//    }
-//
-//    printf("Dump environment returned the following answer:\n");
-//    Response* part = response;
-//    int i;
-//    for (i = 1; part != NULL; i++)
-//    {
-//        printf("Part #%d:\n%s\n", i, part->body);
-//        part = part->next;
-//    }
-//    obixResponse_free(response);
-//
-//    printTestResult(testName, TRUE);
-//    return 0;
-//}
-
-int obix_client_testListener(int connectionId,
-                             int deviceId,
-                             const char* paramUri,
-                             const char* newValue)
-{
-    printf("oBIX listener received new event: "
-           "connectionId %d; deviceId %d; paramUri %s; newValue %s\n",
-           connectionId, deviceId, paramUri, newValue);
-    return 0;
-}
-
-//int testObixClientLib()
-//{
-//    // establish connection
-//    int connection1 = obix_initConnection("server 1");
-//    if (connection1 < 0)
-//    {
-//        printTestResult("obix client: obix_initConnection", FALSE);
-//        return 1;
-//    }
-//    printTestResult("obix client: obix_initConnection", TRUE);
-//
-//    // register some devices
-//    int device1 = obix_registerDevice(connection1, "test device 1");
-//    int device2 = obix_registerDevice(connection1, "test device 2");
-//    if ((device1 < 0) || (device2 < 0))
-//    {
-//        printTestResult("obix client: obix_registerDevice", FALSE);
-//        return 1;
-//    }
-//    printTestResult("obix client: obix_registerDevice", TRUE);
-//
-//    //register listeners
-//    int error = obix_registerListener(connection1, device1, "param1", &obix_client_testListener);
-//    error += obix_registerListener(connection1, device1, "param2", &obix_client_testListener);
-//    error += obix_registerListener(connection1, device1, "param3", &obix_client_testListener);
-//    error += obix_registerListener(connection1, device2, "param3", &obix_client_testListener);
-//    if (error != 0)
-//    {
-//        printTestResult("obix client: obix_registerListener", FALSE);
-//        return 1;
-//    }
-//    printTestResult("obix client: obix_registerListener", TRUE);
-//
-//    // create second connection
-//    int connection2 = obix_initConnection("server 2");
-//    if (connection2 < 0)
-//    {
-//        printTestResult("obix client: obix_initConnection 2", FALSE);
-//        return 1;
-//    }
-//    printTestResult("obix client: obix_initConnection 2", TRUE);
-//
-//    // write device updates
-//    error += obix_writeValue(connection1, device1, "param1\\", "some test value");
-//    error += obix_writeValue(connection1, device2, "param2\\", "some test value");
-//    if (error != 0)
-//    {
-//        printTestResult("obix client: obix_writeValue", FALSE);
-//        return 1;
-//    }
-//    printTestResult("obix client: obix_writeValue", TRUE);
-//
-//    // remove some devices and listeners and write update again
-//    error += obix_unregisterListener(connection1, device1, "param1");
-//    error += obix_unregisterListener(connection1, device1, "param3");
-//    error += obix_unregisterDevice(connection1, device1);
-//    error += obix_writeValue(connection1, device2, "param2\\", "some test value");
-//    if (error != 0)
-//    {
-//        printTestResult("obix client: obix_unregister*", FALSE);
-//        return 1;
-//    }
-//    printTestResult("obix client: obix_unregister*", TRUE);
-//
-//    // try to write to deleted device
-//    if (obix_writeValue(connection1, device1, "param1\\", "some test value") == 0)
-//    {
-//        printTestResult("obix client: obix_writeValue to removed device", FALSE);
-//        return 1;
-//    }
-//    printTestResult("obix client: obix_writeValue to removed device", TRUE);
-//
-//    // close connection and try to write to it
-//    if (obix_closeConnection(connection1) != 0)
-//    {
-//        printTestResult("obix client: obix_closeConnection", FALSE);
-//        return 1;
-//    }
-//    printTestResult("obix client: obix_closeConnection", TRUE);
-//    if (obix_writeValue(connection1, device2, "param2\\", "some test value") == 0)
-//    {
-//        printTestResult("obix client: obix_writeValue to closed connection", FALSE);
-//        return 1;
-//    }
-//    printTestResult("obix client: obix_writeValue to closed connection", TRUE);
-//
-//    // try to write and register listener to external server data
-//    error += obix_registerListener(connection2, 0, "/obix/device/lampSwitch", &obix_client_testListener);
-//    error += obix_writeValue(connection2, 0, "/obix/device/lampSwitch", "off");
-//    if (error != 0)
-//    {
-//        printTestResult("obix client: write to external server data", FALSE);
-//        return 1;
-//    }
-//    printTestResult("obix client: write to external server data", TRUE);
-//
-//    // close remaining connection
-//    if (obix_closeConnection(connection2) != 0)
-//    {
-//        printTestResult("obix client: obix_closeConnection 2", FALSE);
-//        return 1;
-//    }
-//    printTestResult("obix client: obix_closeConnection 2", TRUE);
-//
-//    printTestResult("obix client full test", TRUE);
-//    return 0;
-//}
-
-void printResponse(Response* response)
+/** Prints response contents to log. */
+static void printResponse(Response* response)
 {
     printf("Received response:\n");
     while (response != NULL)
@@ -610,7 +403,13 @@ void printResponse(Response* response)
     printf("\n");
 }
 
-int checkResponse(Response* response, BOOL containsError)
+/**
+ * Checks the response object to be generated correctly. Helper function.
+ *
+ * @param containsError if @a TRUE, than the response object is supposed to
+ * 				contain error object.
+ */
+static int checkResponse(Response* response, BOOL containsError)
 {
     if ((response == NULL) || (response->body == NULL))
     {
@@ -654,7 +453,16 @@ int checkResponse(Response* response, BOOL containsError)
     return 0;
 }
 
-int findInResponse(Response* response, const char* checkString, BOOL exists)
+/**
+ * Searches for the string in provided response.
+ *
+ * @param exists @a TRUE, than the provided string should exist. @a FALSE means
+ * 			that no such string should be found.
+ * @return @a 0 if condition is met, @a 1 otherwise.
+ */
+static int findInResponse(Response* response,
+                          const char* checkString,
+                          BOOL exists)
 {
     while(response != NULL)
     {
@@ -664,12 +472,14 @@ int findInResponse(Response* response, const char* checkString, BOOL exists)
             // we found required substring
             if (exists)
             {   // string supposed to be found
-                printf("Test string \"%s\" is found in response, and it is good.\n", checkString);
+                printf("Test string \"%s\" is found in response, and it is "
+                       "good.\n", checkString);
                 return 0;
             }
             else
             {	// string shouldn't exist
-                printf("Test string \"%s\" is found in response, but it shouldn\'t.\n",
+                printf("Test string \"%s\" is found in response, but it "
+                       "shouldn\'t.\n",
                        checkString);
                 return 1;
             }
@@ -680,22 +490,39 @@ int findInResponse(Response* response, const char* checkString, BOOL exists)
     // nothing was found
     if (exists)
     {	// string supposed to be found
-        printf("Test string \"%s\" is not found in response, but it should.\n", checkString);
+        printf("Test string \"%s\" is not found in response, but it should.\n",
+               checkString);
         return 1;
     }
     else
     {	// string is not found and that is great :)
-        printf("Test string \"%s\" is not found in response, and it is good.\n", checkString);
+        printf("Test string \"%s\" is not found in response, and it is good.\n",
+               checkString);
         return 0;
     }
 }
 
-int testWatchPollChanges(const char* testName,
-                         const char* uri,
-                         char* checkStrings[],
-                         int checkSize,
-                         BOOL exists,
-                         BOOL waitResponse)
+/**
+ * Helper function to test Watch.pollChanges operation.
+ * Sends request to Watch object and checks that response contains required
+ * information.
+ * @param uri URI to request.
+ * @param checkStrings Array of strings which should (or should not) present in
+ * 				the response.
+ * @param checkSize Size of @a checkStrings array.
+ * @param exists If @a TRUE, than strings from @a checkStrings should present
+ * 				in the response. @a FALSE means that no of provided strings
+ * 				should appear.
+ * @param waitResponse If @a TRUE, than function would consider that the request
+ * 				will be handled asynchronously and thus it will wait until
+ * 				response is handled in a separate thread.
+ */
+static int testWatchPollChanges(const char* testName,
+                                const char* uri,
+                                char* checkStrings[],
+                                int checkSize,
+                                BOOL exists,
+                                BOOL waitResponse)
 {
     obixResponse_setListener(&dummyResponseListener);
     Response* response = createTestResponse(TRUE, TRUE);
@@ -729,7 +556,10 @@ int testWatchPollChanges(const char* testName,
     return 0;
 }
 
-int testWatchRemove()
+/**
+ * Tests Watch.remove operation.
+ */
+static int testWatchRemove()
 {
     const char* testName = "Watch.remove test";
     obixResponse_setListener(&dummyResponseListener);
@@ -785,7 +615,10 @@ int testWatchRemove()
     return 0;
 }
 
-int testPutHandler(const char* testName, const char* uri, const char* data)
+/**
+ * Tests #obix_server_handlePUT function.
+ */
+static int testPutHandler(const char* testName, const char* uri, const char* data)
 {
     Response* response = createTestResponse(TRUE, FALSE);
     obix_server_handlePUT(response, uri, data);
@@ -799,7 +632,10 @@ int testPutHandler(const char* testName, const char* uri, const char* data)
     return 0;
 }
 
-int testWatch()
+/**
+ * Tests all Watch operations.
+ */
+static int testWatch()
 {
     const char* testName = "oBIX Watch test";
     // create new Watch object
@@ -818,7 +654,8 @@ int testWatch()
     int error = testPutHandler(
                     "Changing Watch lease time",
                     "/obix/watchService/watch1/lease",
-                    "<reltime href=\"/obix/watchService/watch1/lease\" val=\"PT5M\"/>");
+                    "<reltime href=\"/obix/watchService/watch1/lease\" "
+                    "val=\"PT5M\"/>");
     if (error != 0)
     {
         printTestResult(testName, FALSE);
@@ -834,15 +671,15 @@ int testWatch()
         response,
         "/obix/watchService/watch1/add",
         "<obj is=\"obix:WatchIn\">\r\n"
-        " <list name=\"hrefs\" of=\"obix:WatchInItem\">\r\n"
-        "  <!-- Comment goes here -->\r\n"
-        "  and not only the comment\r\n"
-        "  <obj name=\"Wrong Object\"/>\r\n"
-        "  <uri is=\"obix:WatchInItem\" val=\"/obix/watchService/make\"/>\r\n"
-        "  <uri is=\"obix:WatchInItem\" val=\"/obix/kitchen/temperature/\"/>\r\n"
-        "  <uri is=\"obix:WatchInItem\" val=\"/obix/kitchen/temperature2\"/>\r\n"
-        "  <uri is=\"obix:WatchInItem\" val=\"/obix/kitchen/parent/\"/>\r\n"
-        " </list>\r\n"
+        "<list name=\"hrefs\" of=\"obix:WatchInItem\">\r\n"
+        " <!-- Comment goes here -->\r\n"
+        " and not only the comment\r\n"
+        " <obj name=\"Wrong Object\"/>\r\n"
+        " <uri is=\"obix:WatchInItem\" val=\"/obix/watchService/make\"/>\r\n"
+        " <uri is=\"obix:WatchInItem\" val=\"/obix/kitchen/temperature/\"/>\r\n"
+        " <uri is=\"obix:WatchInItem\" val=\"/obix/kitchen/temperature2\"/>\r\n"
+        " <uri is=\"obix:WatchInItem\" val=\"/obix/kitchen/parent/\"/>\r\n"
+        "</list>\r\n"
         "</obj>");
     if (checkResponse(response, TRUE) != 0)
     {
@@ -852,7 +689,8 @@ int testWatch()
     // TODO check that response has subscribed object
     // and error messages for wrong objects
     // we should 2 <err/> objects with links watchService/make and temperature2
-    // and object testWatch1. We shouldn't have "testWatch2" and "Make new watch"
+    // and object testWatch1. We shouldn't have "testWatch2" and
+    // "Make new watch"
     freeTestResponse(response);
 
     //check that corresponding meta tags are added to the storage
@@ -879,7 +717,8 @@ int testWatch()
     error += testPutHandler(
                  testName,
                  "/obix/kitchen/parent/child/",
-                 "<int href=\"/obix/kitchen/parent/child/\" val=\"newValue\"/>");
+                 "<int href=\"/obix/kitchen/parent/child/\" "
+                 "val=\"newValue\"/>");
     if (error != 0)
     {
         return 1;
@@ -904,7 +743,8 @@ int testWatch()
 
     // now check that poll changes will return updated objects
     char* checkStrings[] = {"testWatch1", "testWatch3"};
-    error = testWatchPollChanges("test Watch.pollChanges with some changes happened",
+    error = testWatchPollChanges("test Watch.pollChanges with some changes "
+                                 "happened",
                                  "/obix/watchService/watch1/pollChanges",
                                  checkStrings, 2,
                                  TRUE,
@@ -925,7 +765,9 @@ int testWatch()
     error = testPutHandler(
                 "Changing Watch poll interval",
                 "/obix/watchService/watch1/pollWaitInterval/max",
-                "<reltime href=\"/obix/watchService/watch1/pollWaitInterval/max\" val=\"PT0.010S\"/>");
+                "<reltime "
+                "href=\"/obix/watchService/watch1/pollWaitInterval/max\" "
+                "val=\"PT0.010S\"/>");
     if (error != 0)
     {
         printTestResult(testName, FALSE);
@@ -975,14 +817,23 @@ int testWatch()
     return 0;
 }
 
-int testSignUpHelper(const char* testName,
-                     const char* inputData,
-                     const char* checkUri,
-                     const char* checkString,
-                     BOOL shouldPass)
+/**
+ * Helper function for testing signUp operation.
+ * Registers provided data at the server and then tries to retrieve it.
+ *
+ * @param inputData Data to publish at the server.
+ * @param checkUri URI to check after publishing.
+ * @param checkString String, which should present at @a checkUri at the server.
+ * @param shouldPass if @a FALSE, than test is supposed to fail.
+ */
+static int testSignUpHelper(const char* testName,
+                            const char* inputData,
+                            const char* checkUri,
+                            const char* checkString,
+                            BOOL shouldPass)
 {
     // invoke signup operation
-	obixResponse_setListener(&dummyResponseListener);
+    obixResponse_setListener(&dummyResponseListener);
     Response* response = createTestResponse(TRUE, FALSE);
     obix_server_handlePOST(response, "/obix/signUp/", inputData);
     if (checkResponse(response, !shouldPass) != 0)
@@ -1005,25 +856,32 @@ int testSignUpHelper(const char* testName,
     return 0;
 }
 
-int testSignUp()
+/**
+ * Tests signUp operation.
+ */
+static int testSignUp()
 {
     int result = 0;
     result += testSignUpHelper("SignUp test: storing data",
-                               "<obj name=\"signedDevice1\" href=\"/signedDevice1/\" />",
+                               "<obj name=\"signedDevice1\" "
+                               "href=\"/signedDevice1/\" />",
                                "/obix/signedDevice1/",
                                "signedDevice1",
                                TRUE);
     result += testSignUpHelper("SignUp test: storing ref",
-                               "<obj name=\"signedDevice2\" displayName=\"Signed Device 2\" href=\"/signedDevice2/\" />",
+                               "<obj name=\"signedDevice2\" "
+                               "displayName=\"Signed Device 2\" "
+                               "href=\"/signedDevice2/\" />",
                                "/obix/devices/",
                                "Signed Device 2",
                                TRUE);
 
-    result += testSignUpHelper("SignUp test: storing with no attributes except href",
-                               "<obj href=\"/signedDevice3/\" />",
-                               "/obix/signedDevice3/",
-                               "signedDevice3",
-                               TRUE);
+    result +=
+        testSignUpHelper("SignUp test: storing with no attributes except href",
+                         "<obj href=\"/signedDevice3/\" />",
+                         "/obix/signedDevice3/",
+                         "signedDevice3",
+                         TRUE);
 
     result += testSignUpHelper("SignUp test: no attributes at all",
                                "<obj />",
@@ -1039,7 +897,13 @@ int testSignUp()
     return result;
 }
 
-int testResponse_setRightUri(const char* testName,
+/**
+ * Tests #obixResponse_setRightUri function.
+ * @param requestUri Parameter to pass to #obixResponse_setRightUri.
+ * @param slashFlag Parameter to pass to #obixResponse_setRightUri.
+ * @param rightUri Correct URI, which should appear in response object.
+ */
+static int testResponse_setRightUri(const char* testName,
                              const char* requestUri,
                              int slashFlag,
                              const char* rightUri)
@@ -1083,7 +947,8 @@ int test_server(char* resFolder)
 
     if (obixWatch_init() != 0)
     {
-        printf("FAILED: Unable to start tests. Watches initialization failed.\n");
+        printf("FAILED: Unable to start tests. "
+               "Watches initialization failed.\n");
         return 1;
     }
 
@@ -1131,121 +996,119 @@ int test_server(char* resFolder)
     result += testSearch("xmldb_get: very long address no slash",
                          "/obix/kitchen/1/2/3/4/6/7/veryLong", NULL, TRUE);
 
-    result += testWriteToDatabase("xmldb_put: new node",
-                                  TRUE,
-                                  "<obj href=\"/obix/device/\" name=\"LampSwitch\">\n"
-                                  "  <obj name=\"NestedNode\" href=\"nested/\"/>\n"
-                                  "</obj>",
-                                  "/obix/device/",
-                                  "NestedNode",
-                                  TRUE);
+    result +=
+        testWriteToDatabase("xmldb_put: new node",
+                            TRUE,
+                            "<obj href=\"/obix/device/\" name=\"LampSwitch\">\n"
+                            "  <obj name=\"NestedNode\" href=\"nested/\"/>\n"
+                            "</obj>",
+                            "/obix/device/",
+                            "NestedNode",
+                            TRUE);
 
     result += testDelete("xmldb_delete: remove just added nested",
                          "/obix/device/nested/", TRUE);
 
-    result += testWriteToDatabase("xmldb_put: overwrite existing node",
-                                  TRUE,
-                                  "<obj href=\"/obix/batch/\" name=\"newBatch!\"/>",
-                                  "/obix/batch/",
-                                  "newBatch!",
-                                  FALSE);
+    result +=
+        testWriteToDatabase("xmldb_put: overwrite existing node",
+                            TRUE,
+                            "<obj href=\"/obix/batch/\" name=\"newBatch!\"/>",
+                            "/obix/batch/",
+                            "newBatch!",
+                            FALSE);
 
-    result += testWriteToDatabase("xmldb_put: wrong server address",
-                                  TRUE,
-                                  "<obj href=\"http://serve1.com/obix/deviceWrong/\" name=\"LampSwitchWrong\"/>",
-                                  "/obix/deviceWrong/",
-                                  "LampSwitchWrong",
-                                  FALSE);
+    result +=
+        testWriteToDatabase("xmldb_put: wrong server address",
+                            TRUE,
+                            "<obj href=\"http://serve1.com/obix/deviceWrong/\" "
+                            "name=\"LampSwitchWrong\"/>",
+                            "/obix/deviceWrong/",
+                            "LampSwitchWrong",
+                            FALSE);
 
-    result += testWriteToDatabase("xmldb_put: two nodes simultaneously",
-                                  TRUE,
-                                  "<obj href=\"/obix/device1/\" name=\"LampSwitch1\"/>\n"
-                                  "<obj href=\"/obix/device2/\" name=\"LampSwitch2\"/>",
-                                  "/obix/device1/",
-                                  "LampSwitch1",
-                                  FALSE
-                                 );
+    result +=
+        testWriteToDatabase("xmldb_put: two nodes simultaneously",
+                            TRUE,
+                            "<obj href=\"/obix/device1/\" "
+                            "name=\"LampSwitch1\"/>\n"
+                            "<obj href=\"/obix/device2/\" "
+                            "name=\"LampSwitch2\"/>",
+                            "/obix/device1/",
+                            "LampSwitch1",
+                            FALSE
+                           );
     result += testWriteToDatabase("xmldb_update: correct update",
                                   FALSE,
-                                  "<obj href=\"/obix/kitchen/1/2/3/long\" val=\"test string 1\"/>",
+                                  "<obj href=\"/obix/kitchen/1/2/3/long\" "
+                                  "val=\"test string 1\"/>",
                                   "/obix/kitchen/1/2/3/long",
                                   "test string 1",
                                   TRUE);
 
     result += testWriteToDatabase("xmldb_update: updating with the same value",
                                   FALSE,
-                                  "<obj href=\"/obix/kitchen/1/2/3/long\" val=\"test string 1\"/>",
+                                  "<obj href=\"/obix/kitchen/1/2/3/long\" "
+                                  "val=\"test string 1\"/>",
                                   "/obix/kitchen/1/2/3/long",
                                   "test string 1",
                                   TRUE);
 
-    result += testWriteToDatabase("xmldb_update: too much of data 1",
-                                  FALSE,
-                                  "<obj href=\"/obix/kitchen/1/2/3/long\" val=\"test string 2\" name=\"test string 3\"/>",
-                                  "/obix/kitchen/1/2/3/long",
-                                  "test string 2",
-                                  TRUE);
+    result +=
+        testWriteToDatabase("xmldb_update: too much of data 1",
+                            FALSE,
+                            "<obj href=\"/obix/kitchen/1/2/3/long\" "
+                            "val=\"test string 2\" name=\"test string 3\"/>",
+                            "/obix/kitchen/1/2/3/long",
+                            "test string 2",
+                            TRUE);
 
-    result += testWriteToDatabase("xmldb_update: too much of data 2",
-                                  FALSE,
-                                  "<obj href=\"/obix/kitchen/1/2/3/long\" val=\"test string 4\" name=\"test string 5\"/>",
-                                  "/obix/kitchen/1/2/3/long",
-                                  "test string 5",
-                                  FALSE);
+    result +=
+        testWriteToDatabase("xmldb_update: too much of data 2",
+                            FALSE,
+                            "<obj href=\"/obix/kitchen/1/2/3/long\" "
+                            "val=\"test string 4\" name=\"test string 5\"/>",
+                            "/obix/kitchen/1/2/3/long",
+                            "test string 5",
+                            FALSE);
 
-    result += testWriteToDatabase("xmldb_update: explicit not writable",
-                                  FALSE,
-                                  "<obj href=\"/obix/kitchen/1/2/3/4/6/7/veryLong\" val=\"test string 6\"/>",
-                                  "/obix/kitchen/1/2/3/4/6/7/veryLong",
-                                  "test string 6",
-                                  FALSE);
+    result +=
+        testWriteToDatabase("xmldb_update: explicit not writable",
+                            FALSE,
+                            "<obj href=\"/obix/kitchen/1/2/3/4/6/7/veryLong\" "
+                            "val=\"test string 6\"/>",
+                            "/obix/kitchen/1/2/3/4/6/7/veryLong",
+                            "test string 6",
+                            FALSE);
 
     result += testWriteToDatabase("xmldb_update: implicit not writable",
                                   FALSE,
-                                  "<obj href=\"/obix/kitchen/1/2/3/4/6/long\" val=\"test string 7\"/>",
+                                  "<obj href=\"/obix/kitchen/1/2/3/4/6/long\" "
+                                  "val=\"test string 7\"/>",
                                   "/obix/kitchen/1/2/3/4/6/long",
                                   "test string 7",
                                   FALSE);
 
     result += testWriteToDatabase("xmldb_update: not exist",
                                   FALSE,
-                                  "<obj href=\"/obix/kitchen/notExist\" val=\"test string 8\"/>",
+                                  "<obj href=\"/obix/kitchen/notExist\" "
+                                  "val=\"test string 8\"/>",
                                   "/obix/kitchen/notExist",
                                   "test string 8",
                                   FALSE);
 
-    result += testSearch("xmldb_get: \"..corner/lamp\" exists but we ask for \"corner\"",
+    result += testSearch("xmldb_get: \"..corner/lamp\" exists but we ask for "
+                         "\"corner\"",
                          "/obix/kitchen/corner", NULL, FALSE);
 
-    //    result += testCompareUri("xmldb_compareUri: full match",
-    //                             "/obix/shmobix/device1", "/obix/shmobix/device1", TRUE, 0);
-    //
-    //    result += testCompareUri("xmldb_compareUri: full match with slashes",
-    //                             "/obix/shmobix/device1/", "/obix/shmobix/device1/", TRUE, 0);
-    //
-    //    result += testCompareUri("xmldb_compareUri: match ignoring slashes",
-    //                             "/obix/shmobix/device1", "/obix/shmobix/device1/", TRUE, -1);
-    //
-    //    result += testCompareUri("xmldb_compareUri: match ignoring slashes 2",
-    //                             "/obix/shmobix/device1/", "/obix/shmobix/device1", TRUE, 1);
-    //
-    //    result += testCompareUri("xmldb_compareUri: ends don't match",
-    //                             "/obix/shmobix/device2/", "/obix/shmobix/device1", FALSE, 1);
-    //
-    //    result += testCompareUri("xmldb_compareUri: starts don't match",
-    //                             "oobix/shmobix/device1", "/obix/shmobix/device1", FALSE, 0);
-    //
     //    result += testServerPostHandlers();
 
-    result += testGenerateResponse("Normalize object", "/obix/kitchen/normalize", "/obix/kitchen/newName/");
+    result += testGenerateResponse("Normalize object",
+                                   "/obix/kitchen/normalize",
+                                   "/obix/kitchen/newName/");
 
-    result += testGenerateResponse("Normalize <op/> object", "/obix/kitchen/normalizeOp", "/obix/kitchen/UNnormalizeOp");
-
-    // testing dummy implementation of the client lib
-    //    result += testObixClientLib();
-
-    // TODO read todo of testDumpEnvironment
-    //    result += testDumpEnvironment();
+    result += testGenerateResponse("Normalize <op/> object",
+                                   "/obix/kitchen/normalizeOp",
+                                   "/obix/kitchen/UNnormalizeOp");
 
     result += testSignUp();
 
@@ -1260,27 +1123,6 @@ int test_server(char* resFolder)
                                        "/obix/test",
                                        1,
                                        "/obix/test/");
-
-    // restart database to clean everything which is broken by previous tests
-    //    xmldb_dispose();
-    //    if (xmldb_init("http://localhost"))
-    //    {
-    //        printf("Unable to restart database.\n");
-    //        printTestResult("xmldb restart", FALSE);
-    //        result++;
-    //    }
-    //
-    //    FCGX_Request* request = (FCGX_Request*) malloc(sizeof(FCGX_Request));
-    //    int error = FCGX_InitRequest(request, 0, 0);
-    //    if (error != 0)
-    //    {
-    //    	printf("Unable to initialize fcgi request. running server tests failed.\n");
-    //    	return -1;
-    //    }
-    //
-    //    result+= testServerHandlePost(NULL);
-    //
-    //    free(request);
 
     return result;
 }

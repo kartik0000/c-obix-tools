@@ -20,10 +20,9 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Tests for common library sources.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #include <stdio.h>
@@ -34,7 +33,12 @@
 #include <obix_utils.h>
 #include "test_main.h"
 
-void testLog()
+/**
+ * Tests log utilities.
+ * Writes different type of messages using different log settings.
+ * Results should be checked manually.
+ */
+static void testLog()
 {
     log_debug("testing debug 4=%d;", 4);
     log_warning("testing warning 5=%d;", 5);
@@ -48,8 +52,17 @@ void testLog()
     log_usePrintf();
 }
 
-
-int testObix_reltime_parseToLong(const char* reltime, int retVal, long value)
+/**
+ * Helper function which checks #obix_reltime_parseToLong.
+ * Tries to parse @a reltime value and compares it with expected integer.
+ *
+ * @param reltime String @a reltime value to parse.
+ * @param retVal Expected status value returned by #obix_reltime_parseToLong.
+ * @param value Integer value of provided @a reltime.
+ */
+static int testObix_reltime_parseToLong(const char* reltime,
+                                        int retVal,
+                                        long value)
 {
     long l = 0;
     int error = obix_reltime_parseToLong(reltime, &l);
@@ -69,7 +82,10 @@ int testObix_reltime_parseToLong(const char* reltime, int retVal, long value)
     return 0;
 }
 
-int testObix_reltime_parse()
+/**
+ * Tests #obix_reltime_parseToLong function.
+ */
+static int testObix_reltime_parse()
 {
     int error = 0;
 
@@ -127,27 +143,36 @@ int testObix_reltime_parse()
     return error;
 }
 
-int testObix_reltime_fromLong()
+/**
+ * Helper function, which checks #obix_reltime_fromLong function.
+ * @param period Parameter passed to #obix_reltime_fromLong.
+ * @param format Parameter passed to #obix_reltime_fromLong.
+ * @param checkString Expected result.
+ */
+static int testObix_reltime_fromLongHelper(
+    long period,
+    RELTIME_FORMAT format,
+    const char* checkString)
 {
+    char* reltime = obix_reltime_fromLong(period, format);
 
-    int testObix_reltime_fromLongHelper(long period,
-                                        RELTIME_FORMAT format,
-                                        const char* checkString)
+    if (strcmp(reltime, checkString) != 0)
     {
-        char* reltime = obix_reltime_fromLong(period, format);
-
-        if (strcmp(reltime, checkString) != 0)
-        {
-            printf("obix_reltime_fromLong(%ld, %d) generated \"%s\", but "
-                   "expected \"%s\".\n", period, format, reltime, checkString);
-            free(reltime);
-            return 1;
-        }
-
+        printf("obix_reltime_fromLong(%ld, %d) generated \"%s\", but "
+               "expected \"%s\".\n", period, format, reltime, checkString);
         free(reltime);
-        return 0;
+        return 1;
     }
 
+    free(reltime);
+    return 0;
+}
+
+/**
+ * Tests #obix_reltime_fromLong function.
+ */
+static int testObix_reltime_fromLong()
+{
     int error = 0;
 
     error += testObix_reltime_fromLongHelper(
@@ -171,16 +196,19 @@ int testObix_reltime_fromLong()
                  RELTIME_DAY,
                  "PT1H0.1S");
     error += testObix_reltime_fromLongHelper(
-                     10000 * 1000 + 1,
-                     RELTIME_SEC,
-                     "PT10000.001S");
+                 10000 * 1000 + 1,
+                 RELTIME_SEC,
+                 "PT10000.001S");
 
     printTestResult("Test obix_reltime_fromLong()", (error == 0) ? TRUE : FALSE);
 
     return error;
 }
 
-int testObixUtils()
+/**
+ * Tests functions from obix_utils module.
+ */
+static int testObixUtils()
 {
     int result = 0;
 

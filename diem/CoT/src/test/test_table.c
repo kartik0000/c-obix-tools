@@ -20,10 +20,9 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Implementation of Table tests.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 #include <stdio.h>
 #include <string.h>
@@ -32,6 +31,14 @@
 #include "test_main.h"
 #include "test_table.h"
 
+/**
+ * Helper function to test #table_get.
+ * Checks that returned value corresponds to provided one.
+ * @param table Table to check.
+ * @param key Key passed to #table_get.
+ * @param value Value, which is supposed to be returned.
+ * @return @a 0 on success; @a 1 on error.
+ */
 static int testTableGet(Table* table, const char* key, const char* value)
 {
     const char* testName = "Test table_get()";
@@ -70,7 +77,6 @@ int test_table()
     struct timespec startTime, endTime;
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &startTime);
     // TODO check here some problem with time at router box
-//    fafasfzszdfb
     printf("started at %ld seconds %ld nanoseconds.\n",
     		startTime.tv_sec, startTime.tv_nsec);
     int error = table_put(table, "123", "1 2 3");

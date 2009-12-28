@@ -20,10 +20,9 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Tests for C oBIX Client library.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 #include <stdlib.h>
 #include <string.h>
@@ -33,12 +32,25 @@
 #include "test_main.h"
 #include "test_client.h"
 
-#define REQUEST_HTTP_GET 0
-#define REQUEST_HTTP_PUT 1
-#define REQUEST_HTTP_POST 2
+/** Different request types used in tests. */
+typedef enum
+{
+    REQUEST_HTTP_GET,
+    REQUEST_HTTP_PUT,
+    REQUEST_HTTP_POST
+} REQUEST_TYPE;
 
+/**
+ * Checks how curl_ext library performs HTTP requests.
+ *
+ * @param requestType Type of request to test.
+ * @param handle CURL_EXT handle, which should be used in test.
+ * @param uri URI to request.
+ * @param exists if @a TRUE, than URI should exist on server, @a FALSE - if the
+ * 			provided URI is wrong.
+ */
 static int testCurlExtRequest(const char* testName,
-                              int requestType,
+                              REQUEST_TYPE requestType,
                               CURL_EXT* handle,
                               const char* uri,
                               BOOL exists)
@@ -109,6 +121,10 @@ static int testCurlExtRequest(const char* testName,
     }
 }
 
+/**
+ * Performs testing of curl_ext module.
+ * Creates new CURL_EXT handler and tried to execute several requests using it.
+ */
 static int testCurlExt()
 {
     const char* testName = "curl_ext* test";
@@ -197,6 +213,9 @@ static int testCurlExt()
     return 0;
 }
 
+/**
+ * Tries to load client configuration file.
+ */
 static int testObixLoadConfigFile()
 {
     const char* testName = "obix_loadConfigFile test";
@@ -209,20 +228,14 @@ static int testObixLoadConfigFile()
         return 1;
     }
 
-    //    error = obix_dispose();
-    //    if (error != OBIX_SUCCESS)
-    //    {
-    //        printf("obix_dispose() returned %d\n", error);
-    //        printTestResult(testName, FALSE);
-    //        return 1;
-    //    }
-
-
     printTestResult(testName, TRUE);
     return 0;
 }
 
-int testBatch()
+/**
+ * Helper function which tests Batch utilities.
+ */
+static int testBatch()
 {
     oBIX_Batch* batch = obix_batch_create(0);
     if (batch == NULL)
@@ -287,7 +300,12 @@ int testBatch()
     return 0;
 }
 
-int testConnectionAndDevices()
+/**
+ * Tests C oBIX Client API.
+ * Opens connection with server, registers test device data there and performs
+ * other Client API operations.
+ */
+static int testConnectionAndDevices()
 {
     const char* testName = "test obix_client common utils";
 

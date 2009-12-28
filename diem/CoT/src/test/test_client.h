@@ -20,17 +20,23 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * @todo add description here
+ * Interface of C oBIX Client library test module.
  *
  * @author Andrey Litvinov
- * @version 1.0
  */
 
 #ifndef TEST_CLIENT_H_
 #define TEST_CLIENT_H_
 
+/**
+ * Runs a set of C oBIX Client library tests.
+ * @return Number of failed tests.
+ */
 int test_client();
 
+/**
+ * Runs manual tests of C oBIX Client library.
+ */
 void test_client_byHands();
 
 #endif /* TEST_CLIENT_H_ */
