@@ -5,14 +5,14 @@
 libcothtml = libcot-html-$(LIBCOT_VERSION_DOT).tar.gz
 
 ## PDF file
-libcotpdf = libcot_manual.pdf
+libcotpdf = libcot_manual_$(LIBCOT_VERSION_DOT).pdf
 
 ###########   full project documentation   ###########
 ## archive with HTML documentation
 fullhtml = full-cot-html-$(PACKAGE_VERSION).tar.gz			 
 
 ## PDF file
-fullpdf = full_reference_manual.pdf
+fullpdf = full_reference_manual_$(PACKAGE_VERSION).pdf
 
 doc_DATA =  $(top_builddir)/doc/$(libcothtml) \
 			$(top_builddir)/doc/$(libcotpdf) \

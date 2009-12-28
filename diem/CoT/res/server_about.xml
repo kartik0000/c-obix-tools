@@ -22,9 +22,9 @@
 -->
 	<!--About object for oBIX server-->
 <obj href="/obix/about/" is="obix:About" display="Obix About">
-	<str name="obixVersion" val="1.0" href="obixVersion/" displayName="Obix Version" />
+	<str name="obixVersion" val="1.0" href="obixVersion/" displayName="oBIX Version" />
 
-	<str name="serverName" val="Obix 4 HCC" href="serverName/"
+	<str name="serverName" val="C oBIX Server" href="serverName/"
 		displayName="Server Name" />
 	<abstime name="serverTime" null="true" href="serverTime/"
 		displayName="Server Time" />
@@ -33,13 +33,13 @@
 
 	<str name="vendorName" val="Andrey Litvinov" href="vendorName/"
 		displayName="Vendor Name" />
-	<uri name="vendorUrl" val="http://tml.hut.fi" href="vendorUrl/"
+	<uri name="vendorUrl" val="http://no.url" href="vendorUrl/"
 		displayName="Vendor Url" />
 
-	<str name="productName" val="NoName" href="productName/"
+	<str name="productName" val="C oBIX Tools" href="productName/"
 		displayName="Product Name" />
 	<str name="productVersion" val="0.1" href="productVersion/"
 		displayName="Product Version" />
-	<uri name="productUrl" val="http://no.url" href="productUrl/"
-		displayName="Product Url" />
+	<uri name="productUrl" val="http://code.google.com/p/c-obix-tools/"
+		href="productUrl/" displayName="Product Url" />
 </obj>

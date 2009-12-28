@@ -180,11 +180,11 @@ top_srcdir = @top_srcdir@
 
 ###########   libcot documentation   ###########
 libcothtml = libcot-html-$(LIBCOT_VERSION_DOT).tar.gz
-libcotpdf = libcot_manual.pdf
+libcotpdf = libcot_manual_$(LIBCOT_VERSION_DOT).pdf
 
 ###########   full project documentation   ###########
 fullhtml = full-cot-html-$(PACKAGE_VERSION).tar.gz			 
-fullpdf = full_reference_manual.pdf
+fullpdf = full_reference_manual_$(PACKAGE_VERSION).pdf
 doc_DATA = $(top_builddir)/doc/$(libcothtml) \
 			$(top_builddir)/doc/$(libcotpdf) \
 			$(top_builddir)/doc/$(fullhtml) \

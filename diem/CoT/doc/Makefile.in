@@ -178,14 +178,6 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-
-###########   libcot documentation   ###########
-libcothtml = libcot-html-$(PACKAGE_VERSION).tar.gz
-libcotpdf = libcot_manual.pdf
-
-###########   full project documentation   ###########
-fullhtml = full-cot-html-$(PACKAGE_VERSION).tar.gz			 
-fullpdf = full_reference_manual.pdf
 @HAVE_DOXYGEN_TRUE@SUBDIRS = doxygen/
 all: all-recursive
 
