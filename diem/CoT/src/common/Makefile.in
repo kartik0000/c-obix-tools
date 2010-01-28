@@ -60,7 +60,8 @@ libcot_utils_la_DEPENDENCIES = $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1)
 am_libcot_utils_la_OBJECTS = libcot_utils_la-xml_config.lo \
 	libcot_utils_la-ixml_ext.lo libcot_utils_la-obix_utils.lo \
-	libcot_utils_la-ptask.lo libcot_utils_la-log_utils.lo
+	libcot_utils_la-ptask.lo libcot_utils_la-log_utils.lo \
+	libcot_utils_la-table.lo
 libcot_utils_la_OBJECTS = $(am_libcot_utils_la_OBJECTS)
 libcot_utils_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(libcot_utils_la_CFLAGS) \
@@ -213,6 +214,7 @@ libcot_utils_la_SOURCES = xml_config.h xml_config.c \
 							  obix_utils.h obix_utils.c \
 							  ptask.h ptask.c \
 							  log_utils.h log_utils.c \
+							  table.h table.c \
 							  bool.h
 
 libcot_utils_la_CFLAGS = $(WARN_FLAGS) $(UPNP_CFLAGS)
@@ -291,6 +293,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcot_utils_la-log_utils.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcot_utils_la-obix_utils.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcot_utils_la-ptask.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcot_utils_la-table.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcot_utils_la-xml_config.Plo@am__quote@
 
 .c.o:
@@ -348,6 +351,13 @@ libcot_utils_la-log_utils.lo: log_utils.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='log_utils.c' object='libcot_utils_la-log_utils.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libcot_utils_la_CFLAGS) $(CFLAGS) -c -o libcot_utils_la-log_utils.lo `test -f 'log_utils.c' || echo '$(srcdir)/'`log_utils.c
+
+libcot_utils_la-table.lo: table.c
+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libcot_utils_la_CFLAGS) $(CFLAGS) -MT libcot_utils_la-table.lo -MD -MP -MF $(DEPDIR)/libcot_utils_la-table.Tpo -c -o libcot_utils_la-table.lo `test -f 'table.c' || echo '$(srcdir)/'`table.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libcot_utils_la-table.Tpo $(DEPDIR)/libcot_utils_la-table.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='table.c' object='libcot_utils_la-table.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libcot_utils_la_CFLAGS) $(CFLAGS) -c -o libcot_utils_la-table.lo `test -f 'table.c' || echo '$(srcdir)/'`table.c
 
 mostlyclean-libtool:
 	-rm -f *.lo

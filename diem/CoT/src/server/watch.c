@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -35,6 +35,7 @@
 #include <ptask.h>
 #include <log_utils.h>
 #include <obix_utils.h>
+#include <table.h>
 #include "xml_storage.h"
 #include "watch.h"
 
@@ -62,13 +63,21 @@ static const int MAX_WATCH_COUNT = 50;
  * Template for the name of meta tag, which is added to every object in storage
  * subscribed by some Watch.
  */
-static const char* OBIX_META_TAG_WATCH_TEMPLATE = "wi-%d";
+static const char* OBIX_META_VAR_WATCH_TEMPLATE = "wi-%d";
+
+const char* OBIX_META_VAR_WATCHITEM_P = "pwi";
 
 /** Template for Watch URI. */
 static const char* WATCH_URI_TEMPLATE = "/obix/watchService/watch%d/";
 /** Length of watch uri prefix from #WATCH_URI_TEMPLATE, but not of the whole
  * template. */
 static const int WATCH_URI_PREFIX_LENGTH = 24;
+
+/**
+ * Id of the handler, which is assigned for operations added to the Watch. This
+ * handler forwards operation invocation to the subscribed client.
+ */
+static const char* WATCHED_OPERATION_HANDLER_ID = "11";
 
 /**
  * Array for storing Watch objects created by users.
@@ -81,6 +90,59 @@ static Task_Thread* _threadLease;
 static Task_Thread* _threadLongPoll;
 
 /**
+ * Stores invocation requests of operations, which are forwarded to subscribed
+ * clients.
+ */
+static Table* _watchedOpInvocations;
+static pthread_mutex_t _watchedOpInvocationsMutex = PTHREAD_MUTEX_INITIALIZER;
+
+/**
+ * Removes meta attributes which are added to operation object, when this object
+ * is added to a Watch.
+ */
+static void deleteMetaOperationTags(IXML_Element* element)
+{
+    // deleting operation handler id
+    IXML_Node* metaVariable =
+        xmldb_getMetaVariable(element, OBIX_META_VAR_HANDLER_ID);
+    if (metaVariable != NULL)
+    {
+        xmldb_deleteMetaVariable(metaVariable);
+    }
+
+    // deleting pointer to the watch item
+    metaVariable = xmldb_getMetaVariable(element, OBIX_META_VAR_WATCHITEM_P);
+    if (metaVariable != NULL)
+    {
+        xmldb_deleteMetaVariable(metaVariable);
+    }
+}
+
+/**
+ * Allocates memory for new Watch item.
+ * @return Reference to the allocated memory, or @a NULL on error.
+ */
+static oBIX_Watch_Item* obixWatchItem_allocate(const char* uri)
+{
+    oBIX_Watch_Item* item = (oBIX_Watch_Item*) malloc(sizeof(oBIX_Watch_Item));
+    if (item == NULL)
+    {
+        log_error("Unable to create watch item: Not enough memory.");
+        return NULL;
+    }
+    item->uri = (char*) malloc(strlen(uri) + 1);
+    if (item->uri == NULL)
+    {
+        free(item);
+        log_error("Unable to create watch item: Not enough memory.");
+        return NULL;
+    }
+    strcpy(item->uri, uri);
+
+    return item;
+}
+
+/**
  * Frees memory, allocated for provided watch item.
  * Also removes meta tag associated with that watch item.
  * @param item Watch item which should be freed.
@@ -91,10 +153,20 @@ static oBIX_Watch_Item* obixWatchItem_free(oBIX_Watch_Item* item)
 {
     oBIX_Watch_Item* next = item->next;
     free(item->uri);
-    if (xmldb_deleteMetaVariable(item->updated) != 0)
+
+    if ((item->updated != NULL) &&
+            (xmldb_deleteMetaVariable(item->updated) != 0))
     {
         log_error("Unable to delete meta data corresponding to the deleted "
                   "watch item.");
+    }
+    if (item->isOperation)
+    {
+        if (item->doc != NULL)
+        {
+            ixmlElement_free(item->doc);
+        }
+        deleteMetaOperationTags(item->doc);
     }
     free(item);
 
@@ -298,8 +370,7 @@ static void obixWatch_notifyPollTask(IXML_Element* meta)
     oBIX_Watch* watch = obixWatch_get(watchId);
     if (watch == NULL)
     {
-        log_error("There is no watch corresponding to %s meta tag.",
-                  tagName);
+        log_error("There is no watch corresponding to %s meta tag.", tagName);
         return;
     }
 
@@ -590,22 +661,21 @@ oBIX_Watch* obixWatch_getByUri(const char* uri)
     return obixWatch_get(watchId);
 }
 
-int obixWatch_createWatchItem(oBIX_Watch* watch,
-                              const char* uri,
-                              oBIX_Watch_Item** watchItem)
+/**
+ * Finds in the storage object with provided URI. Checks whether the object is
+ * operation (<op/> tag) or not.
+ * @return  @li @a 0 on success;
+ * 			@li @a -1 wrong URI;
+ * 			@li @a -2 check for operation failed.
+ */
+static int getObjectForSubscription(IXML_Element** element,
+                                    const char* uri,
+                                    BOOL isOperation)
 {
-    // check that the provided URI was not added earlier
-    *watchItem = obixWatch_getWatchItem(watch, uri);
-    if (*watchItem != NULL)
-    {
-        // there is already watch item with the same URI
-        return 0;
-    }
-
     // try to find the corresponding object in the storage
     int slashFlag = 0;
-    IXML_Element* element = xmldb_getDOM(uri, &slashFlag);
-    if (element == NULL)
+    *element = xmldb_getDOM(uri, &slashFlag);
+    if (*element == NULL)
     {
         // no such element in the storage
         return -1;
@@ -621,14 +691,83 @@ int obixWatch_createWatchItem(oBIX_Watch* watch,
     }
 
     // check that this is not an <op/> object
-    if (strcmp(ixmlElement_getTagName(element), OBIX_OBJ_OP) == 0)
+    BOOL isOpTag = FALSE;
+    if (strcmp(ixmlElement_getTagName(*element), OBIX_OBJ_OP) == 0)
     {
-        return -2;
+        isOpTag = TRUE;
     }
 
-    // add meta info to the object
+    return (isOperation == isOpTag) ? 0 : -2;
+}
+
+/**
+ * Creates Watch item meta attribute in the storage for provided object.
+ * @return @a 0 on success; @a -1 on error.
+ */
+static int putMetaWatchItemFlag(IXML_Node** metaAttr,
+                                IXML_Element* element,
+                                int watchId)
+{
+    // generate meta flag name
     char attrName[10];
-    int error = sprintf(attrName, OBIX_META_TAG_WATCH_TEMPLATE, watch->id);
+    int error = sprintf(attrName, OBIX_META_VAR_WATCH_TEMPLATE, watchId);
+    if (error < 0)
+    {
+        log_error("Unable to create meta attribute. sprintf() returned %d.",
+                  error);
+        return -1;
+    }
+
+    *metaAttr =
+        xmldb_putMetaVariable(element, attrName, OBIX_META_WATCH_UPDATED_NO);
+    if (*metaAttr == NULL)
+    {
+        log_error("Unable to save meta attribute.");
+        return -1;
+    }
+
+    return 0;
+}
+
+/**
+ * Adds following meta attributes to the provided operation object in the
+ * storage:
+ *  @li Operation handler ID;
+ *  @li Pointer to the WatchItem object, which is subscribed for this operation.
+ *
+ * @return  @li @a 0 - On success;
+ * 			@li @a -3 - Internal server error;
+ * 			@li @a -4 - The operation object already has assigned handler.
+ */
+static int putMetaOperationTags(IXML_Element* element,
+                                oBIX_Watch_Item* watchItem)
+{
+    // check that there is no operation handler yet
+    const char* availableHandler =
+        xmldb_getMetaVariableValue(element, OBIX_META_VAR_HANDLER_ID);
+    if (availableHandler != NULL)
+    {
+        log_warning("Unable to create \"%s\" meta attribute: It already exists."
+                    " Someone tries to subscribe for operation, which already "
+                    "has a handler (id = %s).",
+                    OBIX_META_VAR_HANDLER_ID, availableHandler);
+        return -4;
+    }
+
+    // put operation handler id
+    IXML_Node* metaTag =
+        xmldb_putMetaVariable(element,
+                              OBIX_META_VAR_HANDLER_ID,
+                              WATCHED_OPERATION_HANDLER_ID);
+    if (metaTag == NULL)
+    {	// error is already logged
+        return -3;
+    }
+
+    // ..and pointer to the watch item object
+    // generate string pointer
+    char pointer[8];
+    int error = sprintf(pointer, "%d", (int)watchItem);
     if (error < 0)
     {
         log_error("Unable to create meta attribute. sprintf() returned %d.",
@@ -636,35 +775,75 @@ int obixWatch_createWatchItem(oBIX_Watch* watch,
         return -3;
     }
 
-    IXML_Node* metaAttr = xmldb_putMetaVariable(element,
-                          attrName,
-                          OBIX_META_WATCH_UPDATED_NO);
-    if (metaAttr == NULL)
+    metaTag =
+        xmldb_putMetaVariable(element, OBIX_META_VAR_WATCHITEM_P, pointer);
+    if (metaTag == NULL)
     {
-        log_error("Unable to save meta attribute.");
         return -3;
     }
 
-    // create WatchItem object
-    oBIX_Watch_Item* item = (oBIX_Watch_Item*) malloc(sizeof(oBIX_Watch_Item));
+    return 0;
+}
+
+int obixWatch_createWatchItem(oBIX_Watch* watch,
+                              const char* uri,
+                              BOOL isOperation,
+                              oBIX_Watch_Item** watchItem)
+{
+    // check that the provided URI was not added earlier
+    *watchItem = obixWatch_getWatchItem(watch, uri);
+    if (*watchItem != NULL)
+    {
+        // there is already watch item with the same URI
+        return 0;
+    }
+
+    IXML_Element* element;
+    int error = getObjectForSubscription(&element, uri, isOperation);
+    if (error != 0)
+    {
+        return error;
+    }
+
+    // create WatchItem
+    oBIX_Watch_Item* item = obixWatchItem_allocate(uri);
     if (item == NULL)
     {
-        xmldb_deleteMetaVariable(metaAttr);
-        log_error("Unable to create watch item: Not enough memory.");
         return -3;
     }
-    item->uri = (char*) malloc(strlen(uri) + 1);
-    if (item->uri == NULL)
-    {
-        free(item);
-        xmldb_deleteMetaVariable(metaAttr);
-        log_error("Unable to create watch item: Not enough memory.");
-        return -3;
-    }
-    strcpy(item->uri, uri);
+
+    // initialize WatchItem fields
+    item->isOperation = isOperation;
     item->doc = element;
-    item->updated = metaAttr;
+    item->input = NULL;
     item->next = NULL;
+
+    // add meta info to the monitoring object
+    IXML_Node* metaWatchItem;
+    if (putMetaWatchItemFlag(&metaWatchItem, element, watch->id) != 0)
+    {
+        obixWatchItem_free(item);
+        return -3;
+    }
+    item->updated = metaWatchItem;
+
+    // even more meta info for operations
+    if (isOperation)
+    {
+        error = putMetaOperationTags(element, item);
+        if (error != 0)
+        {
+            obixWatchItem_free(item);
+            return error;
+        }
+
+        watchItem->doc = ixmlElement_cloneWithLog(operation);
+        if (watchItem->doc == NULL)
+        {
+            obixWatchItem_free(item);
+            return -3;
+        }
+    }
 
     // save created watch item
     obixWatch_appendWatchItem(watch, item);
@@ -968,6 +1147,14 @@ int obixWatch_init()
 
     _watchesCount = 0;
 
+    // initialize table for storing watched operation invocations
+    _watchedOpInvocations = table_create(20);
+    if (_watchedOpInvocations == NULL)
+    {
+        log_error("Unable to allocate memory for operation requests cache.");
+        return -2;
+    }
+
     // initialize thread which will be used to remove old watch objects
     _threadLease = ptask_init();
     if (_threadLease == NULL)
@@ -1016,5 +1203,103 @@ int obixWatch_dispose()
     }
 
     return error;
+}
+
+/**
+ * Saves input of remote operation invocation.
+ *
+ * @param watchItem Watch item subscribed for the invoked operation.
+ * @param input Received operation input.
+ * @return @a 0 on success; @a -1 on error.
+ */
+static int obixWatchItem_saveOperationInput(
+    oBIX_Watch_Item* watchItem,
+    IXML_Element* input)
+{
+    IXML_Element* copiedInput;
+    error = ixmlElement_putChildWithLog(watchItem->doc, input, &copiedInput);
+    if (error != 0)
+    {
+        return -1;
+    }
+    watchItem->input = copiedInput;
+
+    // set RemoteInvoke attributes (see RemoteInvocation contract)
+    // TODO handle case when the doc already has "is" attribute
+    ixmlElement_setAttributeWithLog(watchItem->doc,
+                                    OBIX_ATTR_IS,
+                                    "/obix/def/RemoteInvocation");
+    ixmlElement_setAttributeWithLog(watchItem->input,
+                                    OBIX_ATTR_NAME,
+                                    "in");
+
+    return 0;
+}
+
+void obixWatchItem_clearOperationInput(oBIX_Watch_Item* watchItem)
+{
+    int error = ixmlElement_freeChildElement(
+                    watchItem->doc,
+                    watchItem->input);
+    if (error != IXML_SUCCESS)
+    {
+        log_error("Unable to delete input parameters of remote "
+                  "operation call from corresponding watch item "
+                  "(\"%s\"): "
+                  "ixmlElement_freeChildElement returned %d.",
+                  watchItem->uri, error);
+    }
+
+    // remove RemoteInvocation contract
+    ixmlElement_removeAttributeWithLog(watchItem->doc, OBIX_ATTR_IS);
+}
+
+int obixWatchItem_saveOperationInvocation(
+    oBIX_Watch_Item* watchItem,
+    const char* uri,
+    Response* response,
+    IXML_Element* input)
+{
+    // save response object in order to use it later
+    pthread_mutex_lock(&_watchedOpInvocationsMutex);
+    int error = table_put(_watchedOpInvocations, uri, response);
+    pthread_mutex_unlock(&_watchedOpInvocationsMutex);
+    if (error != 0)
+    {
+        return -1;
+    }
+
+    // update watch item state
+    error = xmldb_changeMetaVariable(watchItem->updated,
+                                     OBIX_META_WATCH_UPDATED_YES);
+    if (error != 0)
+    {	// remove saved operation response
+        obixWatch_getSavedOperationInvocation(uri);
+        return -1;
+    }
+
+    error = obixWatchItem_saveOperationInput(watchItem, input);
+    if (error != 0)
+    {	// remove saved operation response and reset updated flag
+        obixWatch_getSavedOperationInvocation(uri);
+        xmldb_changeMetaVariable(watchItem->updated,
+                                 OBIX_META_WATCH_UPDATED_NO);
+        return -1;
+    }
+
+    // notify Watch object that watch item is changed
+    obixWatch_notifyPollTask(
+        ixmlAttr_getOwnerElement(
+            ixmlNode_convertToAttr(watchItem->updated)));
+
+    return 0;
+}
+
+Response* obixWatch_getSavedOperationInvocation(const char* uri)
+{
+    pthread_mutex_lock(&_watchedOpInvocationsMutex);
+    Response* response = (Response*)table_remove(_watchedOpInvocations, uri);
+    pthread_mutex_unlock(&_watchedOpInvocationsMutex);
+    return response;
 }
 

@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -47,6 +47,10 @@ extern const char* OBIX_SYS_WATCH_OUT_STUB;
 /** Name of meta tag. This tag is used to store meta variables for any object
  * in storage, which is not visible for clients. */
 extern const char* OBIX_META;
+
+/** Name of meta variable, which is used to define handler functions for
+ * oBIX operations. */
+extern const char* OBIX_META_VAR_HANDLER_ID;
 
 /**
  * Initializes storage. Should be executed only once on startup.
@@ -221,9 +225,29 @@ int xmldb_deleteMetaVariable(IXML_Node* meta);
 /**
  * Sets new value for provided meta variable.
  *
- * @return 0 on success; error code otherwise.
+ * @return @a 0 on success; error code otherwise.
  */
 int xmldb_changeMetaVariable(IXML_Node* meta, const char* newValue);
+
+/**
+ * Returns meta variable of the provided object.
+ *
+ * @note Method assumes that all variables have unique names. Otherwise it
+ * 		returns the first found variable with specified name.
+ *
+ * @return @a NULL on error.
+ */
+IXML_Node* xmldb_getMetaVariable(IXML_Element* obj, const char* name);
+
+/**
+ * Returns value of meta variable of the provided object.
+ *
+ * @note Method assumes that all variables have unique names. Otherwise it
+ * 		returns value of the first found variable with specified name.
+ *
+ * @return @a NULL on error.
+ */
+const char* xmldb_getMetaVariableValue(IXML_Element* obj, const char* name);
 
 /**
  * Returns meta tag of the object.

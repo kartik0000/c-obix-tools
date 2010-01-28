@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-   Copyright (c) 2009 Andrey Litvinov
+   Copyright (c) 2009, 2010 Andrey Litvinov
   
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@
 		<list name="values" of="obix:obj" />
 	</obj>
 	<!-- Template for the Watch object. -->
-	<obj href="watch-stub/" is="obix:Watch /obix/def/LongPollWatch">
+	<obj href="watch-stub/" is="obix:Watch /obix/def/LongPollWatch /obix/def/OperationWatch">
 		<reltime name="lease" href="lease" min="PT0S" max="PT1H" val="PT30S"
 			writable="true" />
 		<obj name="pollWaitInterval" href="pollWaitInterval/">
@@ -41,19 +41,39 @@
 		</obj>
 		<op name="add" href="add" in="obix:WatchIn" out="obix:WatchOut">
 			<!-- op is the index of operation handler in post_handler.c -->
-			<meta op="2" />
+			<meta>
+			 	<h-id val="2"/>
+			</meta>
+		</op>
+		<op name="addOperation" href="addOperation" in="obix:WatchIn" out="obix:WatchOut">
+			<meta> 
+				<h-id val="9"/>
+			</meta>
 		</op>
 		<op name="remove" href="remove" in="obix:WatchIn">
-			<meta op="3" />
+			<meta> 
+				<h-id val="3"/>
+			</meta>
 		</op>
 		<op name="pollChanges" href="pollChanges" out="obix:WatchOut">
-			<meta op="4" />
+			<meta> 
+				<h-id val="4"/>
+			</meta>
 		</op>
 		<op name="pollRefresh" href="pollRefresh" out="obix:WatchOut">
-			<meta op="5" />
+			<meta> 
+				<h-id val="5"/>
+			</meta>			
+		</op>
+		<op name="operationResponse" href="operationResponse" in="obix:obj">
+			<meta> 
+				<h-id val="10"/>
+			</meta>
 		</op>
 		<op name="delete" href="delete">
-			<meta op="6" />
+			<meta> 
+				<h-id val="6"/>
+			</meta>
 		</op>
 	</obj>
 	<!-- Template for the Error object. -->

@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -91,16 +91,30 @@ IXML_Node* ixmlAttr_getNode(IXML_Attr* attr);
 IXML_Element* ixmlDocument_getRootElement(IXML_Document* doc);
 
 /**
- * Returns first element in the documents with provided attribute value.
+ * Returns first element in the document with provided attribute value.
  *
  * @param doc Document where to search.
  * @param attrName Name of the attribute to check.
- * @param attrValue Attribute value which should be found
+ * @param attrValue Attribute value which should be found.
  * @return A pointer to the element with matching attribute; @a NULL if no such
  * element found.
  */
 IXML_Element* ixmlDocument_getElementByAttrValue(
     IXML_Document* doc,
+    const char* attrName,
+    const char* attrValue);
+
+/**
+ * Returns first child element with provided attribute value.
+ *
+ * @param element The search will be performed among children of this element.
+ * @param attrName Name of the attribute to check.
+ * @param attrValue Attribute value which should be found.
+ * @return A pointer to the element with matching attribute; @a NULL if no such
+ * element found.
+ */
+IXML_Element* ixmlElement_getChildElementByAttrValue(
+    IXML_Element* element,
     const char* attrName,
     const char* attrValue);
 
@@ -220,6 +234,31 @@ int ixmlElement_copyAttributeWithLog(IXML_Element* source,
 IXML_Element* ixmlElement_createChildElementWithLog(
     IXML_Element* parent,
     const char* childTagName);
+
+/**
+ * Creates a copy of provided element and inserts it as a child tag.
+ *
+ * @param parent Element to which the child tag should be inserted.
+ * @param childSource Element, which should be inserted to the parent.
+ * @param createdChild If not @a NULL, a reference to the created child tag is
+ * 				returned here.
+ * @return @a IXML_SUCCESS if everything went well, or one of @a ixml error
+ * 		   codes.
+ */
+int ixmlElement_putChildWithLog(IXML_Element* parent,
+                                IXML_Element* childSource,
+                                IXML_Element** createdChild);
+
+/**
+ * Removes child element from the parent tag and releases memory allocated by
+ * the child.
+ *
+ * @param parent Element, from which child should be removed.
+ * @param child Element to be deleted.
+ * @return @a IXML_SUCCESS if everything went well, or one of @a ixml error
+ * 		   codes.
+ */
+int ixmlElement_freeChildElement(IXML_Element* parent, IXML_Element* child);
 
 /**
  * Returns element which the provided attribute belongs to.

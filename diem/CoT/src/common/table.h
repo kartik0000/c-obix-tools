@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -62,9 +62,9 @@ void* table_get(Table* table, const char* key);
 
 /**
  * Removes key-value pair from the table.
- * @return @a 0 if the pair was removed successfully, @a -1 otherwise.
+ * @return Removed value, or @a NULL if no such key found.
  */
-int table_remove(Table* table, const char* key);
+void* table_remove(Table* table, const char* key);
 
 /**
  * Releases memory allocated for the table.

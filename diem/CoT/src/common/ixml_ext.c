@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -248,6 +248,17 @@ static IXML_Element* ixmlNode_getElementByAttrValue(
                                           attrValue);
 }
 
+IXML_Element* ixmlElement_getChildElementByAttrValue(
+    IXML_Element* element,
+    const char* attrName,
+    const char* attrValue)
+{
+    return ixmlNode_getElementByAttrValue(
+               ixmlNode_getFirstChild(ixmlElement_getNode(element)),
+               attrName,
+               attrValue);
+}
+
 IXML_Element* ixmlDocument_getElementByAttrValue(
     IXML_Document* doc,
     const char* attrName,
@@ -312,4 +323,60 @@ IXML_Element* ixmlElement_createChildElementWithLog(
     }
 
     return childTag;
+}
+
+int ixmlElement_putChildWithLog(IXML_Element* parent,
+                                IXML_Element* childSource,
+                                IXML_Element** createdChild)
+{
+    if (childSource == NULL)
+    {	// nothing to insert
+        return 0;
+    }
+
+    IXML_Node* importedNode;
+    IXML_Document* ownerDoc =
+        ixmlNode_getOwnerDocument(ixmlElement_getNode(parent));
+
+    int error = ixmlDocument_importNode(ownerDoc,
+                                        ixmlElement_getNode(childSource),
+                                        TRUE,
+                                        &importedNode);
+    if (error != IXML_SUCCESS)
+    {
+        log_error("Unable to import element to a new document:"
+                  "ixmlDocument_importNode() returned %d.", error);
+        return error;
+    }
+
+    error = ixmlNode_appendChild(ixmlElement_getNode(parent), importedNode);
+    if (error != IXML_SUCCESS)
+    {
+        log_error("Unable to import element to a new document:"
+                  "ixmlNode_appendChild() returned %d.", error);
+        return error;
+    }
+
+    if (createdChild != NULL)
+    {
+        *createdChild = ixmlNode_convertToElement(importedNode);
+    }
+
+    return IXML_SUCCESS;
+}
+
+int ixmlElement_freeChildElement(IXML_Element* parent, IXML_Element* child)
+{
+    IXML_Node* removedNode;
+    int error = ixmlNode_removeChild(ixmlElement_getNode(parent),
+                                     ixmlElement_getNode(child),
+                                     &removedNode);
+    if (error != IXML_SUCCESS)
+    {
+        return error;
+    }
+
+    ixmlNode_free(removedNode);
+
+    return IXML_SUCCESS;
 }

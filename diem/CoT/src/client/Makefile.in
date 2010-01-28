@@ -60,7 +60,7 @@ libcot_client_la_DEPENDENCIES = $(am__DEPENDENCIES_1) \
 	$(top_builddir)/src/common/libcot-utils.la
 am_libcot_client_la_OBJECTS = libcot_client_la-obix_client.lo \
 	libcot_client_la-obix_batch.lo libcot_client_la-obix_http.lo \
-	libcot_client_la-table.lo libcot_client_la-curl_ext.lo
+	libcot_client_la-curl_ext.lo
 libcot_client_la_OBJECTS = $(am_libcot_client_la_OBJECTS)
 libcot_client_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(libcot_client_la_CFLAGS) \
@@ -210,7 +210,6 @@ libcot_client_la_SOURCES = obix_client.h obix_client.c \
 							  obix_batch.h obix_batch.c \
 							  obix_comm.h \
 							  obix_http.h obix_http.c \
-							  table.h table.c \
 							  curl_ext.h curl_ext.c
 
 libcot_client_la_CFLAGS = $(WARN_FLAGS) \
@@ -293,7 +292,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcot_client_la-obix_batch.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcot_client_la-obix_client.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcot_client_la-obix_http.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libcot_client_la-table.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -336,13 +334,6 @@ libcot_client_la-obix_http.lo: obix_http.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='obix_http.c' object='libcot_client_la-obix_http.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libcot_client_la_CFLAGS) $(CFLAGS) -c -o libcot_client_la-obix_http.lo `test -f 'obix_http.c' || echo '$(srcdir)/'`obix_http.c
-
-libcot_client_la-table.lo: table.c
-@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libcot_client_la_CFLAGS) $(CFLAGS) -MT libcot_client_la-table.lo -MD -MP -MF $(DEPDIR)/libcot_client_la-table.Tpo -c -o libcot_client_la-table.lo `test -f 'table.c' || echo '$(srcdir)/'`table.c
-@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libcot_client_la-table.Tpo $(DEPDIR)/libcot_client_la-table.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='table.c' object='libcot_client_la-table.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libcot_client_la_CFLAGS) $(CFLAGS) -c -o libcot_client_la-table.lo `test -f 'table.c' || echo '$(srcdir)/'`table.c
 
 libcot_client_la-curl_ext.lo: curl_ext.c
 @am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libcot_client_la_CFLAGS) $(CFLAGS) -MT libcot_client_la-curl_ext.lo -MD -MP -MF $(DEPDIR)/libcot_client_la-curl_ext.Tpo -c -o libcot_client_la-curl_ext.lo `test -f 'curl_ext.c' || echo '$(srcdir)/'`curl_ext.c

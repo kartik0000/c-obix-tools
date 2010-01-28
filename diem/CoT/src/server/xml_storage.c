@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -47,6 +47,8 @@ const char* OBIX_SYS_ERROR_STUB = "/sys/error-stub/";
 const char* OBIX_SYS_WATCH_OUT_STUB = "/sys/watch-out-stub/";
 
 const char* OBIX_META = "meta";
+
+const char* OBIX_META_VAR_HANDLER_ID = "h-id";
 
 /** Files with initial storage contents. */
 static const char* OBIX_STORAGE_FILES[] =
@@ -862,7 +864,60 @@ int xmldb_deleteMetaVariable(IXML_Node* meta)
 
 int xmldb_changeMetaVariable(IXML_Node* meta, const char* newValue)
 {
-    return ixmlNode_setNodeValue(meta, newValue);
+    int error = ixmlNode_setNodeValue(meta, newValue);
+    if (error != IXML_SUCCESS)
+    {
+        const char* metaName =
+            ixmlElement_getTagName(ixmlAttr_getOwnerElement(
+                                       ixmlNode_convertToAttr(meta)));
+        log_error("Unable to change value of meta attribute \"%s\" to \"%s\":"
+                  "ixmlNode_setNodeValue returned %d.",
+                  metaName, newValue, error);
+        return -1;
+    }
+    return 0;
+}
+
+IXML_Node* xmldb_getMetaVariable(IXML_Element* obj, const char* name)
+{
+    IXML_Element* metaInfo = xmldb_getMetaInfo(obj);
+    if (metaInfo == NULL)
+    {
+        return NULL;
+    }
+
+    // iterate through all meta tags until we find corresponding name
+    IXML_Node* metaNode = ixmlNode_getFirstChild(ixmlElement_getNode(metaInfo));
+
+    for (; metaNode != NULL; metaNode = ixmlNode_getNextSibling(metaNode))
+    {
+        IXML_Element* metaElement = ixmlNode_convertToElement(metaNode);
+        if (metaElement == NULL)
+        {
+            // this piece of meta data is not an element - ignore it
+            continue;
+        }
+
+        if (strcmp(ixmlElement_getTagName(metaElement), name) == 0)
+        {
+            return ixmlAttr_getNode(
+                       ixmlElement_getAttributeNode(metaElement, OBIX_ATTR_VAL));
+        }
+    }
+
+    // no meta tag with such name found
+    return NULL;
+}
+
+const char* xmldb_getMetaVariableValue(IXML_Element* obj, const char* name)
+{
+    IXML_Node* metaAttr = xmldb_getMetaVariable(obj, name);
+    if (metaAttr == NULL)
+    {
+        return NULL;
+    }
+
+    return ixmlNode_getNodeValue(metaAttr);
 }
 
 IXML_Element* xmldb_getMetaInfo(IXML_Element* doc)

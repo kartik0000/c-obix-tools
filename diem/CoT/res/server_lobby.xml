@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-   Copyright (c) 2009 Andrey Litvinov
+   Copyright (c) 2009, 2010 Andrey Litvinov
   
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -26,16 +26,20 @@
 	<ref name="about" href="about/" is="obix:About" />
 	<op name="batch" href="batch/" in="obix:BatchIn" out="obix:BatchOut">
 		<!--
-			op meta attribute is the index of operation handler in post_handler.c
+			h-id meta attribute is the ID of operation handler in post_handler.c
 		-->
-		<meta op="8" />
+		<meta>
+		 	<h-id val="8"/>
+		</meta>
 	</op>
 	<ref name="alarms" href="alarms/"
 		is="/obix/def/alarm:AlarmService obix:AlarmSubject" display="Alarm Service"
 		displayName="Alarm Service" />
 	<ref name="devices" href="devices/" display="Device Info" />
 	<op name="signUp" href="signUp/" in="obix:obj" out="obix:obj">
-		<meta op="7" />
+		<meta>
+		 	<h-id val="7"/>
+		</meta>
 	</op>
 </obj>
 

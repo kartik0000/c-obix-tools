@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -137,7 +137,7 @@ void* table_get(Table* table, const char* key)
     return NULL;
 }
 
-int table_remove(Table* table, const char* key)
+void* table_remove(Table* table, const char* key)
 {
     int i;
     char** keys = table->keys;
@@ -148,12 +148,12 @@ int table_remove(Table* table, const char* key)
         	free(keys[i]);
             keys[i] = NULL;
             table->count--;
-            return 0;
+            return table->values[i];
         }
     }
 
     // nothing is found
-    return -1;
+    return NULL;
 }
 
 void table_free(Table* table)

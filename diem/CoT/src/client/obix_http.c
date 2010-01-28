@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -37,6 +37,7 @@
 #include <curl_ext.h>
 #include <ptask.h>
 #include <obix_utils.h>
+#include <table.h>
 // TODO obix_client.h is included only for error codes
 #include "obix_client.h"
 #include "obix_batch.h"
@@ -871,17 +872,6 @@ static int parseWatchOut(IXML_Document* doc,
         {	// return the whole object
             newValue = ixmlPrintNode(ixmlElement_getNode(element));
         }
-
-        //        if (newValue == NULL)
-        //        {
-        //            char* text = ixmlPrintDocument(doc);
-        //            log_warning("WatchOut object returned by server contains updated "
-        //                        "object without \"%s\" attribute:\n%s", OBIX_ATTR_VAL, text);
-        //            free(text);
-        //            retVal = OBIX_ERR_BAD_CONNECTION;
-        //            // ignore this node
-        //            continue;
-        //        }
 
         // workaround for some oBIX server implementations which return full
         // URI of the updated object, but it should be the same as passed to

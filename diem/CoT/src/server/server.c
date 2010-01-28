@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -40,17 +40,14 @@
 /** Name of configuration parameter, which defines server address.*/
 static const char* CT_SERVER_ADDRESS = "server-address";
 
-/** Name of meta attribute, which is used to define handler functions for
- * operations. */
-static const char* OBIX_META_ATTR_OP = "op";
-
 int obix_server_init(IXML_Element* settings)
 {
     // get the server address from settings
-    const char* servAddr = config_getTagAttributeValue(
-                               config_getChildTag(settings, CT_SERVER_ADDRESS, TRUE),
-                               CTA_VALUE,
-                               TRUE);
+    const char* servAddr =
+        config_getTagAttributeValue(
+            config_getChildTag(settings, CT_SERVER_ADDRESS, TRUE),
+            CTA_VALUE,
+            TRUE);
     if (servAddr == NULL)
     {
         // no server address available - shut down
@@ -70,7 +67,8 @@ int obix_server_init(IXML_Element* settings)
     error = obixWatch_init();
     if (error != 0)
     {
-        log_error("Unable to start the server. obixWatch_init returned: %d", error);
+        log_error("Unable to start the server. obixWatch_init returned: %d",
+                  error);
         return -1;
     }
 
@@ -334,16 +332,11 @@ void obix_server_invoke(Response* response,
     // get the corresponding operation handler
     // by default we use 0 handler which returns error message
     int handlerId = 0;
-    IXML_Element* meta = xmldb_getMetaInfo(oBIXdoc);
-
-    if (meta != NULL)
+    const char* handlerStr =
+        xmldb_getMetaVariableValue(oBIXdoc, OBIX_META_VAR_HANDLER_ID);
+    if (handlerStr != NULL)
     {
-        const char* handlerStr = ixmlElement_getAttribute(meta,
-                                 OBIX_META_ATTR_OP);
-        if (handlerStr != NULL)
-        {
-            handlerId = atoi(handlerStr);
-        }
+        handlerId = atoi(handlerStr);
     }
 
     // and check whether we need to return also correct URI of the requested
@@ -398,7 +391,9 @@ void obix_server_shutdown()
  *          then @a NULL will be returned. @note Don't forget to free memory
  *          after usage.
  */
-static char* normalizeUri(const char* requestUri, IXML_Element* doc, int slashFlag)
+static char* normalizeUri(const char* requestUri,
+                          IXML_Element* doc,
+                          int slashFlag)
 {
     if (doc == NULL)
     {
@@ -464,14 +459,24 @@ static char* normalizeObixDocument(IXML_Element* oBIXdoc,
     if (fullUri != NULL)
     {
         // update URI if provided
-        error = ixmlElement_setAttributeWithLog(oBIXdoc, OBIX_ATTR_HREF, fullUri);
+        error =
+            ixmlElement_setAttributeWithLog(oBIXdoc, OBIX_ATTR_HREF, fullUri);
     }
 
     if (addXmlns)
     {   // TODO move it to constants?
-        error += ixmlElement_setAttributeWithLog(oBIXdoc, "xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance");
-        error += ixmlElement_setAttributeWithLog(oBIXdoc, "xsi:schemaLocation", "http://obix.org/ns/schema/1.0");
-        error += ixmlElement_setAttributeWithLog(oBIXdoc, "xmlns", "http://obix.org/ns/schema/1.0");
+        error += ixmlElement_setAttributeWithLog(
+                     oBIXdoc,
+                     "xmlns:xsi",
+                     "http://www.w3.org/2001/XMLSchema-instance");
+        error += ixmlElement_setAttributeWithLog(
+                     oBIXdoc,
+                     "xsi:schemaLocation",
+                     "http://obix.org/ns/schema/1.0");
+        error += ixmlElement_setAttributeWithLog(
+                     oBIXdoc,
+                     "xmlns",
+                     "http://obix.org/ns/schema/1.0");
     }
     if (error != 0)
     {
@@ -530,7 +535,8 @@ void obix_server_generateResponse(Response* response,
     }
 
     BOOL responseIsHead = obixResponse_isHead(response);
-    char* text = normalizeObixDocument(doc, fullUri, responseIsHead, saveChanges);
+    char* text =
+    	normalizeObixDocument(doc, fullUri, responseIsHead, saveChanges);
     if (text == NULL)
     {
         log_error("Unable to normalize the output oBIX document.");

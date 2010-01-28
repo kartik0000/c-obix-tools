@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,11 +26,20 @@
  * The following oBIX commands are implemented:
  * - @a watchService.make	Creates new Watch object.
  * - @a Watch.add 			Adds object to the watch list.
+ * - @a Watch.addOperation*	Adds operation to the watch list.
+ * - @a Watch.operationResponse*
+ * 							Takes results of remote operation execution and
+ * 							forwards them to the client, who have invoked the
+ * 							operation.
  * - @a Watch.remove		Removes object from the watch list.
  * - @a Watch.pollChanges	Returns objects which are changed since last poll.
  * - @a Watch.pollRefresh	Returns all objects from the watch list.
  * - @a Watch.delete		Deletes the Watch object.
- * - @a signUp				Adds new device data to the server.
+ * - @a signUp*				Adds new device data to the server.
+ * - @a Batch				Combines several requests to oBIX server.
+ *
+ * Commands marked with *, are extensions, which are ot included to the original
+ * oBIX specification.
  *
  * @author Andrey Litvinov
  */
@@ -88,19 +97,32 @@ void handlerSignUp(Response* response,
 void handlerBatch(Response* response,
                   const char* uri,
                   IXML_Element* input);
+void handlerWatchAddOperation(Response* response,
+                              const char* uri,
+                              IXML_Element* input);
+void handlerWatchOperationResponse(Response* response,
+                                   const char* uri,
+                                   IXML_Element* input);
+void handlerRemoteOperation(Response* response,
+                            const char* uri,
+                            IXML_Element* input);
 
 /** Array of all available post handlers. */
 static const obix_server_postHandler POST_HANDLER[] =
     {
-        &handlerError,				//0 default handler which returns error
-        &handlerWatchServiceMake,	//1 watchService.make
-        &handlerWatchAdd,			//2 Watch.add
-        &handlerWatchRemove,		//3 Watch.remove
-        &handlerWatchPollChanges,	//4 Watch.pollChanges
-        &handlerWatchPollRefresh,	//5 Watch.pollRefresh
-        &handlerWatchDelete,		//6 Watch.delete
-        &handlerSignUp,				//7 signUp
-        &handlerBatch				//8 Batch
+        &handlerError,					//0  Default handler which returns error
+        &handlerWatchServiceMake,		//1  watchService.make
+        &handlerWatchAdd,				//2  Watch.add
+        &handlerWatchRemove,			//3  Watch.remove
+        &handlerWatchPollChanges,		//4  Watch.pollChanges
+        &handlerWatchPollRefresh,		//5  Watch.pollRefresh
+        &handlerWatchDelete,			//6  Watch.delete
+        &handlerSignUp,					//7  signUp
+        &handlerBatch,					//8  Batch
+        &handlerWatchAddOperation,  	//9  Watch.addOperation
+        &handlerWatchOperationResponse,	//10 Watch.operationResponse
+        &handlerRemoteOperation			//11 Handler of operations, which are
+        //   added by someone to Watch
     };
 
 /** Amount of available post handlers. */
@@ -344,16 +366,14 @@ static Response* addResponsePart(Response* respHead,
     return newPart;
 }
 
-/**
- * Handler for Watch.add operation. Adds new items to the Watch.
- *
- * @see obix_server_postHandler
- */
-void handlerWatchAdd(Response* response,
-                     const char* uri,
-                     IXML_Element* input)
+static void watchAddHelper(Response* response,
+                           const char* uri,
+                           IXML_Element* input,
+                           BOOL addOperation)
 {
-    log_debug("Handling Watch.add \"%s\".", uri);
+    char* operationName = addOperation ? "Watch.addOperation" : "Watch.add";
+
+    log_debug("Handling %s \"%s\".", operationName, uri);
 
     // find the corresponding watch object
     oBIX_Watch* watch = obixWatch_getByUri(uri);
@@ -361,7 +381,7 @@ void handlerWatchAdd(Response* response,
     {
         sendErrorMessage(response,
                          uri,
-                         "Watch.add",
+                         operationName,
                          "Watch object does not exist.");
         return;
     }
@@ -384,7 +404,7 @@ void handlerWatchAdd(Response* response,
             sendErrorMessage(
                 response,
                 uri,
-                "Watch.add",
+                operationName,
                 "Input data is corrupted. "
                 "An implementation of obix:WatchIn contract is expected.");
         case -2:
@@ -392,7 +412,7 @@ void handlerWatchAdd(Response* response,
         default:
             sendErrorMessage(response,
                              uri,
-                             "Watch.add",
+                             operationName,
                              "Internal server error.");
         }
         // stop operation processing because of error
@@ -414,10 +434,13 @@ void handlerWatchAdd(Response* response,
         // but user will not know about it. As a workaround we can add items
         // first to the fake Watch object and then import items to the real
         // Watch object on success.
-        int error = obixWatch_createWatchItem(watch, uriSet[i], &watchItem);
+        int error = obixWatch_createWatchItem(watch,
+                                              uriSet[i],
+                                              addOperation,
+                                              &watchItem);
 
         // Create new response part
-        rItem = addResponsePart(response, rItem, uri, "Watch.add");
+        rItem = addResponsePart(response, rItem, uri, operationName);
         if (rItem == NULL)
         {   // error message is already sent
             return;
@@ -445,25 +468,50 @@ void handlerWatchAdd(Response* response,
 
             break;
         case -2:
+            {
+                char* message;
+                if (addOperation)
+                {
+                    message = "Only <op/> objects can be added to Watch using "
+                              "Watch.addOperation. Use Watch.add instead.";
+                }
+                else
+                {
+                    message = "It is forbidden to add <op/> objects to Watch "
+                              "using Watch.add. "
+                              "Use Watch.addOperation instead.";
+                }
+                obix_server_generateObixErrorMessage(rItem,
+                                                     uriSet[i],
+                                                     OBIX_CONTRACT_ERR_BAD_URI,
+                                                     "Bad URI Error",
+                                                     message);
+            }
+            break;
+        case -4:
             obix_server_generateObixErrorMessage(
                 rItem,
                 uriSet[i],
-                OBIX_CONTRACT_ERR_BAD_URI,
-                "Bad URI Error",
-                "Adding <op/> objects to Watch is forbidden.");
+                NULL,
+                operationName,
+                "Unable to subscribe for operation object: It already has a "
+                "handler. It is forbidden to subscribe for system operations, "
+                "or have more than one Watch object subscribed for the same"
+                "operation.");
+            break;
         case -3:
         default:
             obix_server_generateObixErrorMessage(rItem,
                                                  uriSet[i],
                                                  NULL,
-                                                 "Watch.add Error",
+                                                 operationName,
                                                  "Internal server error.");
         }
     }
     free(uriSet);
 
     // finally add WatchOut postfix
-    rItem = addResponsePart(response, rItem, uri, "Watch.add");
+    rItem = addResponsePart(response, rItem, uri, operationName);
     if (rItem == NULL)
     {   // error message is already sent
         return;
@@ -473,10 +521,82 @@ void handlerWatchAdd(Response* response,
 }
 
 /**
- * Handler for Watch.remove operation. Removes items from the Watch.
+ * Handler for Watch.add operation. Adds new items to the Watch.
  *
  * @see obix_server_postHandler
  */
+void handlerWatchAdd(Response* response,
+                     const char* uri,
+                     IXML_Element* input)
+{
+    watchAddHelper(response, uri, input, FALSE);
+}
+
+void handlerWatchAddOperation(Response* response,
+                              const char* uri,
+                              IXML_Element* input)
+{
+    watchAddHelper(response, uri, input, TRUE);
+}
+
+void handlerWatchOperationResponse(Response* response,
+                                   const char* uri,
+                                   IXML_Element* input)
+{
+    //helper function for error handling
+    void handleError(const char* errorMessage)
+    {
+        char* inputBody = ixmlPrintNode(ixmlElement_getNode(input));
+        log_warning("Error in Watch.operationResponse (\"%s\"). "
+                    "Sending the following error messsage: %s\n"
+                    "Operation input:\n%s", uri, errorMessage, inputBody);
+        free(inputBody);
+        sendErrorMessage(response,
+                         uri,
+                         "Watch.operationResponse",
+                         errorMessage);
+    }
+
+    log_debug("Handling Watch.operationResponse (\"%s\").", uri);
+
+    // check input
+    if (!obix_obj_implementsContract(input, "RemoteResponse"))
+    {
+        handleError("Wrong input: An instance of /obix/def/RemoteResponse "
+                    "expected.");
+        return;
+    }
+
+    // get uri of the remote operation
+    const char* remoteOperationUri =
+        ixmlElement_getAttribute(input, OBIX_ATTR_HREF);
+    if (remoteOperationUri == NULL)
+    {
+        handleError("Input object doesn't contain href attribute.");
+        return;
+    }
+
+    // prepare remote operation output object
+    IXML_Element* remoteOperationOutput =
+        ixmlElement_getChildElementByAttrValue(inout, OBIX_ATTR_NAME, "out");
+    if (remoteOperationOutput == NULL)
+    {
+        handleError("Input object does not contain child object with name out"
+                    "(see /obix/def/RemoteResponse contract.");
+        return;
+    }
+
+
+    // get saved response object of the original remote operation call
+    // send input as a response of the remote operation
+    // send answer to the client who invoked this operation
+}
+
+/**
+* Handler for Watch.remove operation. Removes items from the Watch.
+*
+* @see obix_server_postHandler
+*/
 void handlerWatchRemove(Response* response,
                         const char* uri,
                         IXML_Element* input)
@@ -602,6 +722,13 @@ static Response* generateWatchOutBody(const char* operationName,
                                          FALSE, 0,
                                          FALSE);
 
+            if (watchItem->isOperation && (watchItem->input != NULL))
+            {
+                // special case: We need to send input parameters only once,
+                // thus delete them
+                obixWatchItem_clearOperationInput(watchItem);
+            }
+
         }
         // iterate to the next watch item
         watchItem = watchItem->next;
@@ -691,10 +818,10 @@ static void handlerWatchPollHelper(Response* response,
     {
         // hold the response for max time (or until something happens)
         error = obixWatch_holdPollRequest(&handlerWatchLongPoll,
-                                   watch,
-                                   response,
-                                   uri,
-                                   TRUE);
+                                          watch,
+                                          response,
+                                          uri,
+                                          TRUE);
     }
     else
     {
@@ -704,10 +831,10 @@ static void handlerWatchPollHelper(Response* response,
         // poll handler will create the rest of the answer again
         obixResponse_free(response->next);
         error = obixWatch_holdPollRequest(&handlerWatchLongPoll,
-                                   watch,
-                                   response,
-                                   uri,
-                                   FALSE);
+                                          watch,
+                                          response,
+                                          uri,
+                                          FALSE);
     }
 
     if (error != 0)
@@ -1060,4 +1187,83 @@ void handlerBatch(Response* response,
     // finish and send the response object
     obixResponse_setText(rItem, BATCH_OUT_POSTFIX, TRUE);
     obixResponse_send(response);
+}
+
+void handlerRemoteOperation(Response* response,
+                            const char* uri,
+                            IXML_Element* input)
+{
+    log_debug("Handling remote operation \"%s\".", uri);
+
+    // check that there is some input
+    if (input == NULL)
+    {
+        log_warning("Operation \"%s\" is called with no input at all. At least "
+                    "Null object is expected.", uri);
+        sendErrorMessage(response, uri, "Remote Operation Invocation Error",
+                         "Operation can not be invoked without any arguments. "
+                         "At least Null object is expected.");
+        return;
+    }
+
+    // find watch item address from meta variable
+    int slashFlag = 0;
+    IXML_Element* operation = xmldb_getDOM(uri, &slashFlag);
+    if (operation == NULL)
+    {
+        // it can never happen, because the object was already retrieved earlier
+        log_error("Unable to get object with URI \"%s\". But it should be "
+                  "there! It was definitely retrieved earlier!", uri);
+        sendErrorMessage(response, uri, "Remote Operation Invocation Error",
+                         "Internal server error.");
+        return;
+    }
+
+    const char* watchItemAddress =
+        xmldb_getMetaVariableValue(operation, OBIX_META_VAR_WATCHITEM_P);
+    if (watchItemAddress == NULL)
+    {
+        log_error("Unable to find watch item meta variable at URI \"%s\".",
+                  uri);
+        sendErrorMessage(response, uri, "Remote Operation Invocation Error",
+                         "Internal server error.");
+        return;
+    }
+
+    // parse watch item address
+    oBIX_Watch_Item* watchItem = (oBIX_Watch_Item*) atoi(watchItemAddress);
+
+    // update watch item: save operation's input parameters
+    if (watchItem->input != NULL)
+    {
+        log_warning("WatchItem input field is not empty when someone tries to"
+                    "invoke watched operation. Probably last request is not "
+                    "yet processed (URI \"%s\").", uri);
+        sendErrorMessage(response, uri, "Remote Operation Invocation Error",
+                         "Previous request is not completed.");
+        return;
+    }
+
+    // save operation input
+    IXML_Element* copiedInput;
+    error = ixmlElement_putChildWithLog(watchItem->doc, input, &copiedInput);
+    if (error != 0)
+    {	// remove saved operation response
+        sendErrorMessage(response, uri, "Remote Operation Invocation Error",
+                         "Internal server error.");
+        return;
+    }
+    watchItem->input = copiedInput;
+
+    error = obixWatch_saveOperationInvocation(watchItem, uri, response);
+    if (error != 0)
+    {
+        if (input != NULL)
+        {
+            ixmlElement_freeChildElement(watchItem->doc, watchItem->input);
+            watchItem->input = NULL;
+        }
+        sendErrorMessage(response, uri, "Remote Operation Invocation Error",
+                         "Internal server error.");
+    }
 }

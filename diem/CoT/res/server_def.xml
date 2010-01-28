@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-   Copyright (c) 2009 Andrey Litvinov
+   Copyright (c) 2009, 2010 Andrey Litvinov
   
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -46,4 +46,39 @@
 			<reltime name="max" min="PT0S" val="PT0S" writable="true" />
 		</obj>
 	</obj>
+	<!--
+		Watch object, which can be used to subscribe for operations. When 
+		subscribed operation is executed, it's input argument is forwarded with
+		next pollChanges response. Then subscriber should send results of 
+		operation execution invoking "operationResponse".
+		Note that it is not possible to subscribe to any system operation 
+		(e.g. Batch).  
+	-->
+	<obj href="OperationWatch" is="obix:Watch">
+		<op name="addOperation" in="obix:WatchIn" out="obix:WatchOut" />
+		<op name="operationResponse" in="/obix/def/RemoteResponse" />
+	</obj> 
+	
+	<!--
+		Object which is sent in WatchOut by OperationWatch when some monitored
+		operation is invoked. Child object "in" contains input parameters of the
+		invocation.  
+	-->
+	<op href="RemoteInvocation">
+		<obj name="in"/>
+	</op>
+	
+	<!--
+		 Input object for Watch.operationResponse operation. Is used to send 
+		 to the server execution results of remote operation. 
+		 Parent <op/> object should be the same as original operation which was
+		 handled, including "href" attribute.
+		 Child object "out" should contain operation results. This object will
+		 be sent as a response to the client, which had invoked this remote 
+		 operation.
+	-->
+	<op href="RemoteResponse">
+		<obj name="out"/>
+	</op>
+
 </obj>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-   Copyright (c) 2009 Andrey Litvinov
+   Copyright (c) 2009, 2010 Andrey Litvinov
   
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -24,6 +24,8 @@
 <obj href="/obix/watchService/" is="obix:WatchService" displayName="Watch Service">
 	<op name="make" href="make" displayName="Make new watch" in="obix:Nil"
 		out="obix:Watch">
-		<meta op="1" />
+		<meta>
+		 	<h-id val="1"/>
+		</meta>
 	</op>
 </obj>

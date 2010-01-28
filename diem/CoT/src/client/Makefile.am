@@ -8,7 +8,6 @@ libcot_client_la_SOURCES	= obix_client.h obix_client.c \
 							  obix_batch.h obix_batch.c \
 							  obix_comm.h \
 							  obix_http.h obix_http.c \
-							  table.h table.c \
 							  curl_ext.h curl_ext.c
 
 libcot_client_la_CFLAGS		= $(WARN_FLAGS) \

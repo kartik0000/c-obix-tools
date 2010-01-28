@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -103,12 +103,19 @@ int test_table()
     }
 
     // try to delete few
-    error = table_remove(table, "123");
-    error += table_remove(table, "125");
+    error = 0;
+    if (table_remove(table, "123") == NULL)
+    {
+    	error++;
+    }
+    if (table_remove(table, "125") == NULL)
+    {
+    	error++;
+    }
     if (error != 0)
     {
         printf("Unable to remove from the table: "
-               "table_remove() calls returned %d.\n", error);
+               "table_remove() returned NULL %d times.\n", error);
         printTestResult(testName, FALSE);
         return 1;
     }
