@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -633,13 +633,10 @@ static int testPutHandler(const char* testName, const char* uri, const char* dat
 }
 
 /**
- * Tests all Watch operations.
+ * Helper function to create Watch object.
  */
-static int testWatch()
+static int testWatchMakeHelper(const char* testName)
 {
-    const char* testName = "oBIX Watch test";
-    // create new Watch object
-    obixResponse_setListener(&dummyResponseListener);
     Response* response = createTestResponse(TRUE, FALSE);
     obix_server_handlePOST(response, "/obix/watchService/make", NULL);
     if (checkResponse(response, FALSE) != 0)
@@ -648,6 +645,37 @@ static int testWatch()
         return 1;
     }
     freeTestResponse(response);
+    return 0;
+}
+
+/**
+ * Helper function which deletes watch created by #testWatchMakeHelper.
+ */
+static int testWatchDeleteHelper(const char* testName)
+{
+    Response* response = createTestResponse(TRUE, FALSE);
+    obix_server_handlePOST(response,
+                           "/obix/watchService/watch1/delete",
+                           "<obj null=\"true\" />");
+    if (checkResponse(response, FALSE) != 0)
+    {
+        printf("Unable to delete Watch object.\n");
+        printTestResult(testName, FALSE);
+        return 1;
+    }
+    freeTestResponse(response);
+    return 0;
+}
+
+/**
+ * Tests all Watch operations.
+ */
+static int testWatch()
+{
+    const char* testName = "oBIX Watch test";
+    obixResponse_setListener(&dummyResponseListener);
+    // create new Watch object
+    testWatchMakeHelper(testName);
 
     // consider that we received a watch with name watch1
     // modify lease time
@@ -666,7 +694,7 @@ static int testWatch()
     // + one with wrong trailing slash, one <op/> object,
     // one comment and one wrong object.
     // TODO check duplicate request for same object
-    response = createTestResponse(TRUE, FALSE);
+    Response* response = createTestResponse(TRUE, FALSE);
     obix_server_handlePOST(
         response,
         "/obix/watchService/watch1/add",
@@ -813,6 +841,12 @@ static int testWatch()
         return 1;
     }
 
+    error = testWatchDeleteHelper(testName);
+    if (error != 0)
+    {
+        return 1;
+    }
+
     printTestResult(testName, TRUE);
     return 0;
 }
@@ -833,7 +867,6 @@ static int testSignUpHelper(const char* testName,
                             BOOL shouldPass)
 {
     // invoke signup operation
-    obixResponse_setListener(&dummyResponseListener);
     Response* response = createTestResponse(TRUE, FALSE);
     obix_server_handlePOST(response, "/obix/signUp/", inputData);
     if (checkResponse(response, !shouldPass) != 0)
@@ -861,6 +894,7 @@ static int testSignUpHelper(const char* testName,
  */
 static int testSignUp()
 {
+    obixResponse_setListener(&dummyResponseListener);
     int result = 0;
     result += testSignUpHelper("SignUp test: storing data",
                                "<obj name=\"signedDevice1\" "
@@ -898,15 +932,117 @@ static int testSignUp()
 }
 
 /**
+ * Tests operation forwarding.
+ */
+static int testWatchRemoteOperations()
+{
+    const char* testName = "Remote Operations test";
+    obixResponse_setListener(&dummyResponseListener);
+    // save some operation at the server
+    int error = testSignUpHelper(
+                    "Remote Operations test: storing data with operations",
+                    "<obj name=\"remoptest\" href=\"/obix/remoptest/\" >\r\n"
+                    "  <op href=\"/obix/remoptest/op1\" in=\"obix:Nil\" "
+                    "out=\"obix:obj\" />\r\n"
+                    "</obj>",
+                    "/obix/remoptest/",
+                    "remoptest",
+                    TRUE);
+    if (error != 0)
+    {
+        return error;
+    }
+
+    // subscribe to this operation, first create watch
+    testWatchMakeHelper(testName);
+
+    //then add operation to the watch
+    Response* response = createTestResponse(TRUE, FALSE);
+    obix_server_handlePOST(
+        response,
+        "/obix/watchService/watch1/addOperation",
+        "<obj is=\"obix:WatchIn\">\r\n"
+        "<list name=\"hrefs\" of=\"obix:WatchInItem\">\r\n"
+        " <uri is=\"obix:WatchInItem\" val=\"/obix/remoptest/op1\"/>\r\n"
+        "</list>\r\n"
+        "</obj>");
+    if (checkResponse(response, FALSE) != 0)
+    {
+        printTestResult(testName, FALSE);
+        return 1;
+    }
+    if (findInResponse(response, "/obix/remoptest/op1", TRUE) != 0)
+    {
+        printTestResult(testName, FALSE);
+        return 1;
+    }
+    freeTestResponse(response);
+
+    //now try to execute this operation and see what happens
+    Response* remoteOperationResponse = createTestResponse(TRUE, TRUE);
+    obix_server_handlePOST(remoteOperationResponse,
+                           "/obix/remoptest/op1",
+                           "<obj null=\"true\" />");
+
+    //try to poll changes: we now should receive operation invocation
+    char* checkStrings[] = {"<op", "op1", "RemoteInvocation", "null", "in"};
+    error = testWatchPollChanges(testName,
+                                 "/obix/watchService/watch1/pollChanges",
+                                 checkStrings,
+                                 5,
+                                 TRUE,
+                                 FALSE);
+    if (error != 0)
+    {
+        printf("Watch.pollChanges operation did not return expected output.\n"
+               "Expected: Operation invocation object.\n");
+        return 1;
+    }
+    // now we assume that we have processed the request and we send results
+    response = createTestResponse(TRUE, FALSE);
+    obix_server_handlePOST(response,
+                           "/obix/watchService/watch1/operationResponse",
+                           "<op is=\"/obix/def/RemoteResponse\" "
+                           "href=\"/obix/remoptest/op1\">\r\n"
+                           "	<str name=\"out\" val=\"test123\" />\r\n"
+                           "</op>");
+    if (checkResponse(response, FALSE) != 0)
+    {
+        printTestResult(testName, FALSE);
+        return 1;
+    }
+    // now remote operation should send the response back. Check that it
+    // contains what we have sent
+    printf("Remote operation execution results:\n");
+    printResponse(remoteOperationResponse);
+    error = findInResponse(remoteOperationResponse, "test123", TRUE);
+    error += findInResponse(remoteOperationResponse, "out", FALSE);
+    if (error != 0)
+    {
+        printf("Remote operation response doesn't contain what it should.\n");
+        printTestResult(testName, FALSE);
+        return 1;
+    }
+
+    if (testWatchDeleteHelper(testName) != 0)
+    {
+        return 1;
+    }
+
+    printTestResult(testName, TRUE);
+    return 0;
+}
+
+/**
  * Tests #obixResponse_setRightUri function.
  * @param requestUri Parameter to pass to #obixResponse_setRightUri.
  * @param slashFlag Parameter to pass to #obixResponse_setRightUri.
  * @param rightUri Correct URI, which should appear in response object.
  */
 static int testResponse_setRightUri(const char* testName,
-                             const char* requestUri,
-                             int slashFlag,
-                             const char* rightUri)
+                                    const char* requestUri,
+                                    int slashFlag,
+                                    const char* rightUri)
 {
     Response* response = createTestResponse(FALSE, FALSE);
     obixResponse_setRightUri(response, requestUri, slashFlag);
@@ -1123,6 +1259,8 @@ int test_server(char* resFolder)
                                        "/obix/test",
                                        1,
                                        "/obix/test/");
+
+    result += testWatchRemoteOperations();
 
     return result;
 }

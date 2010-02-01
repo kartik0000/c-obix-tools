@@ -766,7 +766,7 @@ static int putMetaOperationTags(IXML_Element* element,
 
     // ..and pointer to the watch item object
     // generate string pointer
-    char pointer[8];
+    char pointer[16];
     int error = sprintf(pointer, "%d", (int)watchItem);
     if (error < 0)
     {
@@ -837,8 +837,8 @@ int obixWatch_createWatchItem(oBIX_Watch* watch,
             return error;
         }
 
-        watchItem->doc = ixmlElement_cloneWithLog(operation);
-        if (watchItem->doc == NULL)
+        item->doc = ixmlElement_cloneWithLog(element);
+        if (item->doc == NULL)
         {
             obixWatchItem_free(item);
             return -3;
@@ -1217,7 +1217,8 @@ static int obixWatchItem_saveOperationInput(
     IXML_Element* input)
 {
     IXML_Element* copiedInput;
-    error = ixmlElement_putChildWithLog(watchItem->doc, input, &copiedInput);
+    int error =
+        ixmlElement_putChildWithLog(watchItem->doc, input, &copiedInput);
     if (error != 0)
     {
         return -1;
@@ -1254,6 +1255,16 @@ void obixWatchItem_clearOperationInput(oBIX_Watch_Item* watchItem)
     ixmlElement_removeAttributeWithLog(watchItem->doc, OBIX_ATTR_IS);
 }
 
+int obixWatchItem_saveRemoteOperationResponse(
+    const char* uri,
+    Response* response)
+{
+    pthread_mutex_lock(&_watchedOpInvocationsMutex);
+    int error = table_put(_watchedOpInvocations, uri, response);
+    pthread_mutex_unlock(&_watchedOpInvocationsMutex);
+    return error;
+}
+
 int obixWatchItem_saveOperationInvocation(
     oBIX_Watch_Item* watchItem,
     const char* uri,
@@ -1261,12 +1272,11 @@ int obixWatchItem_saveOperationInvocation(
     IXML_Element* input)
 {
     // save response object in order to use it later
-    pthread_mutex_lock(&_watchedOpInvocationsMutex);
-    int error = table_put(_watchedOpInvocations, uri, response);
-    pthread_mutex_unlock(&_watchedOpInvocationsMutex);
+    int error =
+        obixWatchItem_saveRemoteOperationResponse(uri, response);
     if (error != 0)
     {
-        return -1;
+        return error;
     }
 
     // update watch item state
@@ -1274,14 +1284,14 @@ int obixWatchItem_saveOperationInvocation(
                                      OBIX_META_WATCH_UPDATED_YES);
     if (error != 0)
     {	// remove saved operation response
-        obixWatch_getSavedOperationInvocation(uri);
+        obixWatchItem_getSavedRemoteOperationResponse(uri);
         return -1;
     }
 
     error = obixWatchItem_saveOperationInput(watchItem, input);
     if (error != 0)
     {	// remove saved operation response and reset updated flag
-        obixWatch_getSavedOperationInvocation(uri);
+        obixWatchItem_getSavedRemoteOperationResponse(uri);
         xmldb_changeMetaVariable(watchItem->updated,
                                  OBIX_META_WATCH_UPDATED_NO);
         return -1;
@@ -1295,7 +1305,7 @@ int obixWatchItem_saveOperationInvocation(
     return 0;
 }
 
-Response* obixWatch_getSavedOperationInvocation(const char* uri)
+Response* obixWatchItem_getSavedRemoteOperationResponse(const char* uri)
 {
     pthread_mutex_lock(&_watchedOpInvocationsMutex);
     Response* response = (Response*)table_remove(_watchedOpInvocations, uri);

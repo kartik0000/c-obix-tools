@@ -214,21 +214,35 @@ int obixWatchItem_setUpdated(oBIX_Watch_Item* item, BOOL isUpdated);
  * @param watchItem Watch item subscribed to an operation, which should be
  * cleaned.
  */
-void obixWatchItem_clearOperationInput(oBIX_Watch_Item* watchItem)
+void obixWatchItem_clearOperationInput(oBIX_Watch_Item* watchItem);
+
+/**
+ * Saves parameters of remote operation invocation.
+ *
+ * @param watchItem Watch item subscribed for this operation.
+ * @param uri URI of invoked operation.
+ * @param response Response object, which will be used later to send back
+ * 			operation results.
+ * @param input Input arguments for the operation.
+ */
+int obixWatchItem_saveOperationInvocation(
+    oBIX_Watch_Item* watchItem,
+    const char* uri,
+    Response* response,
+    IXML_Element* input);
 
 /**
  * Saves response object of operation, which is forwarded to the subscribed
  * user. This response can be later retrieved back with
  * #obixWatch_getSavedOperationInvocation.
  *
- * @param watchItem Watch item subscribed for this operation.
  * @param uri URI of invoked operation.
  * @param response Response object, which will be used later to send back
  * 			operation results.
  */
-int obixWatchItem_saveOperationInvocation(oBIX_Watch_Item* watchItem,
-        const char* uri,
-        Response* response);
+int obixWatchItem_saveRemoteOperationResponse(
+    const char* uri,
+    Response* response);
 
 /**
  * Returns saved response object of operation, which was forwarded to the
@@ -236,7 +250,7 @@ int obixWatchItem_saveOperationInvocation(oBIX_Watch_Item* watchItem,
  *
  * @param uri URI of forwarded operation.
  */
-Response* obixWatch_getSavedOperationInvocation(const char* uri);
+Response* obixWatchItem_getSavedRemoteOperationResponse(const char* uri);
 
 /**
  * Sets Watch attributes of the provided meta tag to "updated" state.

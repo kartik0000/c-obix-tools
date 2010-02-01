@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -214,6 +214,8 @@ int obixResponse_send(Response* response)
 }
 
 BOOL obixResponse_canWait(Response* response)
-{
-	return response->request->canWait;
+{	// if there is no request object, it means that this response object
+	// is some middle part of the response chain. This part can't survive
+	// without remaining parts and thus can't wait.
+	return (response->request == NULL) ? FALSE : response->request->canWait;
 }

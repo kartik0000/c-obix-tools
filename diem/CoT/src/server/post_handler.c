@@ -126,7 +126,7 @@ static const obix_server_postHandler POST_HANDLER[] =
     };
 
 /** Amount of available post handlers. */
-static const int POST_HANDLERS_COUNT = 9;
+static const int POST_HANDLERS_COUNT = 12;
 
 obix_server_postHandler obix_server_getPostHandler(int id)
 {
@@ -171,8 +171,9 @@ static void sendErrorMessage(Response* response,
                              const char* operationName,
                              const char* message)
 {
-    log_warning("Unable to process \"%s\" operation. "
-                "Returning error message \"%s\".", operationName, message);
+    log_warning("Unable to process \"%s\" operation (%s). "
+                "Returning error message \"%s\".",
+                operationName, uri, message);
 
     char errorName[strlen(operationName) + 7];
     strcpy(errorName, operationName);
@@ -472,13 +473,14 @@ static void watchAddHelper(Response* response,
                 char* message;
                 if (addOperation)
                 {
-                    message = "Only <op/> objects can be added to Watch using "
-                              "Watch.addOperation. Use Watch.add instead.";
+                    message = "Only operation objects can be added to Watch "
+                              "using Watch.addOperation. "
+                              "Use Watch.add instead.";
                 }
                 else
                 {
-                    message = "It is forbidden to add <op/> objects to Watch "
-                              "using Watch.add. "
+                    message = "It is forbidden to add operation objects to "
+                              "Watch using Watch.add. "
                               "Use Watch.addOperation instead.";
                 }
                 obix_server_generateObixErrorMessage(rItem,
@@ -543,27 +545,16 @@ void handlerWatchOperationResponse(Response* response,
                                    const char* uri,
                                    IXML_Element* input)
 {
-    //helper function for error handling
-    void handleError(const char* errorMessage)
-    {
-        char* inputBody = ixmlPrintNode(ixmlElement_getNode(input));
-        log_warning("Error in Watch.operationResponse (\"%s\"). "
-                    "Sending the following error messsage: %s\n"
-                    "Operation input:\n%s", uri, errorMessage, inputBody);
-        free(inputBody);
-        sendErrorMessage(response,
-                         uri,
-                         "Watch.operationResponse",
-                         errorMessage);
-    }
-
     log_debug("Handling Watch.operationResponse (\"%s\").", uri);
 
     // check input
     if (!obix_obj_implementsContract(input, "RemoteResponse"))
     {
-        handleError("Wrong input: An instance of /obix/def/RemoteResponse "
-                    "expected.");
+        sendErrorMessage(response,
+                         uri,
+                         "Watch.operationResponse",
+                         "Wrong input: An instance "
+                         "of /obix/def/RemoteResponse expected.");
         return;
     }
 
@@ -572,24 +563,61 @@ void handlerWatchOperationResponse(Response* response,
         ixmlElement_getAttribute(input, OBIX_ATTR_HREF);
     if (remoteOperationUri == NULL)
     {
-        handleError("Input object doesn't contain href attribute.");
+        sendErrorMessage(response,
+                         uri,
+                         "Watch.operationResponse",
+                         "Input object doesn't contain href attribute.");
         return;
     }
 
     // prepare remote operation output object
     IXML_Element* remoteOperationOutput =
-        ixmlElement_getChildElementByAttrValue(inout, OBIX_ATTR_NAME, "out");
+        ixmlElement_getChildElementByAttrValue(input, OBIX_ATTR_NAME, "out");
     if (remoteOperationOutput == NULL)
     {
-        handleError("Input object does not contain child object with name out"
-                    "(see /obix/def/RemoteResponse contract.");
+        sendErrorMessage(response,
+                         uri,
+                         "Watch.operationResponse",
+                         "Input object does not contain child object with name "
+                         "[out] (see /obix/def/RemoteResponse contract).");
+        return;
+    }
+    // remove name attribute (ignore error, if any - it is logged)
+    ixmlElement_removeAttributeWithLog(remoteOperationOutput, OBIX_ATTR_NAME);
+
+    // get saved response object of the original remote operation call
+    Response* remoteOperationResponse =
+        obixWatchItem_getSavedRemoteOperationResponse(remoteOperationUri);
+    if (remoteOperationResponse == NULL)
+    {
+        sendErrorMessage(response,
+                         uri,
+                         "Watch.operationResponse",
+                         "The operation with provided URI was not invoked (or "
+                         "is already handled).");
         return;
     }
 
-
-    // get saved response object of the original remote operation call
     // send input as a response of the remote operation
+    char* textResponse =
+        ixmlPrintNode(ixmlElement_getNode(remoteOperationOutput));
+    if (textResponse == NULL)
+    {
+        sendErrorMessage(response,
+                         uri,
+                         "Watch.operationResponse",
+                         "Internal Server Error. Operation results were not "
+                         "sent to the client.");
+        // save remote operation response back: may be user will try once again
+        obixWatchItem_saveRemoteOperationResponse(remoteOperationUri,
+                remoteOperationResponse);
+        return;
+    }
+    obixResponse_setText(remoteOperationResponse, textResponse, FALSE);
+    obixResponse_send(remoteOperationResponse);
     // send answer to the client who invoked this operation
+    obixResponse_setText(response, OBIX_OBJ_NULL_TEMPLATE, TRUE);
+    obixResponse_send(response);
 }
 
 /**
@@ -706,7 +734,6 @@ static Response* generateWatchOutBody(const char* operationName,
             // TODO handle case when the object was deleted
             // in that case, the first pollChanges and all pollRefresh
             // should show <err/> object.
-            obixWatchItem_setUpdated(watchItem, FALSE);
 
             // create new response part
             respPart = addResponsePart(response, respPart, uri, operationName);
@@ -739,6 +766,23 @@ static Response* generateWatchOutBody(const char* operationName,
 }
 
 /**
+ * Helper method which resets all watch items to not updated state.
+ */
+static void resetWatchItems(oBIX_Watch* watch)
+{
+    oBIX_Watch_Item* watchItem = watch->items;
+
+    while (watchItem != NULL)
+    {
+        if (obixWatchItem_isUpdated(watchItem) == TRUE)
+        {
+            obixWatchItem_setUpdated(watchItem, FALSE);
+        }
+        watchItem = watchItem->next;
+    }
+}
+
+/**
  * This method is used to perform delayed poll request processing.
  */
 void handlerWatchLongPoll(oBIX_Watch* watch,
@@ -756,6 +800,8 @@ void handlerWatchLongPoll(oBIX_Watch* watch,
 
     if (respTail != NULL)
     {
+        // reset updated flag to all watchItems
+        resetWatchItems(watch);
         //complete response
         completeWatchPollResponse("Watch.pollChanges", response, respTail, uri);
     }
@@ -806,6 +852,8 @@ static void handlerWatchPollHelper(Response* response,
     // if we are not processing long poll request of Watch.pollChanges...
     if (!obixWatch_isLongPollMode(watch) || !changedOnly)
     {
+        // reset updated flag to all watchItems
+        resetWatchItems(watch);
         // complete and send response
         completeWatchPollResponse(operationName, response, respTail, uri);
         return;
@@ -830,6 +878,7 @@ static void handlerWatchPollHelper(Response* response,
         // clean everything from response except header, because delayed
         // poll handler will create the rest of the answer again
         obixResponse_free(response->next);
+        response->next = NULL;
         error = obixWatch_holdPollRequest(&handlerWatchLongPoll,
                                           watch,
                                           response,
@@ -1195,6 +1244,20 @@ void handlerRemoteOperation(Response* response,
 {
     log_debug("Handling remote operation \"%s\".", uri);
 
+    if (!obixResponse_canWait(response))
+    {
+        log_warning("Operation \"%s\" is called, but response object cannot be"
+                    "used for waiting of remote operation execution.", uri);
+        sendErrorMessage(response, uri, "Remote Operation Invocation Error",
+                         "Unable to hold the request for remote operation "
+                         "processing: Check that you are not trying to call "
+                         "remote operation from Batch request. If not, than "
+                         "maximum number of requests on hold is reached: "
+                         "Ask administrator to increase "
+                         "hold-request-max parameter in server settings.");
+        return;
+    }
+
     // check that there is some input
     if (input == NULL)
     {
@@ -1244,25 +1307,10 @@ void handlerRemoteOperation(Response* response,
         return;
     }
 
-    // save operation input
-    IXML_Element* copiedInput;
-    error = ixmlElement_putChildWithLog(watchItem->doc, input, &copiedInput);
-    if (error != 0)
-    {	// remove saved operation response
-        sendErrorMessage(response, uri, "Remote Operation Invocation Error",
-                         "Internal server error.");
-        return;
-    }
-    watchItem->input = copiedInput;
-
-    error = obixWatch_saveOperationInvocation(watchItem, uri, response);
+    int error =
+        obixWatchItem_saveOperationInvocation(watchItem, uri, response, input);
     if (error != 0)
     {
-        if (input != NULL)
-        {
-            ixmlElement_freeChildElement(watchItem->doc, watchItem->input);
-            watchItem->input = NULL;
-        }
         sendErrorMessage(response, uri, "Remote Operation Invocation Error",
                          "Internal server error.");
     }
