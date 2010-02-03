@@ -67,7 +67,8 @@ static int listener_register(Connection* connection,
                              Device* device,
                              int listenerId,
                              const char* paramUri,
-                             obix_update_listener callback)
+                             obix_update_listener paramListener,
+                             obix_operation_handler opHandler)
 {
     Listener* listener = (Listener*) malloc(sizeof(Listener));
     if (listener == NULL)
@@ -89,7 +90,8 @@ static int listener_register(Connection* connection,
     listener->id = listenerId;
     listener->deviceId = device->id;
     listener->connectionId = connection->id;
-    listener->callback = callback;
+    listener->paramListener = paramListener;
+    listener->opHandler = opHandler;
 
     int error = (connection->comm->registerListener)(
                     connection,
@@ -234,6 +236,30 @@ static int device_unregister(Connection* connection, int deviceId)
     connection->deviceCount--;
 
     return retVal;
+}
+
+/**
+ * Returns id of a first free listener slot at provided device object.
+ */
+static int device_findFreeListenerSlot(Device* device, int maxListeners)
+{
+    if (device->listenerCount >= maxListeners)
+    {
+        return OBIX_ERR_LIMIT_REACHED;
+    }
+
+    // search for free slot for a new listener
+    int id;
+    for (id = 0; (id < maxListeners)
+            && (device->listeners[id] != NULL); id++)
+        ;
+    if (id == maxListeners)
+    {	// this should never happen
+        log_error("Unable to find free slot for a new listener.");
+        return OBIX_ERR_UNKNOWN_BUG;
+    }
+
+    return id;
 }
 
 int device_get(Connection* connection, int deviceId, Device** device)
@@ -661,23 +687,50 @@ int obix_registerListener(int connectionId,
         return error;
     }
 
-    if (device->listenerCount >= connection->maxListeners)
+    // search for free slot for the new listener
+    int id = device_findFreeListenerSlot(device, connection->maxListeners);
+    if (id < 0)
     {
-        return OBIX_ERR_LIMIT_REACHED;
+        return error;
     }
 
-    // search for free slot for a new listener
-    int id;
-    for (id = 0; (id < connection->maxListeners)
-            && (device->listeners[id] != NULL); id++)
-        ;
-    if (id == connection->maxListeners)
-    {	// this should never happen
-        log_error("Unable to find free slot for a new listener.");
-        return OBIX_ERR_UNKNOWN_BUG;
+    error = listener_register(connection, device, id, paramUri, listener, NULL);
+    if (error != OBIX_SUCCESS)
+    {
+        return error;
     }
 
-    error = listener_register(connection, device, id, paramUri, listener);
+    return id;
+}
+
+int obix_registerOperationListener(int connectionId,
+                                   int deviceId,
+                                   const char* operationUri,
+                                   obix_operation_handler listener)
+{
+    Connection* connection;
+    int error = connection_get(connectionId, TRUE, &connection);
+    if (error != OBIX_SUCCESS)
+    {
+        return error;
+    }
+
+    Device* device;
+    error = device_get(connection, deviceId, &device);
+    if (error != OBIX_SUCCESS)
+    {
+        return error;
+    }
+
+    // search for free slot for the new listener
+    int id = device_findFreeListenerSlot(device, connection->maxListeners);
+    if (id < 0)
+    {
+        return error;
+    }
+
+    error =
+        listener_register(connection, device, id, operationUri, NULL, listener);
     if (error != OBIX_SUCCESS)
     {
         return error;

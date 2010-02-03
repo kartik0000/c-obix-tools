@@ -338,6 +338,11 @@ static void resetWatchUris(Http_Connection* c)
         free(c->watchAddUri);
         c->watchAddUri = NULL;
     }
+    if (c->watchAddOperationUri != NULL)
+    {
+        free(c->watchAddOperationUri);
+        c->watchAddOperationUri = NULL;
+    }
     if (c->watchDeleteUri != NULL)
     {
         free(c->watchDeleteUri);
@@ -454,17 +459,23 @@ static int writeValue(const char* paramUri,
  * @param paramUri  List of URIs which should be added to Watch object at the
  * 					server.
  * @param count Number of elements in @a paramUri list.
+ * @param isOperation Tells whether @a paramUri contains URI(s) of operation
+ * 					object(s) or not. If yes, than @a Watch.addOperation is used
+ * 					instead of @a Watch.add.
  * @return #OBIX_SUCCESS, or one of error codes defined by #OBIX_ERRORCODE.
  */
-static int addWatchItem(Http_Connection* c,
-                        const char** paramUri,
-                        int count,
-                        IXML_Document** response,
-                        CURL_EXT* curlHandle)
+static int addWatchItems(Http_Connection* c,
+                         const char** paramUri,
+                         int count,
+                         BOOL isOperation,
+                         IXML_Document** response,
+                         CURL_EXT* curlHandle)
 {
-    char fullWatchAddUri[c->serverUriLength + strlen(c->watchAddUri) + 1];
+    const char* watchAddUri =
+        isOperation ? c->watchAddOperationUri : c->watchAddUri;
+    char fullWatchAddUri[c->serverUriLength + strlen(watchAddUri) + 1];
     strcpy(fullWatchAddUri, c->serverUri);
-    strcat(fullWatchAddUri, c->watchAddUri);
+    strcat(fullWatchAddUri, watchAddUri);
     char *requestBody = getStrWatchIn(paramUri, count);
 
     if (requestBody == NULL)
@@ -688,10 +699,50 @@ static int recreateWatch(Http_Connection* c,
         return error;
     }
     // add all watch items that we have in the list
-    const char** uri;
-    int count = table_getKeys(c->watchTable, &uri);
+    const char** uris;
+    const Listener** listeners;
+    int count = table_getKeys(c->watchTable, &uris);
+    table_getValues(c->watchTable, (const void***) &listeners);
 
-    return addWatchItem(c, uri, count, response, curlHandle);
+    // divide all URIs into two groups: URIs of operations and URIs of other
+    // objects
+    int i;
+    int operationsCount = 0;
+    int variablesCount = 0;
+    const char* operationUris[count];
+    const char* variableUris[count];
+    for (i = 0; i < count; i++)
+    {
+        if (listeners[i]->opHandler == NULL)
+        {
+            // this is classic variable listener
+            variableUris[variablesCount++] = uris[i];
+        }
+        else
+        {
+            // this is operation listener
+            operationUris[operationsCount++] = uris[i];
+        }
+    }
+
+    // add to Watch separately operations and all other objects.
+    error = addWatchItems(c,
+                          variableUris,
+                          variablesCount,
+                          FALSE,
+                          response,
+                          curlHandle);
+    if (error != OBIX_SUCCESS)
+    {
+        return error;
+    }
+
+    return addWatchItems(c,
+                         operationUris,
+                         operationsCount,
+                         TRUE,
+                         response,
+                         curlHandle);
 }
 
 /** Checks whether response message from the server is error object. */
@@ -886,10 +937,10 @@ static int parseWatchOut(IXML_Document* doc,
         if (listener != NULL)
         {
             // execute callback function
-            (listener->callback)(listener->connectionId,
-                                 listener->deviceId,
-                                 listener->id,
-                                 newValue);
+            (listener->paramListener)(listener->connectionId,
+                                      listener->deviceId,
+                                      listener->id,
+                                      newValue);
         }
         else
         {
@@ -1747,7 +1798,7 @@ int http_registerListener(Connection* connection,
         return OBIX_ERR_NO_MEMORY;
     }
 
-    log_debug("Registering listener of parameter \"%s\" at the server "
+    log_debug("Registering listener of object \"%s\" at the server "
               "\"%s\"...", (*listener)->paramUri, c->serverUri);
 
     int error = addListener(c, fullParamUri, *listener);
@@ -1756,12 +1807,16 @@ int http_registerListener(Connection* connection,
         return error;
     }
 
+    // determine listener type
+    BOOL isOperationHandler = ((*listener)->opHandler != NULL) ? TRUE : FALSE;
+
     IXML_Document* response = NULL;
-    error = addWatchItem(c,
-                         (const char**) (&fullParamUri),
-                         1,
-                         &response,
-                         _curl_handle);
+    error = addWatchItems(c,
+                          (const char**) (&fullParamUri),
+                          1,
+                          isOperationHandler,
+                          &response,
+                          _curl_handle);
     if (error != OBIX_SUCCESS)
     {
         removeListener(c, fullParamUri);

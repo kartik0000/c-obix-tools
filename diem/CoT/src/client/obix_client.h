@@ -68,11 +68,14 @@
  * should support @a signUp feature which is not in the oBIX specification.
  * Currently @a signUp operation is supported by C oBIX Server included into
  * this distribution and oFMS (http://www.stok.fi/eng/ofms/index.html).
+ * Operation forwarding feature is also extension over oBIX specification, thus
+ * try to avoid it for better compatibility with other servers (see
+ * #obix_registerOperationListener).
  * All other functions should work with any proper oBIX server implementation.
  * If not, please report the found error to the author of this distribution.
  *
  * @author Andrey Litvinov
- * @version 1.0.1
+ * @version 2.0.2
  */
 
 #ifndef OBIX_CLIENT_H_
@@ -156,6 +159,33 @@ typedef int (*obix_update_listener)(int connectionId,
                                     int deviceId,
                                     int listenerId,
                                     const char* newValue);
+
+/**
+ * Callback function, which is invoked when subscribed operation is invoked at
+ * the oBIX server.
+ *
+ * ID arguments of the listener can be used to define which operation was
+ * invoked in case when one function is registered to handle several operations.
+ *
+ * @see obix_registerOperationListener()
+ *
+ * @param connectionId ID of the connection from which the event is received.
+ * @param deviceId   ID of the device whose operation was invoked.
+ * @param listenerId ID of the listener which receives the event.
+ * @param input		 Input arguments for the operation as an unparsed oBIX
+ * 					 object.
+ * @return The listener should return operation's output, which will be sent
+ * 		   back to the server. If operation doesn't return any output, a string
+ * 		   representation of oBIX NULL object should be returned. In case of
+ * 		   error, listener should return oBIX error object containing error
+ * 		   description. If listener returns @a NULL, library considers that the
+ * 		   operation failed and sends to the server default error message.
+ */
+typedef const char* (*obix_operation_handler)(
+    int connectionId,
+    int deviceId,
+    int listenerId,
+    const char* input);
 
 /**
  * Initializes library and loads connection setting from XML file.
@@ -405,7 +435,7 @@ int obix_read(int connectionId,
  * Overwrites existing listener if it is called twice for the same parameter.
  *
  * This method can be also used to subscribe for the updates of any other
- * objects stored at the oBIX server. In that case @a 0 should be provided as
+ * object stored at the oBIX server. In that case @a 0 should be provided as
  * @a deviceId and @a paramUri should be relative to the server root.
  *
  * @param connectionId ID of the connection which should be used.
@@ -428,6 +458,35 @@ int obix_registerListener(int connectionId,
                           int deviceId,
                           const char* paramUri,
                           obix_update_listener listener);
+
+/**
+ * Registers listener for device operation.
+ *
+ * Overwrites existing listener if it is called twice for the same operation.
+ *
+ * @note It is allowed to register listener only for operations of own
+ * 		 published devices.
+ * @note Operation forwarding is not in oBIX specification and thus it not
+ * 	     supported by most of server implementations. Try to avoid using using
+ * 		 this function, use #obix_registerListener instead.
+ *
+ * @param connectionId ID of the connection which should be used.
+ * @param deviceId ID of the device whose operation should be monitored.
+ * @param operationUri URI of the operation which should be handled. It should be
+ *                 relative to the device record like it was provided during
+ *                 device registration.
+ * @param listener Pointer to the listener function which would be invoked
+ *                 every time when the subscribed operation is invoked.
+ * @note @a listener method should be quick. Slow listener (especially if it
+ *       waits for some resource) will block subsequent calls to all other
+ *       listeners.
+ * @return @li >=0 ID of the created listener;
+ *         @li <0 error code.
+ */
+int obix_registerOperationListener(int connectionId,
+                                   int deviceId,
+                                   const char* operationUri,
+                                   obix_operation_handler listener);
 
 /**
  * Unregisters listener of device parameter updates.
@@ -466,10 +525,10 @@ typedef struct _oBIX_Batch oBIX_Batch;
  */
 typedef struct _oBIX_BatchResult
 {
-	/**
-	 * Return value of the executed command. It is identical to the return
-	 * value of the corresponding command executed without Batch.
-	 */
+    /**
+     * Return value of the executed command. It is identical to the return
+     * value of the corresponding command executed without Batch.
+     */
     int status;
     /**
      * String value returned by the function, if available (e.g. for

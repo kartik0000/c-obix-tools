@@ -55,6 +55,7 @@ typedef struct _Http_Connection
     char* watchMakeUri;
     char* watchPollChangesFullUri;
     char* watchAddUri;
+    char* watchAddOperationUri;
     char* watchRemoveUri;
     char* watchDeleteUri;
 

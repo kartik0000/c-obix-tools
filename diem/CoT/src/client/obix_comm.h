@@ -55,7 +55,8 @@ typedef struct _Listener
     int deviceId;
     int connectionId;
     char* paramUri;
-    obix_update_listener callback;
+    obix_update_listener paramListener;
+    obix_operation_handler opHandler;
 }
 Listener;
 
