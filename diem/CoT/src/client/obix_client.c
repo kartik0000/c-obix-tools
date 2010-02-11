@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -708,6 +708,13 @@ int obix_registerOperationListener(int connectionId,
                                    const char* operationUri,
                                    obix_operation_handler listener)
 {
+    if (deviceId == 0)
+    {
+        log_error("It is allowed to register handlers only for own published "
+                  "operations.");
+        return OBIX_ERR_INVALID_ARGUMENT;
+    }
+
     Connection* connection;
     int error = connection_get(connectionId, TRUE, &connection);
     if (error != OBIX_SUCCESS)
@@ -865,7 +872,55 @@ int obix_writeValue(int connectionId,
         return OBIX_ERR_INVALID_ARGUMENT;
     }
 
-    return (connection->comm->writeValue)(connection, device, paramUri, newValue, dataType);
+    return (connection->comm->writeValue)(connection,
+                                          device,
+                                          paramUri,
+                                          newValue,
+                                          dataType);
+}
+
+int obix_invoke(int connectionId,
+                int deviceId,
+                const char* operationUri,
+                const char* input,
+                char** output)
+{
+    if (input == NULL)
+    {
+        log_error("Operation input cannot be NULL. Use oBIX Nil object if "
+                  "operation doesn't take any input parameters.");
+        return OBIX_ERR_INVALID_ARGUMENT;
+    }
+
+    Connection* connection;
+    int error = connection_get(connectionId, TRUE, &connection);
+    if (error != OBIX_SUCCESS)
+    {
+        return error;
+    }
+
+    Device* device;
+    error = device_get(connection, deviceId, &device);
+    if (error != OBIX_SUCCESS)
+    {
+        return error;
+    }
+
+    if (deviceId == 0)
+    {
+        device = NULL;
+    }
+
+    if ((operationUri == NULL) && (device == NULL))
+    {
+        return OBIX_ERR_INVALID_ARGUMENT;
+    }
+
+    return (connection->comm->invoke)(connection,
+                                      device,
+                                      operationUri,
+                                      input,
+                                      output);
 }
 
 int obix_dispose()

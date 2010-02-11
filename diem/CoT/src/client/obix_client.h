@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -172,20 +172,18 @@ typedef int (*obix_update_listener)(int connectionId,
  * @param connectionId ID of the connection from which the event is received.
  * @param deviceId   ID of the device whose operation was invoked.
  * @param listenerId ID of the listener which receives the event.
- * @param input		 Input arguments for the operation as an unparsed oBIX
- * 					 object.
+ * @param input		 Input object for the operation.
  * @return The listener should return operation's output, which will be sent
- * 		   back to the server. If operation doesn't return any output, a string
- * 		   representation of oBIX NULL object should be returned. In case of
- * 		   error, listener should return oBIX error object containing error
- * 		   description. If listener returns @a NULL, library considers that the
- * 		   operation failed and sends to the server default error message.
+ * 		   back to the server. If operation doesn't have any output on success,
+ *         @a NULL should be returned.
+ * @note   Returned object is not freed by library so it can be reused for
+ * 		   generating subsequent answers.
  */
-typedef const char* (*obix_operation_handler)(
+typedef IXML_Element* (*obix_operation_handler)(
     int connectionId,
     int deviceId,
     int listenerId,
-    const char* input);
+    IXML_Element* input);
 
 /**
  * Initializes library and loads connection setting from XML file.
@@ -428,6 +426,27 @@ int obix_read(int connectionId,
               int deviceId,
               const char* paramUri,
               IXML_Element** output);
+
+/**
+ * Invokes operation at oBIX server.
+ *
+ * @param connectionId ID of the connection which should be used.
+ * @param deviceId ID of the device whose operation should be invoked or @a 0
+ *                 if the operation doesn't belong to devices registered by
+ *                 this client.
+ * @param operationUri URI of the operation. It should be either relative to the
+ *                 device record like it was provided during device
+ *                 registration, or relative to the server root if the operation
+ *                 doesn't belong to devices registered by this client.
+ * @param input    Input object for the operation in text representation.
+ * @param output   Link to the server's answer will be returned here.
+ * @return @a #OBIX_SUCCESS on success, negative error code otherwise.
+ */
+int obix_invoke(int connectionId,
+                int deviceId,
+                const char* operationUri,
+                const char* input,
+                char** output);
 
 /**
  * Registers listener for device parameter updates.

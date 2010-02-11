@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -619,7 +619,7 @@ int loadDeviceData(IXML_Element* deviceConf)
     }
 
     // create a copy of device data
-    deviceData = ixmlElement_cloneWithLog(deviceData);
+    deviceData = ixmlElement_cloneWithLog(deviceData, TRUE);
     IXML_Document* doc = ixmlNode_getOwnerDocument(
                              ixmlElement_getNode(deviceData));
 
@@ -716,7 +716,7 @@ int loadSettings(const char* fileName)
     // TODO for testing purposes only
     // load test data
     element = config_getChildTag(settings, "test-data", TRUE);
-    element = ixmlElement_cloneWithLog(element);
+    element = ixmlElement_cloneWithLog(element, TRUE);
     _testData = ixmlNode_getOwnerDocument(ixmlElement_getNode(element));
 
     // finish initialization

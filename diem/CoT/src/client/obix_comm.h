@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -215,6 +215,20 @@ typedef int (*comm_writeValue)(Connection* connection,
                                OBIX_DATA_TYPE dataType);
 
 /**
+ * Prototype of a function, which invokes operation at oBIX server.
+ *
+ * @param output Link to the operation answer should be returned here.
+ *
+ * @return Function should return #OBIX_SUCCESS on success. Otherwise - one of
+ * 				negative error codes defined by #OBIX_ERRORCODE.
+ */
+typedef int (*comm_invoke)(Connection* connection,
+                               Device* device,
+                               const char* operationUri,
+                               const char* input,
+                               char** output);
+
+/**
  * Prototype of a function, which sends provided Batch object to oBIX server.
  *
  * @return Function should return #OBIX_SUCCESS on success. Otherwise - one of
@@ -250,6 +264,8 @@ struct _Comm_Stack
     comm_readValue readValue;
     /** See #comm_writeValue */
     comm_writeValue writeValue;
+    /** See #comm_invoke */
+    comm_invoke invoke;
     /** See #comm_sendBatch */
     comm_sendBatch sendBatch;
 };

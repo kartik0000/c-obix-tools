@@ -93,31 +93,37 @@ IXML_Element* ixmlDocument_getRootElement(IXML_Document* doc)
     return element;
 }
 
-int ixmlElement_setAttributeWithLog(IXML_Element* element, const char* attrName, const char* attrValue)
+int ixmlElement_setAttributeWithLog(IXML_Element* element,
+                                    const char* attrName,
+                                    const char* attrValue)
 {
     int error = ixmlElement_setAttribute(element, attrName, attrValue);
     if (error != IXML_SUCCESS)
     {
-        log_error("Unable to add attribute to the XML element (ixml error %d).", error);
+        log_error("Unable to add attribute to the XML element (ixml error %d).",
+                  error);
         return 1;
     }
 
     return 0;
 }
 
-int ixmlElement_removeAttributeWithLog(IXML_Element* element, const char* attrName)
+int ixmlElement_removeAttributeWithLog(IXML_Element* element,
+                                       const char* attrName)
 {
     IXML_Attr* attr = ixmlElement_getAttributeNode(element, attrName);
     if (attr == NULL)
     {
-        log_warning("Unable to remove \'%s\' attribute: No attribute is found.", attrName);
+        log_warning("Unable to remove \'%s\' attribute: "
+                    "No attribute is found.", attrName);
         return -1;
     }
 
     int error = ixmlElement_removeAttributeNode(element, attr, &attr);
     if (error != IXML_SUCCESS)
     {
-        log_warning("Unable to remove \'%s\' attribute: error %d", attrName, error);
+        log_warning("Unable to remove \'%s\' attribute: error %d",
+                    attrName, error);
         return -1;
     }
 
@@ -125,7 +131,7 @@ int ixmlElement_removeAttributeWithLog(IXML_Element* element, const char* attrNa
     return 0;
 }
 
-IXML_Element* ixmlElement_cloneWithLog(IXML_Element* source)
+IXML_Element* ixmlElement_cloneWithLog(IXML_Element* source, BOOL deep)
 {
     IXML_Document* doc;
     IXML_Node* node;
@@ -138,19 +144,23 @@ IXML_Element* ixmlElement_cloneWithLog(IXML_Element* source)
     int error = ixmlDocument_createDocumentEx(&doc);
     if (error != IXML_SUCCESS)
     {
-        log_error("Unable to clone XML. ixmlDocument_createDocumentEx() returned %d", error);
+        log_error("Unable to clone XML. ixmlDocument_createDocumentEx() "
+                  "returned %d", error);
         return NULL;
     }
-    error = ixmlDocument_importNode(doc, ixmlElement_getNode(source), TRUE, &node);
+    error =
+        ixmlDocument_importNode(doc, ixmlElement_getNode(source), deep, &node);
     if (error != IXML_SUCCESS)
     {
-        log_error("Unable to clone XML. ixmlDocument_importNode() returned %d", error);
+        log_error("Unable to clone XML. ixmlDocument_importNode() "
+                  "returned %d", error);
         return NULL;
     }
     error = ixmlNode_appendChild(ixmlDocument_getNode(doc), node);
     if (error != IXML_SUCCESS)
     {
-        log_error("Unable to clone XML. ixmlNode_appendChild() returned %d", error);
+        log_error("Unable to clone XML. ixmlNode_appendChild() returned %d",
+                  error);
         return NULL;
     }
 

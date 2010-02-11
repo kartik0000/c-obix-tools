@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -56,6 +56,7 @@ typedef struct _Http_Connection
     char* watchPollChangesFullUri;
     char* watchAddUri;
     char* watchAddOperationUri;
+    char* watchOperationResponseUri;
     char* watchRemoveUri;
     char* watchDeleteUri;
 
@@ -138,24 +139,35 @@ int http_unregisterListener(Connection* connection,
  * Implements #comm_readValue prototype.
  */
 int http_readValue(Connection* connection,
-                        Device* device,
-                        const char* paramUri,
-                        char** output);
+                   Device* device,
+                   const char* paramUri,
+                   char** output);
 /**
  * Implements #comm_read prototype.
  */
 int http_read(Connection* connection,
-                   Device* device,
-                   const char* paramUri,
-                   IXML_Element** output);
+              Device* device,
+              const char* paramUri,
+              IXML_Element** output);
+
 /**
  * Implements #comm_writeValue prototype.
  */
 int http_writeValue(Connection* connection,
-                    Device* device, const
-                    char* paramUri,
+                    Device* device,
+                    const char* paramUri,
                     const char* newValue,
                     OBIX_DATA_TYPE dataType);
+
+/**
+ * Implements #comm_invoke prototype.
+ */
+int http_invoke(Connection* connection,
+                Device* device,
+                const char* operationUri,
+                const char* input,
+                char** output);
+
 /**
  * Implements #comm_sendBatch prototype.
  */

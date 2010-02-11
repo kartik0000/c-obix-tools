@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -98,6 +98,10 @@ extern const char* OBIX_NAME_WATCH_SERVICE;
 extern const char* OBIX_NAME_WATCH_SERVICE_MAKE;
 /** Name of the @a Watch.add operation. */
 extern const char* OBIX_NAME_WATCH_ADD;
+/** Name of the @a Watch.addOperation operation. */
+extern const char* OBIX_NAME_WATCH_ADD_OPERATION;
+/** Name of the @a Watch.operationResponse operation. */
+extern const char* OBIX_NAME_WATCH_OPERATION_RESPONSE;
 /** Name of the @a Watch.remove operation. */
 extern const char* OBIX_NAME_WATCH_REMOVE;
 /** Name of the @a Watch.pollChanges operation. */

@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -28,6 +28,7 @@
 #include <string.h>
 #include <obix_client.h>
 #include <curl_ext.h>
+#include <obix_utils.h>
 #include <xml_config.h>
 #include "test_main.h"
 #include "test_client.h"
@@ -300,6 +301,244 @@ static int testBatch()
     return 0;
 }
 
+/** Test operation handler, which is used to subscribe for remote operations.*/
+IXML_Element* testOperationHandler(
+    int connectionId,
+    int deviceId,
+    int listenerId,
+    IXML_Element* input)
+{
+    static IXML_Document* doc = NULL;
+
+    // initialize answer object
+    if (doc != NULL)
+    {
+        ixmlDocument_free(doc);
+    }
+    doc = ixmlParseBuffer("<obj display=\"Test handler output\" />");
+
+    char* buffer = ixmlPrintNode(ixmlElement_getNode(input));
+    printf("Operation request received!\n"
+           "Connection: %d; device: %d; listener: %d; input:\n%s",
+           connectionId, deviceId, listenerId, buffer);
+    free(buffer);
+
+    return ((listenerId & 1) == 1) ?
+           ixmlDocument_getElementById(doc, "obj") : NULL;
+}
+
+static int testInvokeHelper(const char* testName,
+                            int connectionId,
+                            int deviceId,
+                            const char* operationUri,
+                            const char* input,
+                            const char* outputCheckString,
+                            BOOL shouldFail)
+{
+    char* operationOutput;
+    int error = obix_invoke(connectionId,
+                            deviceId,
+                            operationUri,
+                            input,
+                            &operationOutput);
+    if (error != OBIX_SUCCESS)
+    {
+        printf("Unable to invoke operation: "
+               "obix_invoke(%d, %d, \"%s\", \"%s\", output) returned %d.\n",
+               connectionId, deviceId, operationUri, input, error);
+
+        if (shouldFail)
+        {
+            printf("Test was supposed to fail. Everything is OK!\n");
+            printTestResult(testName, TRUE);
+            return 0;
+        }
+        else
+        {
+            printTestResult(testName, FALSE);
+            return 1;
+        }
+    }
+
+    printf("Received output:\n%s\n", operationOutput);
+
+    BOOL outputContainsCheckString =
+        strstr(operationOutput, outputCheckString) != NULL;
+    if (!outputContainsCheckString)
+    {
+        printf("Check string \"%s\" doesn't appear in server response.\n",
+               outputCheckString);
+        if (shouldFail)
+        {
+            printf("...and it is good, because the test was supposed to "
+                   "fail!\n");
+            printTestResult(testName, TRUE);
+            return 0;
+        }
+
+        printTestResult(testName, FALSE);
+        return 1;
+
+    }
+
+    printf("Check string \"%s\" presents in server response.\n",
+           outputCheckString);
+    if (shouldFail)
+    {
+        printf("Test was supposed to fail but it did not!\n");
+        printTestResult(testName, FALSE);
+        return 1;
+    }
+
+    printTestResult(testName, TRUE);
+    return 0;
+
+}
+
+static int testInvoke()
+{
+    int result = 0;
+
+    result += testInvokeHelper("Normal request",
+                               0,
+                               0,
+                               "/obix/watchService/make",
+                               OBIX_OBJ_NULL_TEMPLATE,
+                               "pollChanges",
+                               FALSE);
+
+    result += testInvokeHelper("Request with no input",
+                               0,
+                               0,
+                               "/obix/watchService/make",
+                               NULL,
+                               "pollChanges",
+                               TRUE);
+
+    result += testInvokeHelper("Request with wrong URI",
+                               0,
+                               0,
+                               "/obix/watchService/make1",
+                               NULL,
+                               "pollChanges",
+                               TRUE);
+
+    return result;
+}
+
+/** Helper function for #testOperationSubscribing. Registers operation handler
+ * and then invokes the same function and checks whether output contains
+ * expected string.*/
+static int testOperationSubscribingHelper(int deviceId,
+        const char* operationUri,
+        const char* checkString,
+        BOOL checkStringExists)
+{
+    // register operation handler
+    int handlerId =
+        obix_registerOperationListener(0,
+                                       deviceId,
+                                       operationUri,
+                                       &testOperationHandler);
+    if (handlerId < 0)
+    {
+        printf("Unable to register operation handler for \"%s\": "
+               "obix_registerOperationListener returned %d\n",
+               operationUri, handlerId);
+        return 1;
+    }
+
+    // call the published operation and see what happens
+    char* operationOutput;
+    int error = obix_invoke(0,
+                            deviceId,
+                            operationUri,
+                            "<obj null=\"true\" />",
+                            &operationOutput);
+
+    if (error != OBIX_SUCCESS)
+    {
+        printf("Unable to invoke operation. obix_invoke returned %d.\n", error);
+        return 1;
+    }
+
+    printf("Received operation response: %s\n", operationOutput);
+
+    if (strstr(operationOutput, checkString) == NULL)
+    {
+        free(operationOutput);
+        if (checkStringExists)
+        {
+            printf("Remote operation invocation failed. Expected to see "
+                   "\"%s\" string in the returned answer.\n", checkString);
+            return 1;
+        }
+        else
+        {
+            printf("Check string \"%s\" is not found in the response and it is "
+                   "great.\n", checkString);
+            return 0;
+        }
+    }
+
+    free(operationOutput);
+    if (checkStringExists)
+    {
+        printf("Check string \"%s\" is found in the response.\n",
+               checkString);
+        return 0;
+    }
+    else
+    {
+        printf("Check string \"%s\" is found in the response, but it "
+               "shouldn't.\n", checkString);
+        return 1;
+    }
+}
+
+/** Tests how operation subscribing engine works. */
+static int testOperationSubscribing()
+{
+    const char* testName = "Operation Subscribing (client side)";
+    // register device with some operation
+    int deviceId =
+        obix_registerDevice(0,
+                            "<obj href=\"/testOperation/\" >\r\n"
+                            " <op href=\"op1\" />\r\n"
+                            " <op href=\"op2\" out=\"obix:obj\" />\r\n"
+                            "</obj>");
+    if (deviceId < 0)
+    {
+        printf("obix_registerDevice(0) returned %d\n", deviceId);
+        printTestResult(testName, FALSE);
+        return 1;
+    }
+
+    int error = testOperationSubscribingHelper(deviceId, "op1", "null", TRUE);
+    error +=
+        testOperationSubscribingHelper(deviceId, "op2", "Test handler", TRUE);
+    error += testOperationSubscribingHelper(deviceId, "op2", "out", FALSE);
+
+    if (error != 0)
+    {
+        printTestResult(testName, FALSE);
+        return error;
+    }
+
+    // everything is ok, cleanup device data (listener will be cleaned
+    // automatically)
+    error = obix_unregisterDevice(0, deviceId);
+    if (error != OBIX_SUCCESS)
+    {
+        printf("obix_unregisterDevice returned %d\n", error);
+        printTestResult(testName, FALSE);
+        return 1;
+    }
+
+    printTestResult(testName, TRUE);
+    return 0;
+}
+
 /**
  * Tests C oBIX Client API.
  * Opens connection with server, registers test device data there and performs
@@ -355,6 +594,20 @@ static int testConnectionAndDevices()
     {
         printTestResult("test obix client batch utils", FALSE);
         return 1;
+    }
+
+    // test operation invocations
+    error = testInvoke();
+    if (error != 0)
+    {
+        return error;
+    }
+
+    // test operation subscribing
+    error = testOperationSubscribing();
+    if (error != 0)
+    {
+        return error;
     }
 
     error = obix_unregisterDevice(0, id1);

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-   Copyright (c) 2009 Andrey Litvinov
+   Copyright (c) 2009, 2010 Andrey Litvinov
   
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -28,7 +28,7 @@
   
   <connection id="0" type="http">
   	<server-address val="http://localhost" lobby="/obix/"/>
-  	<max-devices val="2"/>
+  	<max-devices val="4"/>
   	<max-listeners val="2"/>
   </connection>  
   

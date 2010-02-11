@@ -128,6 +128,7 @@ const Comm_Stack OBIX_HTTP_COMM_STACK =
         &http_read,
         &http_readValue,
         &http_writeValue,
+        &http_invoke,
         &http_sendBatch
     };
 
@@ -342,6 +343,11 @@ static void resetWatchUris(Http_Connection* c)
     {
         free(c->watchAddOperationUri);
         c->watchAddOperationUri = NULL;
+    }
+    if (c->watchOperationResponseUri != NULL)
+    {
+        free(c->watchOperationResponseUri);
+        c->watchOperationResponseUri = NULL;
     }
     if (c->watchDeleteUri != NULL)
     {
@@ -600,10 +606,61 @@ static int setWatchLeaseTime(Http_Connection* c,
     return error;
 }
 
+/** Checks whether response message from the server is error object. */
+static int checkResponseElement(IXML_Element* element)
+{
+    if (strcmp(ixmlElement_getTagName(element), OBIX_OBJ_ERR) == 0)
+    {
+        char* text = ixmlPrintNode(ixmlElement_getNode(element));
+        log_error("Server replied with error:\n"
+                  "%s", text);
+        free(text);
+        return OBIX_ERR_SERVER_ERROR;
+    }
+
+    return OBIX_SUCCESS;
+}
+
+/** Checks parsed response for following errors:
+ * @li Response is not @a NULL;
+ * @li Response contains some object;
+ * @li Response object is not error.
+ *
+ * @param respDoc   Parsed response, which should be checked.
+ * @param respElem  Reference to the root object of the response is returned
+ * 					here.
+ * @return #OBIX_SUCCESS, or one of error codes defined by #OBIX_ERRORCODE.
+ */
+static int checkResponseDoc(IXML_Document* respDoc, IXML_Element** respElem)
+{
+    if (respDoc == NULL)
+    {
+        return OBIX_ERR_BAD_CONNECTION;
+    }
+
+    IXML_Element* element = ixmlDocument_getRootElement(respDoc);
+    if (element == NULL)
+    {
+        char* text = ixmlPrintDocument(respDoc);
+        log_error("Server response doesn't contain any oBIX objects:\n"
+                  "%s", text);
+        free(text);
+        return OBIX_ERR_BAD_CONNECTION;
+    }
+    if (respElem != NULL)
+    {
+        *respElem = element;
+    }
+
+    return checkResponseElement(element);
+}
+
 /** Creates Watch object at oBIX server. */
 static int createWatch(Http_Connection* c, CURL_EXT* curlHandle)
 {
     char* watchAddUri = NULL;
+    char* watchAddOperationUri = NULL;
+    char* watchOperationResponseUri = NULL;
     char* watchRemoveUri = NULL;
     char* watchPollChangesFullUri = NULL;
     char* watchDeteleUri = NULL;
@@ -614,6 +671,10 @@ static int createWatch(Http_Connection* c, CURL_EXT* curlHandle)
     {
         if (watchAddUri != NULL)
             free(watchAddUri);
+        if (watchAddOperationUri)
+            free(watchAddOperationUri);
+        if (watchOperationResponseUri)
+            free(watchOperationResponseUri);
         if (watchRemoveUri != NULL)
             free(watchRemoveUri);
         if (watchPollChangesFullUri != NULL)
@@ -636,12 +697,18 @@ static int createWatch(Http_Connection* c, CURL_EXT* curlHandle)
     }
 
     watchAddUri = getObjectUri(response, OBIX_NAME_WATCH_ADD, c, FALSE);
+    watchAddOperationUri =
+        getObjectUri(response, OBIX_NAME_WATCH_ADD_OPERATION, c, FALSE);
+    watchOperationResponseUri =
+        getObjectUri(response, OBIX_NAME_WATCH_OPERATION_RESPONSE, c, FALSE);
     watchRemoveUri = getObjectUri(response, OBIX_NAME_WATCH_REMOVE, c, FALSE);
     watchDeteleUri = getObjectUri(response, OBIX_NAME_WATCH_DELETE, c, FALSE);
     // we store complete URI of pollChanges operation because we use it more
     // often than others.
     watchPollChangesFullUri = getObjectUri(response, OBIX_NAME_WATCH_POLLCHANGES, c, TRUE);
     if ((watchAddUri == NULL)
+            || (watchAddOperationUri == NULL)
+            || (watchOperationResponseUri == NULL)
             || (watchRemoveUri == NULL)
             || (watchDeteleUri == NULL)
             || (watchPollChangesFullUri == NULL))
@@ -672,6 +739,8 @@ static int createWatch(Http_Connection* c, CURL_EXT* curlHandle)
 
     // store all received URIs
     c->watchAddUri = watchAddUri;
+    c->watchAddOperationUri = watchAddOperationUri;
+    c->watchOperationResponseUri = watchOperationResponseUri;
     c->watchRemoveUri = watchRemoveUri;
     c->watchDeleteUri = watchDeteleUri;
     c->watchPollChangesFullUri = watchPollChangesFullUri;
@@ -726,72 +795,266 @@ static int recreateWatch(Http_Connection* c,
     }
 
     // add to Watch separately operations and all other objects.
+
     error = addWatchItems(c,
-                          variableUris,
-                          variablesCount,
-                          FALSE,
+                          operationUris,
+                          operationsCount,
+                          TRUE,
                           response,
                           curlHandle);
     if (error != OBIX_SUCCESS)
     {
         return error;
     }
+    // we want to make sure that response doesn't have errors. But we don't
+    // want to parse it
+    error = checkResponseDoc(*response, NULL);
+    ixmlDocument_free(*response);
+    if (error != OBIX_SUCCESS)
+    {
+        return error;
+    }
 
     return addWatchItems(c,
-                         operationUris,
-                         operationsCount,
-                         TRUE,
+                         variableUris,
+                         variablesCount,
+                         FALSE,
                          response,
                          curlHandle);
 }
 
-/** Checks whether response message from the server is error object. */
-static int checkResponseElement(IXML_Element* element)
+/**
+ * Returns string representation of OperationResponse object containing
+ * output of processed operation.
+ * @param operationInvocation Invocation request received from the server.
+ * @param operationOuput Output returned by operation handler.
+ */
+static char* prepareOperationResponse(IXML_Element* operationInvocation,
+                                      IXML_Element* operationOutput)
 {
-    if (strcmp(ixmlElement_getTagName(element), OBIX_OBJ_ERR) == 0)
+    // helper function which generates static error message
+    char* getStaticResponseMessage(const char* outputTag)
     {
-        char* text = ixmlPrintNode(ixmlElement_getNode(element));
-        log_error("Server replied with error:\n"
-                  "%s", text);
-        free(text);
-        return OBIX_ERR_SERVER_ERROR;
+        const char* href =
+            ixmlElement_getAttribute(operationInvocation, OBIX_ATTR_HREF);
+        log_debug("Generating static OperationResponse object for operation "
+                  "\"%s\". Returning object: %s", href, outputTag);
+
+        char* buffer = (char*) malloc(strlen(href) + strlen(outputTag) + 60);
+        if (buffer == NULL)
+        {
+            log_error("Not enough memory for default error message.");
+            return NULL;
+        }
+        sprintf(buffer,
+                "<op href=\"%s\" is=\"/obix/def/OperationResponse\" >\r\n"
+                "  %s\r\n"
+                "</op>", href, outputTag);
+        return buffer;
     }
 
-    return OBIX_SUCCESS;
+    // take parent element from invocation object
+    IXML_Element* operationResponse =
+        ixmlElement_cloneWithLog(operationInvocation, FALSE);
+    if (operationResponse == NULL)
+    {
+        return getStaticResponseMessage(
+                   "<err name=\"out\" display=\"Internal oBIX Client library "
+                   "error: Unable to prepare OperationResponse object.\" />");
+    }
+
+    if (operationOutput == NULL)
+    {	// operation handler did not returned anything
+        return getStaticResponseMessage("<obj name=\"out\" null=\"true\" />");
+    }
+
+    IXML_Element* childTag;
+    // append operation output as a child
+    int error = ixmlElement_putChildWithLog(operationResponse,
+                                            operationOutput,
+                                            &childTag);
+    if (error != 0)
+    {
+        ixmlElement_freeOwnerDocument(operationResponse);
+        return getStaticResponseMessage(
+                   "<err name=\"out\" display=\"Internal oBIX Client library "
+                   "error: Unable to prepare OperationResponse object.\" />");
+    }
+
+    //change attributes to conform with OperationResponse contract
+    error = ixmlElement_setAttributeWithLog(operationResponse,
+                                            OBIX_ATTR_IS,
+                                            "/obix/def/OperationResponse");
+    error += ixmlElement_setAttributeWithLog(
+                 childTag,
+                 OBIX_ATTR_NAME,
+                 "out");
+    if (error != 0)
+    {
+        ixmlElement_freeOwnerDocument(operationResponse);
+        return getStaticResponseMessage(
+                   "<err name=\"out\" display=\"Internal oBIX Client library "
+                   "error: Unable to prepare OperationResponse object.\" />");
+    }
+
+    char* message = ixmlPrintNode(ixmlElement_getNode(operationResponse));
+    ixmlElement_freeOwnerDocument(operationResponse);
+    if (message == NULL)
+    {
+        return getStaticResponseMessage(
+                   "<err name=\"out\" display=\"Internal oBIX Client library "
+                   "error: Unable to prepare OperationResponse object.\" />");
+    }
+
+    return message;
 }
 
-/** Checks parsed response for following errors:
- * @li Response is not @a NULL;
- * @li Response contains some object;
- * @li Response object is not error.
- *
- * @param respDoc   Parsed response, which should be checked.
- * @param respElem  Reference to the root object of the response is returned
- * 					here.
- * @return #OBIX_SUCCESS, or one of error codes defined by #OBIX_ERRORCODE.
+/**
+ * Sends output of remote operation back to the server.
  */
-static int checkResponseDoc(IXML_Document* respDoc, IXML_Element** respElem)
+static int sendOperationResponse(Http_Connection* c,
+                                 IXML_Element* operationInvocation,
+                                 IXML_Element* operationOutput,
+                                 CURL_EXT* curlHandle)
 {
-    if (respDoc == NULL)
+    int uriLength =
+        c->serverUriLength + strlen(c->watchOperationResponseUri) + 1;
+    char fullWatchOperationResponseUri[uriLength];
+    strcpy(fullWatchOperationResponseUri, c->serverUri);
+    strcat(fullWatchOperationResponseUri, c->watchOperationResponseUri);
+
+    // prepare message. It should be instance of OperationResponse contract
+    char* message =
+        prepareOperationResponse(operationInvocation, operationOutput);
+    if (message == NULL)
+    {	// error is already logged
+        return OBIX_ERR_NO_MEMORY;
+    }
+
+    IXML_Document* serverResponse = NULL;
+    curlHandle->outputBuffer = message;
+    int error = curl_ext_postDOM(curlHandle,
+                                 fullWatchOperationResponseUri,
+                                 &serverResponse);
+    free(message);
+    if (error != 0)
     {
         return OBIX_ERR_BAD_CONNECTION;
     }
 
-    IXML_Element* element = ixmlDocument_getRootElement(respDoc);
-    if (element == NULL)
+    error = checkResponseDoc(serverResponse, NULL);
+    if (error != OBIX_SUCCESS)
     {
-        char* text = ixmlPrintDocument(respDoc);
-        log_error("Server response doesn't contain any oBIX objects:\n"
-                  "%s", text);
-        free(text);
-        return OBIX_ERR_BAD_CONNECTION;
+        char* buffer = ixmlPrintDocument(serverResponse);
+        log_error("Unable to send operation response to the server using "
+                  "\"%s\" operation. Received answer:\n%s",
+                  fullWatchOperationResponseUri, buffer);
+        free(buffer);
     }
-    if (respElem != NULL)
+    ixmlDocument_free(serverResponse);
+    return error;
+}
+
+/**
+ * Checks that provided object implements OperationInvocation contract and
+ * returns a reference to the "input" object.
+ */
+static IXML_Element* parseOperationInvocation(IXML_Element* operationInvocation)
+{
+    // helper function for printing errors
+    void printErrorMessage(const char* message)
     {
-        *respElem = element;
+        char* buffer = ixmlPrintNode(ixmlElement_getNode(operationInvocation));
+        log_error("%s Received object:\n%s", buffer);
+        free(buffer);
     }
 
-    return checkResponseElement(element);
+    if (!obix_obj_implementsContract(operationInvocation,
+                                     "OperationInvocation"))
+    {
+        printErrorMessage("Unable to process remote operation invocation. "
+                          "An instance of OperationInvocation contract is "
+                          "expected.");
+        return NULL;
+    }
+
+    IXML_Element* operationInput =
+        ixmlElement_getChildElementByAttrValue(operationInvocation,
+                                               OBIX_ATTR_NAME,
+                                               "in");
+    if (operationInput == NULL)
+    {
+        printErrorMessage("Unable to process remote operation invocation. "
+                          "Input object does not contain child element with "
+                          "name \"in\".");
+        return NULL;
+    }
+
+    return operationInput;
+}
+
+/**
+ * Handles remote operation invocation received from the server.
+ * Executes corresponding operation handler and sends execution results back to
+ * the server
+ * @param operationInvocation Object from WatchOut list sent by server, which
+ * 							  implements OperationInvocation contract.
+ */
+static int handleRemoteOperation(Http_Connection* c,
+                                 Listener* listener,
+                                 IXML_Element* operationInvocation,
+                                 CURL_EXT* curlHandle)
+{
+    if (listener->opHandler == NULL)
+    {
+        log_error("Missing handler reference. This should never happen. "
+                  "Connection #%d, device #%d, listener #%d, uri \"%s\".",
+                  listener->connectionId, listener->deviceId, listener->id,
+                  listener->paramUri);
+        return OBIX_ERR_UNKNOWN_BUG;
+    }
+
+    IXML_Element* input = parseOperationInvocation(operationInvocation);
+
+    IXML_Element* output = (listener->opHandler)(listener->connectionId,
+                                 listener->deviceId,
+                                 listener->id,
+                                 input);
+
+    return sendOperationResponse(c, operationInvocation, output, curlHandle);
+}
+
+/**
+ * Executes parameter listener callback.
+ * @param element Object from WatchOut list containing update of monitored
+ *                parameter.
+ * @return Execution result of the listener. Should be @a 0 if everything was
+ * 		   OK.
+ */
+static int callParamListener(IXML_Element* element, Listener* listener)
+{
+    // if there is 'val' attribute in the returned object - return it,
+    // otherwise, return the whole object
+    // TODO fixme somehow
+    char* receivedValue;
+    const char* attrValue = ixmlElement_getAttribute(element, OBIX_ATTR_VAL);
+
+    if (attrValue != NULL)
+    {	// copy value
+        receivedValue = ixmlCloneDOMString(attrValue);
+    }
+    else
+    {	// return the whole object
+        receivedValue = ixmlPrintNode(ixmlElement_getNode(element));
+    }
+
+    int result = (listener->paramListener)(listener->connectionId,
+                                           listener->deviceId,
+                                           listener->id,
+                                           receivedValue);
+    ixmlFreeDOMString(receivedValue);
+
+    return result;
 }
 
 /**
@@ -908,22 +1171,6 @@ static int parseWatchOut(IXML_Document* doc,
             // ignore this node
             continue;
         }
-
-        // if there is 'val' attribute in the returned object - return it,
-        // otherwise, return the whole object
-        // TODO fixme somehow
-        char* newValue;
-        const char* attrValue = ixmlElement_getAttribute(element, OBIX_ATTR_VAL);
-
-        if (attrValue != NULL)
-        {	// copy value
-            newValue = ixmlCloneDOMString(attrValue);
-        }
-        else
-        {	// return the whole object
-            newValue = ixmlPrintNode(ixmlElement_getNode(element));
-        }
-
         // workaround for some oBIX server implementations which return full
         // URI of the updated object, but it should be the same as passed to
         // Watch.add operation.
@@ -934,20 +1181,22 @@ static int parseWatchOut(IXML_Document* doc,
 
         // find corresponding listener of the object
         Listener* listener = (Listener*) table_get(c->watchTable, uri);
-        if (listener != NULL)
-        {
-            // execute callback function
-            (listener->paramListener)(listener->connectionId,
-                                      listener->deviceId,
-                                      listener->id,
-                                      newValue);
-        }
-        else
+        if (listener == NULL)
         {
             log_error("Unable to find listener for the object with URI \"%s\".", uri);
             retVal = OBIX_ERR_BAD_CONNECTION;
         }
-        ixmlFreeDOMString(newValue);
+
+        // execute callback function
+        if (listener->paramListener != NULL)
+        {
+            callParamListener(element, listener);
+        }
+        else
+        {
+            handleRemoteOperation(c, listener, element, curlHandle);
+        }
+        // TODO check results
     }
 
     if (needToCleanDoc)
@@ -1523,6 +1772,8 @@ int http_initConnection(IXML_Element* connItem, Connection** connection)
     c->batchUri = NULL;
     c->watchMakeUri = NULL;
     c->watchAddUri = NULL;
+    c->watchAddOperationUri = NULL;
+    c->watchOperationResponseUri = NULL;
     c->watchDeleteUri = NULL;
     c->watchPollChangesFullUri = NULL;
     c->watchRemoveUri = NULL;
@@ -1824,7 +2075,17 @@ int http_registerListener(Connection* connection,
         return error;
     }
 
-    error = parseWatchOut(response, c, _curl_handle);
+    if ((*listener)->opHandler != NULL)
+    {
+        // we don't need to parse the whole returned WatchOut object. Just
+        // check that there are no errors
+        error = checkResponseDoc(response, NULL);
+    }
+    else
+    {
+        error = parseWatchOut(response, c, _curl_handle);
+    }
+
     ixmlDocument_free(response);
     if (error != OBIX_SUCCESS)
     {
@@ -1993,6 +2254,40 @@ int http_writeValue(Connection* connection,
     return error;
 }
 
+int http_invoke(Connection* connection,
+                Device* device,
+                const char* operationUri,
+                const char* input,
+                char** output)
+{
+    Http_Connection* c = getHttpConnection(connection);
+
+    char* fullUri = getAbsUri(c, device, operationUri);
+
+    if (fullUri == NULL)
+    {
+        log_error("Not enough memory.");
+        return OBIX_ERR_NO_MEMORY;
+    }
+
+    _curl_handle->outputBuffer = input;
+    int error = curl_ext_post(_curl_handle, fullUri);
+    free(fullUri);
+    if (error != 0)
+    {
+        log_error("Unable to send invoke request.");
+        return OBIX_ERR_HTTP_LIB;
+    }
+    *output = strdup(_curl_handle->inputBuffer);
+    if (*output == NULL)
+    {
+        log_error("Not enough memory.");
+        return OBIX_ERR_NO_MEMORY;
+    }
+
+    return OBIX_SUCCESS;
+}
+
 /** Generates string representation of Batch object including all commands
  * it contains. */
 static char* getStrBatch(oBIX_Batch* batch)
@@ -2145,7 +2440,8 @@ int http_sendBatch(oBIX_Batch* batch)
                 // fill other result fields depending on command type
                 if (command->type == OBIX_BATCH_READ)
                 {	// save a copy of returned object
-                    result->obj = ixmlElement_cloneWithLog(commandResponse);
+                    result->obj =
+                        ixmlElement_cloneWithLog(commandResponse, TRUE);
                     if (result->obj == NULL)
                     {
                         result->status = OBIX_ERR_UNKNOWN_BUG;

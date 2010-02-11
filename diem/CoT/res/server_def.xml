@@ -56,7 +56,7 @@
 	-->
 	<obj href="OperationWatch" is="obix:Watch">
 		<op name="addOperation" in="obix:WatchIn" out="obix:WatchOut" />
-		<op name="operationResponse" in="/obix/def/RemoteResponse" />
+		<op name="operationResponse" in="/obix/def/OperationResponse" />
 	</obj> 
 	
 	<!--
@@ -64,7 +64,7 @@
 		operation is invoked. Child object "in" contains input parameters of the
 		invocation.  
 	-->
-	<op href="RemoteInvocation">
+	<op href="OperationInvocation">
 		<obj name="in"/>
 	</op>
 	
@@ -77,7 +77,7 @@
 		 be sent as a response to the client, which had invoked this remote 
 		 operation.
 	-->
-	<op href="RemoteResponse">
+	<op href="OperationResponse">
 		<obj name="out"/>
 	</op>
 

@@ -38,8 +38,8 @@
  * - @a signUp*				Adds new device data to the server.
  * - @a Batch				Combines several requests to oBIX server.
  *
- * Commands marked with *, are extensions, which are ot included to the original
- * oBIX specification.
+ * Commands marked with *, are extensions, which are not included to the
+ * original oBIX specification.
  *
  * @author Andrey Litvinov
  */
@@ -548,13 +548,13 @@ void handlerWatchOperationResponse(Response* response,
     log_debug("Handling Watch.operationResponse (\"%s\").", uri);
 
     // check input
-    if (!obix_obj_implementsContract(input, "RemoteResponse"))
+    if (!obix_obj_implementsContract(input, "OperationResponse"))
     {
         sendErrorMessage(response,
                          uri,
                          "Watch.operationResponse",
                          "Wrong input: An instance "
-                         "of /obix/def/RemoteResponse expected.");
+                         "of /obix/def/OperationResponse expected.");
         return;
     }
 
@@ -579,7 +579,7 @@ void handlerWatchOperationResponse(Response* response,
                          uri,
                          "Watch.operationResponse",
                          "Input object does not contain child object with name "
-                         "[out] (see /obix/def/RemoteResponse contract).");
+                         "[out] (see /obix/def/OperationResponse contract).");
         return;
     }
     // remove name attribute (ignore error, if any - it is logged)

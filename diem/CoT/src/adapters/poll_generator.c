@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -537,7 +537,7 @@ int extractDeviceData(IXML_Element* configXML)
     }
     // clone this data because it should be available after config file is
     // closed
-    _deviceXML = ixmlElement_cloneWithLog(_deviceXML);
+    _deviceXML = ixmlElement_cloneWithLog(_deviceXML, TRUE);
     if (_deviceXML == NULL)
     {
         return -1;

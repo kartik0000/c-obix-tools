@@ -738,7 +738,7 @@ char* xmldb_getDump()
 
 IXML_Element* xmldb_getObixSysObject(const char* objType)
 {
-    return ixmlElement_cloneWithLog(xmldb_getDOM(objType, NULL));
+    return ixmlElement_cloneWithLog(xmldb_getDOM(objType, NULL), TRUE);
 }
 
 /**

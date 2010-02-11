@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -71,6 +71,8 @@ const char* OBIX_NAME_BATCH = "batch";
 const char* OBIX_NAME_WATCH_SERVICE = "watchService";
 const char* OBIX_NAME_WATCH_SERVICE_MAKE = "make";
 const char* OBIX_NAME_WATCH_ADD = "add";
+const char* OBIX_NAME_WATCH_ADD_OPERATION = "addOperation";
+const char* OBIX_NAME_WATCH_OPERATION_RESPONSE = "operationResponse";
 const char* OBIX_NAME_WATCH_REMOVE = "remove";
 const char* OBIX_NAME_WATCH_POLLCHANGES = "pollChanges";
 const char* OBIX_NAME_WATCH_POLLREFRESH = "pollRefresh";

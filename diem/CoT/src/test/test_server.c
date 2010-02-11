@@ -936,7 +936,7 @@ static int testSignUp()
  */
 static int testWatchRemoteOperations()
 {
-    const char* testName = "Remote Operations test";
+    const char* testName = "Remote Operations (server side) test";
     obixResponse_setListener(&dummyResponseListener);
     // save some operation at the server
     int error = testSignUpHelper(
@@ -954,7 +954,7 @@ static int testWatchRemoteOperations()
     }
 
     // subscribe to this operation, first create watch
-    testWatchMakeHelper(testName);
+    testWatchMakeHelper("Remote Operations (server side): Create watch");
 
     //then add operation to the watch
     Response* response = createTestResponse(TRUE, FALSE);
@@ -985,8 +985,9 @@ static int testWatchRemoteOperations()
                            "<obj null=\"true\" />");
 
     //try to poll changes: we now should receive operation invocation
-    char* checkStrings[] = {"<op", "op1", "RemoteInvocation", "null", "in"};
-    error = testWatchPollChanges(testName,
+    char* checkStrings[] = {"<op", "op1", "OperationInvocation", "null", "in"};
+    error = testWatchPollChanges("Remote Operations (server side): "
+                                 "Check op response",
                                  "/obix/watchService/watch1/pollChanges",
                                  checkStrings,
                                  5,
@@ -1002,7 +1003,7 @@ static int testWatchRemoteOperations()
     response = createTestResponse(TRUE, FALSE);
     obix_server_handlePOST(response,
                            "/obix/watchService/watch1/operationResponse",
-                           "<op is=\"/obix/def/RemoteResponse\" "
+                           "<op is=\"/obix/def/OperationResponse\" "
                            "href=\"/obix/remoptest/op1\">\r\n"
                            "	<str name=\"out\" val=\"test123\" />\r\n"
                            "</op>");

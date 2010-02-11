@@ -447,7 +447,7 @@ static char* normalizeObixDocument(IXML_Element* oBIXdoc,
 {
     if (!saveChanges)
     {
-        oBIXdoc = ixmlElement_cloneWithLog(oBIXdoc);
+        oBIXdoc = ixmlElement_cloneWithLog(oBIXdoc, TRUE);
         if (oBIXdoc == NULL)
         {
             log_error("Unable to normalize oBIX document.");

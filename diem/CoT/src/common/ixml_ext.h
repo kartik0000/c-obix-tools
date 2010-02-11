@@ -190,7 +190,7 @@ int ixmlElement_removeAttributeWithLog(IXML_Element* element,
  * @return @a NULL on error, otherwise a pointer to the new copy of the source
  *         element.
  */
-IXML_Element* ixmlElement_cloneWithLog(IXML_Element* source);
+IXML_Element* ixmlElement_cloneWithLog(IXML_Element* source, BOOL deep);
 
 /**
  * Frees the @a IXML_Document which the provided element belongs to.

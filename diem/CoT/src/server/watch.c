@@ -837,7 +837,7 @@ int obixWatch_createWatchItem(oBIX_Watch* watch,
             return error;
         }
 
-        item->doc = ixmlElement_cloneWithLog(element);
+        item->doc = ixmlElement_cloneWithLog(element, TRUE);
         if (item->doc == NULL)
         {
             obixWatchItem_free(item);
@@ -1229,7 +1229,7 @@ static int obixWatchItem_saveOperationInput(
     // TODO handle case when the doc already has "is" attribute
     ixmlElement_setAttributeWithLog(watchItem->doc,
                                     OBIX_ATTR_IS,
-                                    "/obix/def/RemoteInvocation");
+                                    "/obix/def/OperationInvocation");
     ixmlElement_setAttributeWithLog(watchItem->input,
                                     OBIX_ATTR_NAME,
                                     "in");
