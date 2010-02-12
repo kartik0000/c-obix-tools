@@ -267,6 +267,43 @@ static int testBatch()
         return 1;
     }
 
+    error = obix_batch_invoke(batch, 0, "/obix/watchService/make", NULL);
+    if (error < 0)
+    {
+        printf("obix_batch_invoke(batch, 0, \"/obix/watchService/make\", NULL) "
+               "returned %d.\n", error);
+        return 1;
+    }
+
+    error = obix_batch_invoke(
+                batch,
+                0,
+                "/obix/watchService/watch1/add",
+                "<obj is=\"obix:WatchIn\">\r\n"
+                " <list name=\"hrefs\" of=\"obix:WatchInItem\">\r\n"
+                "  <uri is=\"obix:WatchInItem\" val=\"/obix/test1/\"/>\r\n"
+                " </list>\r\n"
+                "</obj>");
+    if (error < 0)
+    {
+        printf("obix_batch_invoke(batch, 0, "
+               "\"/obix/watchService/watch1/add\", ...) returned %d.\n",
+               error);
+        return 1;
+    }
+
+    error = obix_batch_invokeXML(batch,
+                                 0,
+                                 "/obix/watchService/watch1/delete",
+                                 NULL);
+    if (error < 0)
+    {
+        printf("obix_batch_invokeXML(batch, 0, "
+               "\"/obix/watchService/watch1/delete\", NULL) returned %d.\n",
+               error);
+        return 1;
+    }
+
     error = obix_batch_send(batch);
     if (error != OBIX_SUCCESS)
     {
@@ -275,7 +312,7 @@ static int testBatch()
     }
 
     int i;
-    for (i = 1; i < 4; i++)
+    for (i = 1; i < 7; i++)
     {
         const oBIX_BatchResult* result = obix_batch_getResult(batch, i);
         if (result == NULL)
@@ -590,11 +627,17 @@ static int testConnectionAndDevices()
 
     // test obix batch
     error = testBatch();
-    if (error != 0)
+    if (error == 0)
+    {
+        printTestResult("test obix client batch utils", TRUE);
+        return 0;
+    }
+    else
     {
         printTestResult("test obix client batch utils", FALSE);
         return 1;
     }
+
 
     // test operation invocations
     error = testInvoke();

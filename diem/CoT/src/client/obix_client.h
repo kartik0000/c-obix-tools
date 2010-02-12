@@ -660,6 +660,17 @@ int obix_batch_writeValue(oBIX_Batch* batch,
                           const char* newValue,
                           OBIX_DATA_TYPE dataType);
 
+/** TODO describe me and fix all Batch descriptions */
+int obix_batch_invoke(oBIX_Batch* batch,
+                      int deviceId,
+                      const char* operationUri,
+                      const char* input);
+
+int obix_batch_invokeXML(oBIX_Batch* batch,
+                         int deviceId,
+                         const char* operationUri,
+                         IXML_Element* input);
+
 /**
  * Removes command with specified ID from the Batch object.
  *

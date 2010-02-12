@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <log_utils.h>
+#include <obix_utils.h>
 #include "obix_comm.h"
 #include "obix_client.h"
 #include "obix_batch.h"
@@ -40,13 +41,13 @@
 /** Releases memory allocated for Batch command.*/
 static void obix_batch_commandFree(oBIX_BatchCmd* command)
 {
-    if (command->paramUri != NULL)
+    if (command->uri != NULL)
     {
-        free(command->paramUri);
+        free(command->uri);
     }
-    if (command->newValue != NULL)
+    if (command->input != NULL)
     {
-        free(command->newValue);
+        free(command->input);
     }
     free(command);
 }
@@ -179,8 +180,8 @@ static int strnullcpy(char** dest, const char* source)
 static int obix_batch_addCommand(oBIX_Batch* batch,
                                  OBIX_BATCH_CMD_TYPE cmdType,
                                  int deviceId,
-                                 const char* paramUri,
-                                 const char* newValue,
+                                 const char* uri,
+                                 const char* input,
                                  OBIX_DATA_TYPE dataType)
 {
     if (batch == NULL)
@@ -199,17 +200,17 @@ static int obix_batch_addCommand(oBIX_Batch* batch,
     if (deviceId == 0)
     {
         device = NULL;
-        if (paramUri == NULL)
+        if (uri == NULL)
         {
             return OBIX_ERR_INVALID_ARGUMENT;
         }
     }
 
     oBIX_BatchCmd* command = (oBIX_BatchCmd*) malloc(sizeof(oBIX_BatchCmd));
-    char* paramUriCopy;
-    char* newValueCopy;
-    error = strnullcpy(&paramUriCopy, paramUri);
-    error += strnullcpy(&newValueCopy, newValue);
+    char* uriCopy;
+    char* inputCopy;
+    error = strnullcpy(&uriCopy, uri);
+    error += strnullcpy(&inputCopy, input);
     if ((command == NULL) || (error != 0))
     {
         log_error("Unable to add a command to the Batch object: "
@@ -220,9 +221,9 @@ static int obix_batch_addCommand(oBIX_Batch* batch,
     command->type = cmdType;
     command->id = (batch->commandCounter)++;
     command->device = device;
-    command->paramUri = paramUriCopy;
-    // next two field are used only by write operation
-    command->newValue = newValueCopy;
+    command->uri = uriCopy;
+    // next two fields are used only by write operation
+    command->input = inputCopy;
     command->dataType = dataType;
 
     command->next = NULL;
@@ -277,6 +278,65 @@ int obix_batch_writeValue(oBIX_Batch* batch,
                                  paramUri,
                                  newValue,
                                  dataType);
+}
+
+int obix_batch_invoke(oBIX_Batch* batch,
+                      int deviceId,
+                      const char* operationUri,
+                      const char* input)
+{
+    // special case with no input arguments
+    if (input == NULL)
+    {
+        return obix_batch_addCommand(batch,
+                                     OBIX_BATCH_INVOKE,
+                                     deviceId,
+                                     operationUri,
+                                     NULL,
+                                     OBIX_T_BOOL); // this is not used
+    }
+
+    IXML_Element* inputXML = ixmlElement_parseBuffer(input);
+    if (inputXML == NULL)
+    {
+        log_error("obix_batch_invoke: Unable to parse \"input\" object. "
+                  "Check XML format.");
+        return OBIX_ERR_INVALID_ARGUMENT;
+    }
+
+    int error = obix_batch_invokeXML(batch, deviceId, operationUri, inputXML);
+    ixmlElement_freeOwnerDocument(inputXML);
+    return error;
+}
+
+int obix_batch_invokeXML(oBIX_Batch* batch,
+                         int deviceId,
+                         const char* operationUri,
+                         IXML_Element* input)
+{
+    char* inputString;
+
+    if (input == NULL)
+    {
+        inputString = NULL;
+    }
+    else
+    {
+        // add name attribute ("in"). see obix:Invoke contract.
+        // TODO this action is HTTP protocol specific -
+        // it should be moved to obix_http.c
+        ixmlElement_setAttributeWithLog(input, OBIX_ATTR_NAME, "in");
+        inputString = ixmlPrintNode(ixmlElement_getNode(input));
+    }
+
+    int error = obix_batch_addCommand(batch,
+                                      OBIX_BATCH_INVOKE,
+                                      deviceId,
+                                      operationUri,
+                                      inputString,
+                                      OBIX_T_BOOL); // this is not used
+    free(inputString);
+    return error;
 }
 
 int obix_batch_removeCommand(oBIX_Batch* batch, int commandId)

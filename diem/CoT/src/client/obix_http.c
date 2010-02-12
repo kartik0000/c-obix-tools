@@ -81,6 +81,10 @@
 									   "  <%s name=\"in\" val=\"%s\"/>\r\n" \
 									   " </uri>\r\n")
 #define OBIX_BATCH_TEMPLATE_CMD_WRITE_LENGTH 65
+#define OBIX_BATCH_TEMPLATE_CMD_INVOKE (" <uri is=\"obix:Invoke\" val=\"%s\" >\r\n" \
+									    "  %s\r\n" \
+									    " </uri>\r\n")
+#define OBIX_BATCH_TEMPLATE_CMD_INVOKE_LENGTH 46
 /** @} */
 
 /**
@@ -1017,9 +1021,9 @@ static int handleRemoteOperation(Http_Connection* c,
     IXML_Element* input = parseOperationInvocation(operationInvocation);
 
     IXML_Element* output = (listener->opHandler)(listener->connectionId,
-                                 listener->deviceId,
-                                 listener->id,
-                                 input);
+                           listener->deviceId,
+                           listener->id,
+                           input);
 
     return sendOperationResponse(c, operationInvocation, output, curlHandle);
 }
@@ -2322,7 +2326,7 @@ static char* getStrBatch(oBIX_Batch* batch)
     oBIX_BatchCmd* command = batch->command;
     while (command != NULL)
     {
-        char* fullUri = getRelUri(command->device, command->paramUri);
+        char* fullUri = getRelUri(command->device, command->uri);
         if (fullUri == NULL)
         {
             cleanup();
@@ -2332,16 +2336,24 @@ static char* getStrBatch(oBIX_Batch* batch)
 
         // calculate length of this command
         batchMessageSize += strlen(fullUri);
-        if (command->type == OBIX_BATCH_WRITE_VALUE)
+        switch (command->type)
         {
-            batchMessageSize += OBIX_BATCH_TEMPLATE_CMD_WRITE_LENGTH +
-                                strlen(*(OBIX_DATA_TYPE_NAMES[
-                                             command->dataType])) +
-                                strlen(command->newValue);
-        }
-        else
-        {
+        case OBIX_BATCH_WRITE_VALUE:
+            batchMessageSize +=
+                OBIX_BATCH_TEMPLATE_CMD_WRITE_LENGTH +
+                strlen(*(OBIX_DATA_TYPE_NAMES[command->dataType])) +
+                strlen(command->input);
+            break;
+        case OBIX_BATCH_READ:
+        case OBIX_BATCH_READ_VALUE:
             batchMessageSize += OBIX_BATCH_TEMPLATE_CMD_READ_LENGTH;
+            break;
+        case OBIX_BATCH_INVOKE:
+            batchMessageSize +=
+                OBIX_BATCH_TEMPLATE_CMD_INVOKE_LENGTH +
+                strlen((command->input != NULL) ?
+                       command->input : OBIX_OBJ_NULL_TEMPLATE);
+            break;
         }
 
         command = command->next;
@@ -2362,19 +2374,28 @@ static char* getStrBatch(oBIX_Batch* batch)
     command = batch->command;
     while (command != NULL)
     {
-        if (command->type == OBIX_BATCH_WRITE_VALUE)
+        switch (command->type)
         {
+        case OBIX_BATCH_WRITE_VALUE:
             size += sprintf(batchMessage + size,
                             OBIX_BATCH_TEMPLATE_CMD_WRITE,
                             uri[command->id],
                             *(OBIX_DATA_TYPE_NAMES[command->dataType]),
-                            command->newValue);
-        }
-        else
-        {
+                            command->input);
+            break;
+        case OBIX_BATCH_READ:
+        case OBIX_BATCH_READ_VALUE:
             size += sprintf(batchMessage + size,
                             OBIX_BATCH_TEMPLATE_CMD_READ,
                             uri[command->id]);
+            break;
+        case OBIX_BATCH_INVOKE:
+            size += sprintf(batchMessage + size,
+                            OBIX_BATCH_TEMPLATE_CMD_INVOKE,
+                            uri[command->id],
+                            (command->input != NULL) ?
+                            command->input : OBIX_OBJ_NULL_TEMPLATE);
+            break;
         }
         free(uri[command->id]);
         command = command->next;
@@ -2438,19 +2459,43 @@ int http_sendBatch(oBIX_Batch* batch)
             if (result->status == OBIX_SUCCESS)
             {
                 // fill other result fields depending on command type
-                if (command->type == OBIX_BATCH_READ)
-                {	// save a copy of returned object
-                    result->obj =
-                        ixmlElement_cloneWithLog(commandResponse, TRUE);
-                    if (result->obj == NULL)
+                switch (command->type)
+                {
+                case OBIX_BATCH_READ:
                     {
-                        result->status = OBIX_ERR_UNKNOWN_BUG;
+                        // save a copy of returned object
+                        result->obj =
+                            ixmlElement_cloneWithLog(commandResponse, TRUE);
+                        if (result->obj == NULL)
+                        {
+                            result->status = OBIX_ERR_UNKNOWN_BUG;
+                        }
                     }
-                }
-                else if (command->type == OBIX_BATCH_READ_VALUE)
-                {	// save returned value
-                    result->status = parseElementValue(commandResponse,
-                                                       &(result->value));
+                    break;
+                case OBIX_BATCH_READ_VALUE:
+                    {
+                        // save returned value
+                        result->status = parseElementValue(commandResponse,
+                                                           &(result->value));
+                    }
+                    break;
+                case OBIX_BATCH_INVOKE:
+                    {
+                        // save a copy of returned object
+                        result->obj =
+                            ixmlElement_cloneWithLog(commandResponse, TRUE);
+                        if (result->obj == NULL)
+                        {
+                            result->status = OBIX_ERR_UNKNOWN_BUG;
+                        }
+
+                        // save character form of it
+                        result->value =
+                            ixmlPrintNode(ixmlElement_getNode(commandResponse));
+                    }
+                    break;
+                default:
+                    break;
                 }
             }
 

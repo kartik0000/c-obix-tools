@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -35,13 +35,14 @@
 
 /**
  * List of operations, which can be executed in Batch command using C oBIX
- * Client API (doesn't support operations so far).
+ * Client API.
  */
 typedef enum
 {
     OBIX_BATCH_READ_VALUE,
     OBIX_BATCH_READ,
-    OBIX_BATCH_WRITE_VALUE
+    OBIX_BATCH_WRITE_VALUE,
+    OBIX_BATCH_INVOKE
 } OBIX_BATCH_CMD_TYPE;
 
 /**
@@ -52,8 +53,8 @@ typedef struct _oBIX_BatchCmd
     OBIX_BATCH_CMD_TYPE type;
     int id;
     Device* device;
-    char* paramUri;
-    char* newValue;
+    char* uri;
+    char* input;
     OBIX_DATA_TYPE dataType;
     struct _oBIX_BatchCmd* next;
 }
