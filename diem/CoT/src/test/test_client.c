@@ -209,6 +209,8 @@ static int testCurlExt()
     }
 
 
+    curl_ext_free(curl);
+    curl_ext_dispose();
 
     printTestResult(testName, TRUE);
     return 0;
@@ -676,6 +678,8 @@ static int testConnectionAndDevices()
         return 1;
     }
 
+    obix_dispose();
+
     printTestResult(testName, TRUE);
     return 0;
 }
@@ -687,9 +691,9 @@ int test_client()
     // this is already tested in testConnectionAndDevices
     //    result += testObixLoadConfigFile();
 
-    result += testConnectionAndDevices();
-
     result += testCurlExt();
+
+    result += testConnectionAndDevices();
 
     return result;
 }

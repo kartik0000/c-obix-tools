@@ -528,8 +528,8 @@ int obix_unregisterListener(int connectionId,
  *
  * <b>General Usage:</b> @n
  * - Create new Batch instance using #obix_batch_create();
- * - Add commands to batch using #obix_batch_read(), #obix_batch_readValue() or
- *   #obix_batch_writeValue();
+ * - Add commands to batch using #obix_batch_read(), #obix_batch_readValue(),
+ *   #obix_batch_writeValue(), #obix_batch_invoke() or #obix_batch_invokeXML();
  * - Send Batch object to the server by calling #obix_batch_send();
  * - An instance of #oBIX_BatchResult will be generated for each command in
  *   Batch, containing execution results. These results can be obtained using
@@ -660,12 +660,45 @@ int obix_batch_writeValue(oBIX_Batch* batch,
                           const char* newValue,
                           OBIX_DATA_TYPE dataType);
 
-/** TODO describe me and fix all Batch descriptions */
+/**
+ * Adds invocation request to the provided Batch. When Batch is executed, acts
+ * like #obix_invoke().
+ * Executed operation output will be available both as a string and as a parsed
+ * XML object.
+ *
+ * @param batch Batch object where invoke operation should be added to.
+ * @param deviceId ID of the device whose operation should be invoked.
+ * @param operationUri Uri of the operation which should be invoked.
+ * @param input Operation input message (@a NULL if operation doesn't have any
+ * 				input arguments).
+ *
+ * @note Results of the previous execution of the Batch will become
+ *       unavailable after calling this method.
+ * @see #obix_invoke() #obix_batch_invokeXML()
+ */
 int obix_batch_invoke(oBIX_Batch* batch,
                       int deviceId,
                       const char* operationUri,
                       const char* input);
 
+/**
+ * Adds invocation request to the provided Batch. When Batch is executed, acts
+ * like #obix_invoke().
+ * Does the same as #obix_batch_invoke() with the only difference that it takes
+ * parsed XML DOM structure.
+ * Executed operation output will be available both as a string and as a parsed
+ * XML object.
+ *
+ * @param batch Batch object where invoke operation should be added to.
+ * @param deviceId ID of the device whose operation should be invoked.
+ * @param operationUri Uri of the operation which should be invoked.
+ * @param input Operation input message (@a NULL if operation doesn't have any
+ * 				input arguments).
+ *
+ * @note Results of the previous execution of the Batch will become
+ *       unavailable after calling this method.
+ * @see #obix_invoke() #obix_batch_invokeXML()
+ */
 int obix_batch_invokeXML(oBIX_Batch* batch,
                          int deviceId,
                          const char* operationUri,
