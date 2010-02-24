@@ -37,7 +37,7 @@
 #ifndef OBIX_UTILS_H_
 #define OBIX_UTILS_H_
 
-#include <ixml_ext.h>
+#include "ixml_ext.h"
 
 /** @name oBIX Error Contracts' URIs
  * Can be used to define the error type returned by an oBIX server.

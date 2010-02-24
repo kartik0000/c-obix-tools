@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: libcot
+Description: Library for C oBIX client applications.  
+Version: @VERSION@
+Libs: @CURL_LIBS@ @UPNP_LIBS@ -L${libdir} -lcot-client -lcot-utils 
+Cflags: @CURL_CFLAGS@ @UPNP_CFLAGS@ -I${includedir}/cot

@@ -4,7 +4,7 @@
 AC_PREREQ(2.61)
 # If you are changing the version here, than update it also at ./README and
 # ./res/OpenWrt-SDK/cot/Makefile
-AC_INIT(cot, 0.1, Litvinov.Andrey@gmail.com)
+AC_INIT(cot, 0.2, Litvinov.Andrey@gmail.com)
 AM_INIT_AUTOMAKE([-Wall -Werror dist-bzip2])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADER([config.h])
@@ -106,7 +106,8 @@ AC_CONFIG_FILES([Makefile
                  doc/Makefile
                  doc/doxygen/Makefile
                  doc/doxygen/libcot.doxyfile
-                 doc/doxygen/full.doxyfile])
+                 doc/doxygen/full.doxyfile
+                 libcot.pc])
 AC_OUTPUT
 
 echo "

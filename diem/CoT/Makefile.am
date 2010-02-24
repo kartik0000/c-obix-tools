@@ -5,4 +5,5 @@ SUBDIRS = src res doc
 
 ACLOCAL_AMFLAGS = -I m4
 
- 
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = libcot.pc

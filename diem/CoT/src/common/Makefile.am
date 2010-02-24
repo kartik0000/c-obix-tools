@@ -10,8 +10,10 @@ libcot_utils_la_SOURCES		= xml_config.h xml_config.c \
 							  obix_utils.h obix_utils.c \
 							  ptask.h ptask.c \
 							  log_utils.h log_utils.c \
-							  table.h table.c \
+							  table.h sorted_table.c \
 							  bool.h
+							  
+EXTRA_DIST 					= table.c							  
 
 libcot_utils_la_CFLAGS		= $(WARN_FLAGS) $(UPNP_CFLAGS)
 

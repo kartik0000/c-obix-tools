@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -36,7 +36,7 @@
  * @author Andrey Litvinov
  */
 
-#include <ixml_ext.h>
+#include "ixml_ext.h"
 
 /**@name Common configuration file keywords
  * The following acronyms are used in constants' names:

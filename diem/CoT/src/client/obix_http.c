@@ -773,9 +773,12 @@ static int recreateWatch(Http_Connection* c,
     }
     // add all watch items that we have in the list
     const char** uris;
-    const Listener** listeners;
     int count = table_getKeys(c->watchTable, &uris);
-    table_getValues(c->watchTable, (const void***) &listeners);
+    const void** tableValues;
+    table_getValues(c->watchTable, &tableValues);
+    // separate tableValues variable is created in order to bypass
+    // strict-aliasing warning from compiler
+    const Listener** listeners = (const Listener**) tableValues;
 
     // divide all URIs into two groups: URIs of operations and URIs of other
     // objects

@@ -81,7 +81,7 @@
 #ifndef OBIX_CLIENT_H_
 #define OBIX_CLIENT_H_
 
-#include <ixml_ext.h>
+#include "ixml_ext.h"
 
 /**
  * Error codes which are returned by library functions

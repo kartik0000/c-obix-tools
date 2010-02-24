@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -64,6 +64,18 @@
  * 						\<installation_prefix>/lib).
  * - @a \<sources>	  - Your source files to be compiled.
  * - @a \<output_name> - Name of the output binary.
+ *
+ * If you are using autotools in your project, then macros PKG_CHECK_MODULES
+ * with @a libcot as an argument will do the configuration for you.
+ * For example, you can write the following in your configure.ac file:
+ * @code
+ * PKG_CHECK_MODULES(DEPS, libcot)
+ * AC_SUBST(DEPS_CFLAGS)
+ * AC_SUBST(DEPS_LIBS)
+ * @endcode
+ *
+ * After that, you can use DEPS_CFLAGS and DEPS_LIBS in your Makefile.am
+ * instead of writing compilation and linking flags manually.
  *
  * @author Andrey Litvinov
  */

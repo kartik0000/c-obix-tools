@@ -43,7 +43,8 @@ typedef struct _Table Table;
 Table* table_create(int initialSize);
 
 /**
- * Adds new data pair to the specified table.
+ * Adds new data pair to the specified table. Neither key nor value can be
+ * @a NULL.
  *
  * @param key It should be unique and not @a NULL. No checks for these rules are
  * 			done, so wrong key will cause unpredicted behavior. The key string
