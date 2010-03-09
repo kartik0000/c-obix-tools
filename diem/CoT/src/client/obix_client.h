@@ -313,9 +313,9 @@ int obix_unregisterDevice(int connectionId, int deviceId);
  *   used instead device ID + full URI of the required parameter (in this
  *   example it is @a "/obix/device1/conf/name").
  *
- * @note This method is used to read only @a val attribute of some object, but
- *       not the whole object itself. If you need to read the whole oBIX object
- *       then use #obix_read instead.
+ * @note This method can be used to read only @a val attribute of some object,
+ *       but not the whole object itself. If you need to read the whole oBIX
+ *       object then use #obix_read instead.
  *
  * @note Although there is no need for this function in the normal workflow (see
  *       @ref obix-client-usage), it still can be used, for instance, during
@@ -335,6 +335,7 @@ int obix_unregisterDevice(int connectionId, int deviceId);
  *
  * @param output If read command executed successfully the attribute's value is
  *               stored here.
+ * @note Don't forget to free memory, allocated for @a output value after usage.
  * @return @a #OBIX_SUCCESS on success, negative error code otherwise.
  */
 int obix_readValue(int connectionId,
@@ -420,6 +421,7 @@ int obix_writeValue(int connectionId,
  *
  * @param output If read command executed successfully the DOM representation of
  *               the read object is stored here.
+ * @note Don't forget to free memory, allocated for @a output value after usage.
  * @return @a #OBIX_SUCCESS on success, negative error code otherwise.
  */
 int obix_read(int connectionId,

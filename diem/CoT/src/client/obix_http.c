@@ -1522,6 +1522,7 @@ static int parseElementValue(IXML_Element* element, char** output)
     }
     strcpy(copy, attr);
     *output = copy;
+    ixmlElement_freeOwnerDocument(element);
     return OBIX_SUCCESS;
 }
 
