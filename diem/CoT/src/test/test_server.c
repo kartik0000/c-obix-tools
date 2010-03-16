@@ -519,7 +519,7 @@ static int findInResponse(Response* response,
  */
 static int testWatchPollChanges(const char* testName,
                                 const char* uri,
-                                char* checkStrings[],
+                                const char* checkStrings[],
                                 int checkSize,
                                 BOOL exists,
                                 BOOL waitResponse)
@@ -770,7 +770,7 @@ static int testWatch()
     }
 
     // now check that poll changes will return updated objects
-    char* checkStrings[] = {"testWatch1", "testWatch3"};
+    const char* checkStrings[] = {"testWatch1", "testWatch3"};
     error = testWatchPollChanges("test Watch.pollChanges with some changes "
                                  "happened",
                                  "/obix/watchService/watch1/pollChanges",
@@ -931,6 +931,96 @@ static int testSignUp()
     return result;
 }
 
+static int testWatchRemoteOperationsHelper(const char* testName,
+        const char* operationUri,
+        const char* operationName,
+        const char* operationResponse,
+        const char* testResponseString)
+{
+    //try to execute this operation and see what happens
+    Response* remoteOperationResponse = createTestResponse(TRUE, TRUE);
+    obix_server_handlePOST(remoteOperationResponse,
+                           operationUri,
+                           "<obj null=\"true\" />");
+
+    //try to poll changes: we now should receive operation invocation
+    const char* checkStrings[] =
+        {"<op", operationName, "OperationInvocation", "null", "in"
+        };
+    int error = testWatchPollChanges("Remote Operations (server side): "
+                                     "Check op response",
+                                     "/obix/watchService/watch1/pollChanges",
+                                     checkStrings,
+                                     5,
+                                     TRUE,
+                                     FALSE);
+    if (error != 0)
+    {
+        printf("Watch.pollChanges operation did not return expected output.\n"
+               "Expected: Operation invocation object.\n");
+        printTestResult(testName, FALSE);
+        return 1;
+    }
+    // now we assume that we have processed the request and we send results
+    char operationResponseMessage[300];
+    sprintf(operationResponseMessage,
+            "<op is=\"/obix/def/OperationResponse\" href=\"%s\">\r\n"
+            "	%s\r\n"
+            "</op>",
+            operationUri, operationResponse);
+    Response* response = createTestResponse(TRUE, FALSE);
+    obix_server_handlePOST(response,
+                           "/obix/watchService/watch1/operationResponse",
+                           operationResponseMessage);
+    if (checkResponse(response, FALSE) != 0)
+    {
+        printTestResult(testName, FALSE);
+        return 1;
+    }
+    // now remote operation should send the response back. Check that it
+    // contains what we have sent
+    printf("Remote operation execution results:\n");
+    printResponse(remoteOperationResponse);
+    error = findInResponse(remoteOperationResponse, testResponseString, TRUE);
+    error += findInResponse(remoteOperationResponse, "out", FALSE);
+    if (error != 0)
+    {
+        printf("Remote operation response doesn't contain what it should.\n");
+        printTestResult(testName, FALSE);
+        return 1;
+    }
+
+    printTestResult(testName, TRUE);
+    return 0;
+}
+
+static int testWatchAddOperationHelper(const char* operationUri)
+{
+    //add operation to the watch
+    char addOperationRequest[250];
+    sprintf(addOperationRequest,
+            "<obj is=\"obix:WatchIn\">\r\n"
+            "<list name=\"hrefs\" of=\"obix:WatchInItem\">\r\n"
+            " <uri is=\"obix:WatchInItem\" val=\"%s\"/>\r\n"
+            "</list>\r\n"
+            "</obj>", operationUri);
+    Response* response = createTestResponse(TRUE, FALSE);
+    obix_server_handlePOST(response,
+                           "/obix/watchService/watch1/addOperation",
+                           addOperationRequest);
+    if (checkResponse(response, FALSE) != 0)
+    {
+        return 1;
+    }
+    if (findInResponse(response, operationUri, TRUE) != 0)
+    {
+        return 1;
+    }
+    freeTestResponse(response);
+
+    return 0;
+}
+
 /**
  * Tests operation forwarding.
  */
@@ -955,74 +1045,30 @@ static int testWatchRemoteOperations()
 
     // subscribe to this operation, first create watch
     testWatchMakeHelper("Remote Operations (server side): Create watch");
-
-    //then add operation to the watch
-    Response* response = createTestResponse(TRUE, FALSE);
-    obix_server_handlePOST(
-        response,
-        "/obix/watchService/watch1/addOperation",
-        "<obj is=\"obix:WatchIn\">\r\n"
-        "<list name=\"hrefs\" of=\"obix:WatchInItem\">\r\n"
-        " <uri is=\"obix:WatchInItem\" val=\"/obix/remoptest/op1\"/>\r\n"
-        "</list>\r\n"
-        "</obj>");
-    if (checkResponse(response, FALSE) != 0)
-    {
-        printTestResult(testName, FALSE);
-        return 1;
-    }
-    if (findInResponse(response, "/obix/remoptest/op1", TRUE) != 0)
-    {
-        printTestResult(testName, FALSE);
-        return 1;
-    }
-    freeTestResponse(response);
-
-    //now try to execute this operation and see what happens
-    Response* remoteOperationResponse = createTestResponse(TRUE, TRUE);
-    obix_server_handlePOST(remoteOperationResponse,
-                           "/obix/remoptest/op1",
-                           "<obj null=\"true\" />");
-
-    //try to poll changes: we now should receive operation invocation
-    char* checkStrings[] = {"<op", "op1", "OperationInvocation", "null", "in"};
-    error = testWatchPollChanges("Remote Operations (server side): "
-                                 "Check op response",
-                                 "/obix/watchService/watch1/pollChanges",
-                                 checkStrings,
-                                 5,
-                                 TRUE,
-                                 FALSE);
+    // then add the operation to the watch
+    error = testWatchAddOperationHelper("/obix/remoptest/op1");
     if (error != 0)
     {
-        printf("Watch.pollChanges operation did not return expected output.\n"
-               "Expected: Operation invocation object.\n");
+        printf("Unable to add operation to the watch using "
+               "Watch.addOperation.\n");
         return 1;
     }
-    // now we assume that we have processed the request and we send results
-    response = createTestResponse(TRUE, FALSE);
-    obix_server_handlePOST(response,
-                           "/obix/watchService/watch1/operationResponse",
-                           "<op is=\"/obix/def/OperationResponse\" "
-                           "href=\"/obix/remoptest/op1\">\r\n"
-                           "	<str name=\"out\" val=\"test123\" />\r\n"
-                           "</op>");
-    if (checkResponse(response, FALSE) != 0)
-    {
-        printTestResult(testName, FALSE);
-        return 1;
-    }
-    // now remote operation should send the response back. Check that it
-    // contains what we have sent
-    printf("Remote operation execution results:\n");
-    printResponse(remoteOperationResponse);
-    error = findInResponse(remoteOperationResponse, "test123", TRUE);
-    error += findInResponse(remoteOperationResponse, "out", FALSE);
+
+    error =
+        testWatchRemoteOperationsHelper("Normal remote op execution",
+                                        "/obix/remoptest/op1",
+                                        "op1",
+                                        "<str name=\"out\" val=\"test123\" />",
+                                        "test123");
+    error +=
+        testWatchRemoteOperationsHelper("2nd execution of same op",
+                                        "/obix/remoptest/op1",
+                                        "op1",
+                                        "<str name=\"out\" val=\"2ndEx\" />",
+                                        "2ndEx");
     if (error != 0)
     {
-        printf("Remote operation response doesn't contain what it should.\n");
-        printTestResult(testName, FALSE);
-        return 1;
+        return error;
     }
 
     if (testWatchDeleteHelper(testName) != 0)
@@ -1035,11 +1081,11 @@ static int testWatchRemoteOperations()
 }
 
 /**
- * Tests #obixResponse_setRightUri function.
- * @param requestUri Parameter to pass to #obixResponse_setRightUri.
- * @param slashFlag Parameter to pass to #obixResponse_setRightUri.
- * @param rightUri Correct URI, which should appear in response object.
- */
+* Tests #obixResponse_setRightUri function.
+* @param requestUri Parameter to pass to #obixResponse_setRightUri.
+* @param slashFlag Parameter to pass to #obixResponse_setRightUri.
+* @param rightUri Correct URI, which should appear in response object.
+*/
 static int testResponse_setRightUri(const char* testName,
                                     const char* requestUri,
                                     int slashFlag,

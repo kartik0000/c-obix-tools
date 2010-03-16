@@ -133,7 +133,8 @@ const Comm_Stack OBIX_HTTP_COMM_STACK =
         &http_readValue,
         &http_writeValue,
         &http_invoke,
-        &http_sendBatch
+        &http_sendBatch,
+        &http_getServerAddress
     };
 
 /** @name Names of tags and attributes in XML configuration file
@@ -2512,4 +2513,10 @@ int http_sendBatch(oBIX_Batch* batch)
     ixmlDocument_free(response);
 
     return OBIX_SUCCESS;
+}
+
+const char* http_getServerAddress(Connection* connection)
+{
+	Http_Connection* c = getHttpConnection(connection);
+	return c->serverUri;
 }

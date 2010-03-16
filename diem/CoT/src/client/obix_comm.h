@@ -223,10 +223,10 @@ typedef int (*comm_writeValue)(Connection* connection,
  * 				negative error codes defined by #OBIX_ERRORCODE.
  */
 typedef int (*comm_invoke)(Connection* connection,
-                               Device* device,
-                               const char* operationUri,
-                               const char* input,
-                               char** output);
+                           Device* device,
+                           const char* operationUri,
+                           const char* input,
+                           char** output);
 
 /**
  * Prototype of a function, which sends provided Batch object to oBIX server.
@@ -235,6 +235,12 @@ typedef int (*comm_invoke)(Connection* connection,
  * 				negative error codes defined by #OBIX_ERRORCODE.
  */
 typedef int (*comm_sendBatch)(oBIX_Batch* batch);
+
+/**
+ * Prototype of a function, which returns server address used in specified
+ * connection.
+ */
+typedef const char* (*comm_getServerAddress)(Connection* connection);
 
 /**
  * Defines full set of operations, which should be implemented by any
@@ -268,6 +274,8 @@ struct _Comm_Stack
     comm_invoke invoke;
     /** See #comm_sendBatch */
     comm_sendBatch sendBatch;
+    /** See #comm_getServerAddress */
+    comm_getServerAddress getServerAddress;
 };
 
 /**

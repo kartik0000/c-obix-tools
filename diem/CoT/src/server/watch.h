@@ -64,9 +64,9 @@ typedef struct oBIX_Watch_Item
      */
     BOOL isOperation;
     /**
-     * Link to the corresponding object in the storage.
+     * Link to the watched object in the storage.
      */
-    IXML_Element* doc;
+    IXML_Element* watchedDoc;
     /**
      * When watch item is subscribed for operation object, this field contains
      * a reference to the operation invocation parameters.
@@ -75,7 +75,7 @@ typedef struct oBIX_Watch_Item
     /**
      * Shows whether the object has been updated since last request.
      * In fact it is a link to the updated attribute of meta tag
-     * stored at #doc.
+     * stored at #watchedDoc.
      */
     IXML_Node* updated;
     /**

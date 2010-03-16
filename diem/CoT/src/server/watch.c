@@ -100,18 +100,26 @@ static pthread_mutex_t _watchedOpInvocationsMutex = PTHREAD_MUTEX_INITIALIZER;
  * Removes meta attributes which are added to operation object, when this object
  * is added to a Watch.
  */
-static void deleteMetaOperationTags(IXML_Element* element)
+static void deleteMetaOperationTags(const char* uri)
 {
+    IXML_Element* opInStorage = xmldb_getDOM(uri, NULL);
+    if (opInStorage == NULL)
+    {
+        log_error("Unable to find watched operation in the storage. "
+                  "This should never happen!!!");
+        return;
+    }
+
     // deleting operation handler id
     IXML_Node* metaVariable =
-        xmldb_getMetaVariable(element, OBIX_META_VAR_HANDLER_ID);
+        xmldb_getMetaVariable(opInStorage, OBIX_META_VAR_HANDLER_ID);
     if (metaVariable != NULL)
     {
         xmldb_deleteMetaVariable(metaVariable);
     }
 
     // deleting pointer to the watch item
-    metaVariable = xmldb_getMetaVariable(element, OBIX_META_VAR_WATCHITEM_P);
+    metaVariable = xmldb_getMetaVariable(opInStorage, OBIX_META_VAR_WATCHITEM_P);
     if (metaVariable != NULL)
     {
         xmldb_deleteMetaVariable(metaVariable);
@@ -152,7 +160,6 @@ static oBIX_Watch_Item* obixWatchItem_allocate(const char* uri)
 static oBIX_Watch_Item* obixWatchItem_free(oBIX_Watch_Item* item)
 {
     oBIX_Watch_Item* next = item->next;
-    free(item->uri);
 
     if ((item->updated != NULL) &&
             (xmldb_deleteMetaVariable(item->updated) != 0))
@@ -162,12 +169,13 @@ static oBIX_Watch_Item* obixWatchItem_free(oBIX_Watch_Item* item)
     }
     if (item->isOperation)
     {
-        if (item->doc != NULL)
+        if (item->watchedDoc != NULL)
         {
-            ixmlElement_free(item->doc);
+            deleteMetaOperationTags(item->uri);
+            ixmlElement_freeOwnerDocument(item->watchedDoc);
         }
-        deleteMetaOperationTags(item->doc);
     }
+    free(item->uri);
     free(item);
 
     return next;
@@ -814,7 +822,7 @@ int obixWatch_createWatchItem(oBIX_Watch* watch,
 
     // initialize WatchItem fields
     item->isOperation = isOperation;
-    item->doc = element;
+    item->watchedDoc = element;
     item->input = NULL;
     item->next = NULL;
 
@@ -830,18 +838,18 @@ int obixWatch_createWatchItem(oBIX_Watch* watch,
     // even more meta info for operations
     if (isOperation)
     {
+        item->watchedDoc = ixmlElement_cloneWithLog(element, TRUE);
+        if (item->watchedDoc == NULL)
+        {
+            obixWatchItem_free(item);
+            return -3;
+        }
+
         error = putMetaOperationTags(element, item);
         if (error != 0)
         {
             obixWatchItem_free(item);
             return error;
-        }
-
-        item->doc = ixmlElement_cloneWithLog(element, TRUE);
-        if (item->doc == NULL)
-        {
-            obixWatchItem_free(item);
-            return -3;
         }
     }
 
@@ -1218,7 +1226,7 @@ static int obixWatchItem_saveOperationInput(
 {
     IXML_Element* copiedInput;
     int error =
-        ixmlElement_putChildWithLog(watchItem->doc, input, &copiedInput);
+        ixmlElement_putChildWithLog(watchItem->watchedDoc, input, &copiedInput);
     if (error != 0)
     {
         return -1;
@@ -1227,7 +1235,7 @@ static int obixWatchItem_saveOperationInput(
 
     // set RemoteInvoke attributes (see RemoteInvocation contract)
     // TODO handle case when the doc already has "is" attribute
-    ixmlElement_setAttributeWithLog(watchItem->doc,
+    ixmlElement_setAttributeWithLog(watchItem->watchedDoc,
                                     OBIX_ATTR_IS,
                                     "/obix/def/OperationInvocation");
     ixmlElement_setAttributeWithLog(watchItem->input,
@@ -1240,7 +1248,7 @@ static int obixWatchItem_saveOperationInput(
 void obixWatchItem_clearOperationInput(oBIX_Watch_Item* watchItem)
 {
     int error = ixmlElement_freeChildElement(
-                    watchItem->doc,
+                    watchItem->watchedDoc,
                     watchItem->input);
     if (error != IXML_SUCCESS)
     {
@@ -1250,9 +1258,10 @@ void obixWatchItem_clearOperationInput(oBIX_Watch_Item* watchItem)
                   "ixmlElement_freeChildElement returned %d.",
                   watchItem->uri, error);
     }
+    watchItem->input = NULL;
 
     // remove RemoteInvocation contract
-    ixmlElement_removeAttributeWithLog(watchItem->doc, OBIX_ATTR_IS);
+    ixmlElement_removeAttributeWithLog(watchItem->watchedDoc, OBIX_ATTR_IS);
 }
 
 int obixWatchItem_saveRemoteOperationResponse(
@@ -1312,4 +1321,3 @@ Response* obixWatchItem_getSavedRemoteOperationResponse(const char* uri)
     pthread_mutex_unlock(&_watchedOpInvocationsMutex);
     return response;
 }
-

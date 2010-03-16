@@ -173,4 +173,9 @@ int http_invoke(Connection* connection,
  */
 int http_sendBatch(oBIX_Batch* batch);
 
+/**
+ * Implements #comm_getServerAddress prototype.
+ */
+const char* http_getServerAddress(Connection* connection);
+
 #endif /* OBIX_HTTP_H_ */

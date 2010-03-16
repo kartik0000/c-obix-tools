@@ -142,6 +142,14 @@ extern const char* OBIX_ATTR_WRITABLE;
 extern const char* OBIX_ATTR_DISPLAY;
 /** oBIX facet @a "displayName". */
 extern const char* OBIX_ATTR_DISPLAY_NAME;
+/** oBIX facet @a "min". */
+extern const char* OBIX_ATTR_MIN;
+/** oBIX facet @a "max". */
+extern const char* OBIX_ATTR_MAX;
+/** oBIX attribute @a "in". Specifies input argument type of the operation.*/
+extern const char* OBIX_ATTR_IN;
+/** oBIX attribute @a "out". Specifies output argument type of the operation.*/
+extern const char* OBIX_ATTR_OUT;
 /** @} */
 
 /** String representation of boolean @a true value. */
@@ -206,5 +214,12 @@ char* obix_reltime_fromLong(long duration, RELTIME_FORMAT format);
  * @return #TRUE if the object implements specified contract, #FALSE otherwise.
  */
 BOOL obix_obj_implementsContract(IXML_Element* obj, const char* contract);
+
+/**
+ * Checks whether the provided oBIX object is NULL. Object is null if its
+ * @a null attribute equals @a true.
+ * return #TRUE if the object is NULL, #FALSE otherwise.
+ */
+BOOL obix_obj_isNull(IXML_Element* obj);
 
 #endif /* OBIX_UTILS_H_ */

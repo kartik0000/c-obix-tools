@@ -96,6 +96,10 @@ const char* OBIX_ATTR_NULL = "null";
 const char* OBIX_ATTR_WRITABLE = "writable";
 const char* OBIX_ATTR_DISPLAY = "display";
 const char* OBIX_ATTR_DISPLAY_NAME = "displayName";
+const char* OBIX_ATTR_MIN = "min";
+const char* OBIX_ATTR_MAX = "max";
+const char* OBIX_ATTR_IN = "in";
+const char* OBIX_ATTR_OUT = "out";
 /** @} */
 
 const char* XML_TRUE = "true";
@@ -453,4 +457,20 @@ BOOL obix_obj_implementsContract(IXML_Element* obj, const char* contract)
     }
 
     return FALSE;
+}
+
+BOOL obix_obj_isNull(IXML_Element* obj)
+{
+	const char* nullAttr = ixmlElement_getAttribute(obj, OBIX_ATTR_NULL);
+	if (nullAttr == NULL)
+	{
+		return FALSE;
+	}
+
+	if (strcmp(nullAttr, XML_TRUE) == 0)
+	{
+		return TRUE;
+	}
+
+	return FALSE;
 }

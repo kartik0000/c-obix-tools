@@ -923,6 +923,17 @@ int obix_invoke(int connectionId,
                                       output);
 }
 
+const char* obix_getServerAddress(int connectionId)
+{
+    if ((connectionId < 0) || (connectionId >= _connectionCount))
+    {
+        return NULL;
+    }
+
+    Connection* connection = _connections[connectionId];
+    return (connection->comm->getServerAddress)(connection);
+}
+
 int obix_dispose()
 {
     int retVal = OBIX_SUCCESS;

@@ -452,7 +452,7 @@ static void watchAddHelper(Response* response,
         case 0:
             // add the current object state to the output
             obix_server_generateResponse(rItem,
-                                         watchItem->doc,
+                                         watchItem->watchedDoc,
                                          uriSet[i],
                                          FALSE,
                                          FALSE, 0,
@@ -743,7 +743,7 @@ static Response* generateWatchOutBody(const char* operationName,
             }
 
             obix_server_generateResponse(respPart,
-                                         watchItem->doc,
+                                         watchItem->watchedDoc,
                                          watchItem->uri,
                                          FALSE,
                                          FALSE, 0,
@@ -1248,7 +1248,7 @@ void handlerRemoteOperation(Response* response,
     {
         log_warning("Operation \"%s\" is called, but response object cannot be"
                     "used for waiting of remote operation execution.", uri);
-        sendErrorMessage(response, uri, "Remote Operation Invocation Error",
+        sendErrorMessage(response, uri, "Remote Operation Invocation",
                          "Unable to hold the request for remote operation "
                          "processing: Check that you are not trying to call "
                          "remote operation from Batch request. If not, than "
@@ -1263,7 +1263,7 @@ void handlerRemoteOperation(Response* response,
     {
         log_warning("Operation \"%s\" is called with no input at all. At least "
                     "Null object is expected.", uri);
-        sendErrorMessage(response, uri, "Remote Operation Invocation Error",
+        sendErrorMessage(response, uri, "Remote Operation Invocation",
                          "Operation can not be invoked without any arguments. "
                          "At least Null object is expected.");
         return;
@@ -1277,7 +1277,7 @@ void handlerRemoteOperation(Response* response,
         // it can never happen, because the object was already retrieved earlier
         log_error("Unable to get object with URI \"%s\". But it should be "
                   "there! It was definitely retrieved earlier!", uri);
-        sendErrorMessage(response, uri, "Remote Operation Invocation Error",
+        sendErrorMessage(response, uri, "Remote Operation Invocation",
                          "Internal server error.");
         return;
     }
@@ -1288,7 +1288,7 @@ void handlerRemoteOperation(Response* response,
     {
         log_error("Unable to find watch item meta variable at URI \"%s\".",
                   uri);
-        sendErrorMessage(response, uri, "Remote Operation Invocation Error",
+        sendErrorMessage(response, uri, "Remote Operation Invocation",
                          "Internal server error.");
         return;
     }
@@ -1299,10 +1299,10 @@ void handlerRemoteOperation(Response* response,
     // update watch item: save operation's input parameters
     if (watchItem->input != NULL)
     {
-        log_warning("WatchItem input field is not empty when someone tries to"
+        log_warning("WatchItem input field is not empty when someone tries to "
                     "invoke watched operation. Probably last request is not "
                     "yet processed (URI \"%s\").", uri);
-        sendErrorMessage(response, uri, "Remote Operation Invocation Error",
+        sendErrorMessage(response, uri, "Remote Operation Invocation",
                          "Previous request is not completed.");
         return;
     }
@@ -1311,7 +1311,7 @@ void handlerRemoteOperation(Response* response,
         obixWatchItem_saveOperationInvocation(watchItem, uri, response, input);
     if (error != 0)
     {
-        sendErrorMessage(response, uri, "Remote Operation Invocation Error",
+        sendErrorMessage(response, uri, "Remote Operation Invocation",
                          "Internal server error.");
     }
 }

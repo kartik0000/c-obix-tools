@@ -75,7 +75,6 @@
  * If not, please report the found error to the author of this distribution.
  *
  * @author Andrey Litvinov
- * @version 2.0.2
  */
 
 #ifndef OBIX_CLIENT_H_
@@ -218,6 +217,15 @@ int obix_loadConfig(IXML_Element* config);
  * 		   otherwise.
  */
 int obix_dispose();
+
+/**
+ * Returns server address, which is used in the specified connection.
+ * Can be invoked anytime after the library is initialized with
+ * #obix_loadConfigFile(), or #obix_loadConfig().
+ *
+ * @return @a NULL if no connection with specified id is found.
+ */
+const char* obix_getServerAddress(int connectionId);
 
 /**
  * Opens connection to the oBIX server.

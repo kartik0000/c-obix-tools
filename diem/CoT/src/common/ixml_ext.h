@@ -157,7 +157,7 @@ IXML_Element* ixmlElement_parseBuffer(const char* data);
  * @param element Element to which the attribute should be added.
  * @param attrName Name of the attribute to be added.
  * @param attrValue Value of the attribute.
- * @return @a 0 on success or @a 1 on error.
+ * @return @a 0 on success or @a -1 on error.
  */
 int ixmlElement_setAttributeWithLog(IXML_Element* element,
                                     const char* attrName,
@@ -171,7 +171,7 @@ int ixmlElement_setAttributeWithLog(IXML_Element* element,
  *
  * @param element Element from which the attribute should be removed.
  * @param attrName Name of the attribute to be removed.
- * @return @a 0 on success or @a 1 on error.
+ * @return @a 0 on success or @a -1 on error.
  */
 int ixmlElement_removeAttributeWithLog(IXML_Element* element,
                                        const char* attrName);

@@ -44,7 +44,6 @@ IXML_Element* ixmlNode_convertToElement(IXML_Node* node)
         return NULL;
     }
 
-    //TODO: That's not a good way to do things.
     return (IXML_Element*) node;
 }
 
@@ -102,7 +101,7 @@ int ixmlElement_setAttributeWithLog(IXML_Element* element,
     {
         log_error("Unable to add attribute to the XML element (ixml error %d).",
                   error);
-        return 1;
+        return -1;
     }
 
     return 0;
