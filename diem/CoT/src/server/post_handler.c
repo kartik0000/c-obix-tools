@@ -150,13 +150,15 @@ void handlerError(Response* response,
                   const char* uri,
                   IXML_Element* input)
 {
-    log_debug("Requested operation \"%s\" exists but not implemented.", uri);
+    log_debug("Requested operation \"%s\" has no handler.", uri);
     obix_server_generateObixErrorMessage(
         response,
         uri,
         OBIX_CONTRACT_ERR_UNSUPPORTED,
-        "Unsupported Request",
-        "The requested operation is not yet implemented.");
+        "Operation Request Error",
+        "The requested operation does not have any registered handler. "
+        "If you are invoking some device operation, make sure that the "
+        "corresponding device adapter is running.");
     obixResponse_send(response);
 }
 
@@ -408,8 +410,10 @@ static void watchAddHelper(Response* response,
                 operationName,
                 "Input data is corrupted. "
                 "An implementation of obix:WatchIn contract is expected.");
+            break;
         case -2:
             sendErrorMessage(response, uri, "Watch.add", "Not enough memory.");
+            break;
         default:
             sendErrorMessage(response,
                              uri,

@@ -174,6 +174,8 @@ static oBIX_Watch_Item* obixWatchItem_free(oBIX_Watch_Item* item)
             deleteMetaOperationTags(item->uri);
             ixmlElement_freeOwnerDocument(item->watchedDoc);
         }
+        // just in case if there was some failed remote operation request
+        obixWatchItem_getSavedRemoteOperationResponse(item->uri);
     }
     free(item->uri);
     free(item);
@@ -1271,6 +1273,8 @@ int obixWatchItem_saveRemoteOperationResponse(
     pthread_mutex_lock(&_watchedOpInvocationsMutex);
     int error = table_put(_watchedOpInvocations, uri, response);
     pthread_mutex_unlock(&_watchedOpInvocationsMutex);
+    log_error("Unable to save invocation object into a table (error #%d).",
+              error);
     return error;
 }
 

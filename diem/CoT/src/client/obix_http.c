@@ -803,32 +803,39 @@ static int recreateWatch(Http_Connection* c,
     }
 
     // add to Watch separately operations and all other objects.
-
-    error = addWatchItems(c,
-                          operationUris,
-                          operationsCount,
-                          TRUE,
-                          response,
-                          curlHandle);
-    if (error != OBIX_SUCCESS)
+    if (operationsCount > 0)
     {
-        return error;
-    }
-    // we want to make sure that response doesn't have errors. But we don't
-    // want to parse it
-    error = checkResponseDoc(*response, NULL);
-    ixmlDocument_free(*response);
-    if (error != OBIX_SUCCESS)
-    {
-        return error;
+        error = addWatchItems(c,
+                              operationUris,
+                              operationsCount,
+                              TRUE,
+                              response,
+                              curlHandle);
+        if (error != OBIX_SUCCESS)
+        {
+            return error;
+        }
+        // we want to make sure that response doesn't have errors. But we don't
+        // want to parse it
+        error = checkResponseDoc(*response, NULL);
+        ixmlDocument_free(*response);
+        if (error != OBIX_SUCCESS)
+        {
+            return error;
+        }
     }
 
-    return addWatchItems(c,
-                         variableUris,
-                         variablesCount,
-                         FALSE,
-                         response,
-                         curlHandle);
+    if (variablesCount > 0)
+    {
+        error = addWatchItems(c,
+                              variableUris,
+                              variablesCount,
+                              FALSE,
+                              response,
+                              curlHandle);
+    }
+
+    return error;
 }
 
 /**
@@ -2517,6 +2524,6 @@ int http_sendBatch(oBIX_Batch* batch)
 
 const char* http_getServerAddress(Connection* connection)
 {
-	Http_Connection* c = getHttpConnection(connection);
-	return c->serverUri;
+    Http_Connection* c = getHttpConnection(connection);
+    return c->serverUri;
 }
