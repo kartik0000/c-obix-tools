@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-   Copyright (c) 2009 Andrey Litvinov
+   Copyright (c) 2009, 2010 Andrey Litvinov
   
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -21,13 +21,6 @@
    THE SOFTWARE.
 -->
 <config>  
-
-  <!--
-    The address of the oBIX server. It will appear in all server's responses.
-    DO NOT leave this field as localhost because otherwise all remote clients
-    will receive responses with wrong URI's.
-  -->
-  <server-address val="http://localhost"/>
   
   <!--
   	 Optional tag, defining maximum number of long poll requests which can be 

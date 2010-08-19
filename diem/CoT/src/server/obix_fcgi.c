@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -230,8 +230,8 @@ int obix_fcgi_init(char* resourceDir)
         return -1;
     }
 
-    // configure server
-    error = obix_server_init(settings);
+    // initialize server
+    error = obix_server_init();
     config_finishInit(settings, error == 0);
     return error;
 }
@@ -245,27 +245,13 @@ void obix_fcgi_shutdown(FCGX_Request* request)
 
 void obix_fcgi_handleRequest(Request* request)
 {
-    // get request URI
-    const char* uri = FCGX_GetParam("REQUEST_URI", request->r.envp);
-    if (uri == NULL)
-    {
-        log_error("Unable to retrieve URI from the request.");
-        obix_fcgi_sendStaticErrorMessage(request);
-        return;
-    }
-    // truncate uri if it contains server address
-    if (xmldb_compareServerAddr(uri) == 0)
-    {
-        uri += xmldb_getServerAddressLength();
-    }
-    // check that uri is absolute
-    if (*uri != '/')
-    {
-        log_error("Request URI \"%s\" has wrong format: "
-                  "Should start with \'/\'.", uri);
-        obix_fcgi_sendStaticErrorMessage(request);
-        return;
-    }
+	// check that request has correct URI attributes
+	const char* uri = obixRequest_parseAttributes(request);
+	if (uri == NULL)
+	{
+		obix_fcgi_sendStaticErrorMessage(request);
+		return;
+	}
 
     // check the type of request
     const char* requestType = FCGX_GetParam("REQUEST_METHOD", request->r.envp);
@@ -277,7 +263,6 @@ void obix_fcgi_handleRequest(Request* request)
     }
 
     // prepare response object
-
     Response* response = obixResponse_create(request);
     if (response == NULL)
     {

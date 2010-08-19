@@ -98,6 +98,8 @@ static Request* createDummyRequest(BOOL canWait)
         return NULL;
     }
 
+    request->serverAddress = "http://localhost";
+    request->serverAddressLength = 16;
     request->canWait = canWait;
     request->next = NULL;
     return request;
@@ -336,8 +338,6 @@ static int testGenerateResponse(const char* testName,
     obix_server_generateResponse(response,
                                  oBIXdoc,
                                  newUrl,
-                                 TRUE,
-                                 FALSE,
                                  0,
                                  FALSE);
 
@@ -350,7 +350,7 @@ static int testGenerateResponse(const char* testName,
     printf("normalized object = %s", response->body);
     freeTestResponse(response);
 
-    if (testSearch("check object after normalization", newUrl, NULL, FALSE))
+    if (testSearch("check object after normalization 1", newUrl, NULL, FALSE))
     {
         printf("Changes in object are saved after normalization "
                "(but they shouldn't).\n");
@@ -358,12 +358,10 @@ static int testGenerateResponse(const char* testName,
         return 1;
     }
 
-    response = createTestResponse(TRUE, FALSE);
+    response = createTestResponse(FALSE, FALSE);
     obix_server_generateResponse(response,
                                  oBIXdoc,
                                  newUrl,
-                                 TRUE,
-                                 FALSE,
                                  0,
                                  TRUE);
     if ((response == NULL) || (response->body == NULL))
@@ -376,7 +374,7 @@ static int testGenerateResponse(const char* testName,
     printf("normalized object = %s", response->body);
     freeTestResponse(response);
 
-    if (testSearch("check object after normalization", newUrl, NULL, TRUE) ||
+    if (testSearch("check object after normalization 2", newUrl, NULL, TRUE) ||
             testSearch("check object for \'meta\' tags after normalization",
                        newUrl, OBIX_META, FALSE))
     {
@@ -1116,7 +1114,7 @@ int test_server(char* resFolder)
 
     int result = 0;
 
-    if (xmldb_init("http://localhost"))
+    if (xmldb_init())
     {
         printf("FAILED: Unable to start tests. database init failed.\n");
         return 1;

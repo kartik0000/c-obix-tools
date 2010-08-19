@@ -161,6 +161,10 @@ static CURL_EXT* _curl_watch_handle;
 /** Thread used for Watch polling cycle. */
 static Task_Thread* _watchThread;
 
+// definitions of asynchronous tasks implemented later in this file
+void watchPollTaskResume(void* arg);
+void watchPollTask(void* arg);
+
 static Http_Connection* getHttpConnection(Connection* connection)
 {
     // TODO it would be more safe to check the connection type first
@@ -458,10 +462,60 @@ static int writeValue(const char* paramUri,
         log_warning("Server's answer for PUT request contains error object. "
                     "Parameter \"%s\" can be left unchanged:\n%s",
                     paramUri, curlHandle->inputBuffer);
-        return OBIX_ERR_BAD_CONNECTION;
+        return OBIX_ERR_SERVER_ERROR;
     }
 
     return OBIX_SUCCESS;
+}
+
+
+/** Checks whether response message from the server is error object. */
+static int checkResponseElement(IXML_Element* element)
+{
+    if (strcmp(ixmlElement_getTagName(element), OBIX_OBJ_ERR) == 0)
+    {
+        char* text = ixmlPrintNode(ixmlElement_getNode(element));
+        log_error("Server replied with error:\n"
+                  "%s", text);
+        free(text);
+        return OBIX_ERR_SERVER_ERROR;
+    }
+
+    return OBIX_SUCCESS;
+}
+
+/** Checks parsed response for following errors:
+ * @li Response is not @a NULL;
+ * @li Response contains some object;
+ * @li Response object is not error.
+ *
+ * @param respDoc   Parsed response, which should be checked.
+ * @param respElem  Reference to the root object of the response is returned
+ * 					here.
+ * @return #OBIX_SUCCESS, or one of error codes defined by #OBIX_ERRORCODE.
+ */
+static int checkResponseDoc(IXML_Document* respDoc, IXML_Element** respElem)
+{
+    if (respDoc == NULL)
+    {
+        return OBIX_ERR_BAD_CONNECTION;
+    }
+
+    IXML_Element* element = ixmlDocument_getRootElement(respDoc);
+    if (element == NULL)
+    {
+        char* text = ixmlPrintDocument(respDoc);
+        log_error("Server response doesn't contain any oBIX objects:\n"
+                  "%s", text);
+        free(text);
+        return OBIX_ERR_BAD_CONNECTION;
+    }
+    if (respElem != NULL)
+    {
+        *respElem = element;
+    }
+
+    return checkResponseElement(element);
 }
 
 /**
@@ -502,7 +556,8 @@ static int addWatchItems(Http_Connection* c,
     {
         return OBIX_ERR_BAD_CONNECTION;
     }
-    return OBIX_SUCCESS;
+
+    return checkResponseDoc(*response, NULL);
 }
 
 /**
@@ -600,7 +655,7 @@ static int setWatchLeaseTime(Http_Connection* c,
                                   watchXml,
                                   OBIX_NAME_WATCH_LEASE,
                                   c->watchLease);
-    if (error == OBIX_ERR_BAD_CONNECTION)
+    if (error == OBIX_ERR_SERVER_ERROR)
     {
         // server could return error just because it prevents changes of
         // Watch.lease.
@@ -611,53 +666,95 @@ static int setWatchLeaseTime(Http_Connection* c,
     return error;
 }
 
-/** Checks whether response message from the server is error object. */
-static int checkResponseElement(IXML_Element* element)
+static void deleteWatchFromServer(Http_Connection* c)
 {
-    if (strcmp(ixmlElement_getTagName(element), OBIX_OBJ_ERR) == 0)
+    char watchDeleteFullUri[c->serverUriLength
+                            + strlen(c->watchDeleteUri) + 1];
+    strcpy(watchDeleteFullUri, c->serverUri);
+    strcat(watchDeleteFullUri, c->watchDeleteUri);
+    _curl_handle->outputBuffer = NULL;
+    IXML_Document* response;
+    int error = curl_ext_postDOM(_curl_handle,
+                                 watchDeleteFullUri,
+                                 &response);
+    if (error != 0)
     {
-        char* text = ixmlPrintNode(ixmlElement_getNode(element));
-        log_error("Server replied with error:\n"
-                  "%s", text);
-        free(text);
-        return OBIX_ERR_SERVER_ERROR;
+        log_error("Unable to delete Watch from the server %s.",
+                  watchDeleteFullUri);
+        return;
     }
 
-    return OBIX_SUCCESS;
+    if (response == NULL)
+    {
+        // server did not returned anything, but consider that
+        // watch is removed
+        log_warning("Server did not return anything for Watch.delete "
+                    "operation (%s).", watchDeleteFullUri);
+    }
+    else
+    {
+        // check the response
+        IXML_Element* obixObj = NULL;
+        error = checkResponseDoc(response, &obixObj);
+        if (error != OBIX_SUCCESS)
+        {
+            // check if the response contain Bad Uri error which means
+            // that Watch object was already removed and thus we can ignore this
+            // error
+            if (obix_obj_implementsContract(obixObj, OBIX_CONTRACT_ERR_BAD_URI))
+            {
+                log_warning("The Watch object is already deleted at the "
+                            "server. Probably server has dropped it because "
+                            "lease time of the object is less than poll "
+                            "interval.");
+            }
+            else
+            {
+                // some unknown error
+                log_error("Unknown error happened while trying to delete Watch "
+                          "object (%s) from the server.", watchDeleteFullUri);
+            }
+
+        }
+
+        ixmlDocument_free(response);
+    }
+
+    return;
 }
 
-/** Checks parsed response for following errors:
- * @li Response is not @a NULL;
- * @li Response contains some object;
- * @li Response object is not error.
- *
- * @param respDoc   Parsed response, which should be checked.
- * @param respElem  Reference to the root object of the response is returned
- * 					here.
- * @return #OBIX_SUCCESS, or one of error codes defined by #OBIX_ERRORCODE.
- */
-static int checkResponseDoc(IXML_Document* respDoc, IXML_Element** respElem)
+/** Removes Watch object from the server and also resets corresponding local
+ * settings. */
+static int removeWatch(Http_Connection* c)
 {
-    if (respDoc == NULL)
+    if (table_getCount(c->watchTable) > 0)
     {
-        return OBIX_ERR_BAD_CONNECTION;
+        log_warning("Deleting not empty watch object from the oBIX server. "
+                    "Some subscribed listeners can stop receiving updates.");
     }
 
-    IXML_Element* element = ixmlDocument_getRootElement(respDoc);
-    if (element == NULL)
+    // change poll task properties so that it will be executed only once
+    int error = ptask_reschedule(_watchThread, c->watchPollTaskId, 0, 1, TRUE);
+    if (error != 0)
     {
-        char* text = ixmlPrintDocument(respDoc);
-        log_error("Server response doesn't contain any oBIX objects:\n"
-                  "%s", text);
-        free(text);
-        return OBIX_ERR_BAD_CONNECTION;
-    }
-    if (respElem != NULL)
-    {
-        *respElem = element;
+        log_error("Unable to cancel Watch Poll Task:"
+                  "ptask_reschedule() returned %d", error);
+        return error;
     }
 
-    return checkResponseElement(element);
+    deleteWatchFromServer(c);
+
+    // stop polling task and wait for it if it is executing right now
+    // ignore error - we just want make sure that the task is canceled
+    // but it can be canceled earlier
+    ptask_cancel(_watchThread, c->watchPollTaskId, TRUE);
+
+    // reset all Watch related variables, because they are no longer valid
+    pthread_mutex_lock(&(c->watchMutex));
+    resetWatchUris(c);
+    pthread_mutex_unlock(&(c->watchMutex));
+
+    return OBIX_SUCCESS;
 }
 
 /** Creates Watch object at oBIX server. */
@@ -813,16 +910,23 @@ static int recreateWatch(Http_Connection* c,
                               curlHandle);
         if (error != OBIX_SUCCESS)
         {
+            log_error("Unable to restore Watch items at the server. "
+                      "Creation of Watch object failed.");
+            deleteWatchFromServer(c);
             return error;
         }
-        // we want to make sure that response doesn't have errors. But we don't
-        // want to parse it
-        error = checkResponseDoc(*response, NULL);
-        ixmlDocument_free(*response);
-        if (error != OBIX_SUCCESS)
+        // we still want to make sure that WatchOut object doesn't contain
+        // error objects. If so, than creation of Watch object failed.
+        if (ixmlDocument_getElementById(*response, OBIX_OBJ_ERR) != NULL)
         {
-            return error;
+            char* buffer = ixmlPrintDocument(*response);
+            log_error("WatchOut object contains errors. Creation of Watch "
+                      "object failed.\n%s", buffer);
+            free(buffer);
+            deleteWatchFromServer(c);
+            return OBIX_ERR_SERVER_ERROR;
         }
+        ixmlDocument_free(*response);
     }
 
     if (variablesCount > 0)
@@ -833,8 +937,30 @@ static int recreateWatch(Http_Connection* c,
                               FALSE,
                               response,
                               curlHandle);
+        if (error != OBIX_SUCCESS)
+        {
+            log_error("Unable to restore Watch items at the server. "
+                      "Creation of Watch object failed.");
+            deleteWatchFromServer(c);
+            return error;
+        }
+        // we still want to make sure that WatchOut object doesn't contain
+        // error objects. If so, than creation of Watch object failed.
+        if (ixmlDocument_getElementById(*response, OBIX_OBJ_ERR) != NULL)
+        {
+            char* buffer = ixmlPrintDocument(*response);
+            log_error("WatchOut object contains errors. Creation of Watch "
+                      "object failed.\n%s", buffer);
+            free(buffer);
+            deleteWatchFromServer(c);
+            return OBIX_ERR_SERVER_ERROR;
+        }
     }
 
+    if (error == OBIX_SUCCESS)
+    {
+        log_warning("Looks like we have successfully recovered Watch object!");
+    }
     return error;
 }
 
@@ -1084,50 +1210,7 @@ static int parseWatchOut(IXML_Document* doc,
                          Http_Connection* c,
                          CURL_EXT* curlHandle)
 {
-    // usually WatchOut doc is provided by caller method (and freed also in it)
-    // but sometimes we generate own one.
-    BOOL needToCleanDoc = FALSE;
     IXML_Element* element = NULL;
-    int error = checkResponseDoc(doc, &element);
-    if (error != OBIX_SUCCESS)
-    {
-        if (error != OBIX_ERR_SERVER_ERROR)
-        {
-            return error;
-        }
-
-        // we received error object instead of WatchOut.
-        // in case if it is BadUri than try to create new Watch object.
-        if (!obix_obj_implementsContract(element, OBIX_CONTRACT_ERR_BAD_URI))
-        {
-            // it is some strange error. no idea what to do with it
-            return OBIX_ERR_BAD_CONNECTION;
-        }
-
-        // it is badUri error which indicates (most probably it should :) that
-        // the Watch object is unexpectedly deleted from oBIX server
-        // (unfortunately it can happen :). Try to create new Watch.
-        log_warning("It seems like Watch object doesn't exist on the oBIX "
-                    "server anymore.");
-        error = recreateWatch(c, &doc, curlHandle);
-        if (error != OBIX_SUCCESS)
-        {
-            return error;
-        }
-
-        error = checkResponseDoc(doc, &element);
-        if (error != OBIX_SUCCESS)
-        {
-            ixmlDocument_free(doc);
-            return error;
-        }
-
-        // we have now own response generated by recreateWatch(), thus
-        // we need to free it after everything is done
-        needToCleanDoc = TRUE;
-    }
-
-
     element = ixmlDocument_getElementByAttrValue(
                   doc,
                   OBIX_ATTR_NAME,
@@ -1140,10 +1223,10 @@ static int parseWatchOut(IXML_Document* doc,
         element = ixmlDocument_getElementById(doc, OBIX_OBJ_LIST);
         if (element == NULL)
         {
-            if (needToCleanDoc)
-            {
-                ixmlDocument_free(doc);
-            }
+            // Still error.. WatchOut object is wrong
+            char* buffer = ixmlPrintDocument(doc);
+            log_error("WatchOut object has wrong format:\n%s", buffer);
+            free(buffer);
             return OBIX_ERR_BAD_CONNECTION;
         }
     }
@@ -1170,7 +1253,7 @@ static int parseWatchOut(IXML_Document* doc,
             char* text = ixmlPrintDocument(doc);
             log_warning("WatchOut contains error object:\n%s", text);
             free(text);
-            retVal = OBIX_ERR_BAD_CONNECTION;
+            retVal = OBIX_ERR_SERVER_ERROR;
             // ignore this node
             continue;
         }
@@ -1214,17 +1297,107 @@ static int parseWatchOut(IXML_Document* doc,
         // TODO check results
     }
 
-    if (needToCleanDoc)
-    {
-        ixmlDocument_free(doc);
-    }
     return retVal;
+}
+
+static void resetWatchPollErrorCount(Http_Connection* c)
+{
+    c->watchPollErrorCount = 0;
+}
+
+static void handleWatchPollError(int error, Http_Connection* c)
+{
+    log_error("Watch Poll Task: "
+              "Error occurred while parsing WatchOut object (error %d).",
+              error);
+
+    c->watchPollErrorCount++;
+    if (c->watchPollErrorCount >= 3)
+    {
+        log_error("Last 3 poll requests to %s failed. Probably connection with "
+                  "the server is lost. "
+                  "Server polling will be resumed after 1 minute.",
+                  c->serverUri);
+
+        if (ptask_cancel(_watchThread, c->watchPollTaskId, FALSE) != 0)
+        {
+            log_error("Unable to delete Watch poll task.");
+            return;
+        }
+        int ptaskId =
+            ptask_schedule(_watchThread, &watchPollTaskResume, c, 15000, 1);
+        if (ptaskId < 0)
+        {
+            log_error("Internal error: Unable to schedule new Watch poll task. "
+                      "Watch polling will not be restarted, i.e. client will "
+                      "not receive any new updates!");
+            return;
+        }
+    }
+
+}
+
+static int checkWatchPollResponse(Http_Connection* c,
+                                  IXML_Document** serverResponse,
+                                  CURL_EXT* curlHandle)
+{
+    IXML_Element* element = NULL;
+    int error = checkResponseDoc(*serverResponse, &element);
+    if (error == OBIX_ERR_SERVER_ERROR)
+    {
+        // we received error object instead of WatchOut.
+        // in case if it is BadUri than try to create new Watch object.
+        if (!obix_obj_implementsContract(element, OBIX_CONTRACT_ERR_BAD_URI))
+        {
+            // it is some strange error. no idea what to do with it
+            return OBIX_ERR_BAD_CONNECTION;
+        }
+
+        // it is badUri error which indicates (most probably it should :) that
+        // the Watch object was unexpectedly deleted from oBIX server
+        // (unfortunately it can happen :). Try to create a new Watch.
+        log_warning("It seems like Watch object doesn't exist on the oBIX "
+                    "server anymore.");
+        // delete old response
+        ixmlDocument_free(*serverResponse);
+        *serverResponse = NULL;
+        error = recreateWatch(c, serverResponse, curlHandle);
+    }
+
+    return error;
+}
+
+static int scheduleWatchPollTask(Http_Connection* c)
+{
+    resetWatchPollErrorCount(c);
+    long pollInterval = (c->pollWaitMax == 0) ? c->pollInterval : 0;
+    int ptaskId = ptask_schedule(_watchThread, &watchPollTask, c,
+                                 pollInterval, EXECUTE_INDEFINITE);
+    if (ptaskId < 0)
+    {
+        log_error("Unable to schedule Watch Poll Task: Not enough memory.");
+        return OBIX_ERR_NO_MEMORY;
+    }
+    c->watchPollTaskId = ptaskId;
+    return OBIX_SUCCESS;
+}
+
+void watchPollTaskResume(void* arg)
+{
+    Http_Connection* c = (Http_Connection*) arg;
+
+    int error = scheduleWatchPollTask(c);
+    if (error != OBIX_SUCCESS)
+    {
+        log_error("Watch Poll Task is not scheduled! No updates from the "
+                  "server will be received!");
+    }
 }
 
 /**
  * Calls Watch.pollChanges at the server and handles response.
  */
-static void watchPollTask(void* arg)
+void watchPollTask(void* arg)
 {
     Http_Connection* c = (Http_Connection*) arg;
 
@@ -1261,102 +1434,32 @@ static void watchPollTask(void* arg)
         log_error("Watch Poll Task: "
                   "Unable to poll changes from the server %s.",
                   watchPollChangesUri);
+        handleWatchPollError(OBIX_ERR_BAD_CONNECTION, c);
+        return;
+    }
+
+    error = checkWatchPollResponse(c, &response, _curl_watch_handle);
+    if (error != OBIX_SUCCESS)
+    {
+        if (response != NULL)
+        {
+            ixmlDocument_free(response);
+        }
+        handleWatchPollError(error, c);
         return;
     }
 
     error = parseWatchOut(response, c, _curl_watch_handle);
     if (error != OBIX_SUCCESS)
     {
-        log_error("Watch Poll Task: "
-                  "Unable to parse WatchOut object (error %d).", error);
-    }
-
-    ixmlDocument_free(response);
-}
-
-/** Removes Watch object from the server and also resets corresponding local
- * settings. */
-static int removeWatch(Http_Connection* c)
-{
-    if (table_getCount(c->watchTable) > 0)
-    {
-        log_warning("Deleting not empty watch object from the oBIX server. "
-                    "Some subscribed listeners can stop receiving updates.");
-    }
-
-    // change poll task properties so that it will be executed only once
-    int error = ptask_reschedule(_watchThread, c->watchPollTaskId, 0, 1, TRUE);
-    if (error != 0)
-    {
-        log_error("Unable to cancel Watch Poll Task:"
-                  "ptask_reschedule() returned %d", error);
-        return error;
-    }
-
-    // delete Watch object from the oBIX server
-    char watchDeleteFullUri[c->serverUriLength
-                            + strlen(c->watchDeleteUri) + 1];
-    strcpy(watchDeleteFullUri, c->serverUri);
-    strcat(watchDeleteFullUri, c->watchDeleteUri);
-    _curl_handle->outputBuffer = NULL;
-    IXML_Document* response;
-    error = curl_ext_postDOM(_curl_handle,
-                             watchDeleteFullUri,
-                             &response);
-    if (error != 0)
-    {
-        log_error("Unable to delete Watch from the server %s.",
-                  watchDeleteFullUri);
-        return OBIX_ERR_BAD_CONNECTION;
-    }
-
-    if (response == NULL)
-    {
-        // server did not returned anything, but consider that
-        // watch is removed
-        log_warning("Server did not return anything for Watch.delete "
-                    "operation (%s).", watchDeleteFullUri);
-    }
-    else
-    {
-        // check the response
-        IXML_Element* obixObj = NULL;
-        error = checkResponseDoc(response, &obixObj);
-        if (error != OBIX_SUCCESS)
-        {
-            // check if the response contain Bad Uri error which means
-            // that Watch object was already removed and thus we can ignore this
-            // error
-            if (obix_obj_implementsContract(obixObj, OBIX_CONTRACT_ERR_BAD_URI))
-            {
-                log_warning("The Watch object is already deleted at the "
-                            "server. Probably server has dropped it because "
-                            "lease time of the object is less than poll "
-                            "interval.");
-            }
-            else
-            {
-                // some unknown error
-                ixmlDocument_free(response);
-                return OBIX_ERR_BAD_CONNECTION;
-            }
-
-        }
-
         ixmlDocument_free(response);
+        handleWatchPollError(error, c);
+        return;
     }
 
-    // stop polling task and wait for it if it is executing right now
-    // ignore error - we just want make sure that the task is canceled
-    // but it can be canceled earlier
-    ptask_cancel(_watchThread, c->watchPollTaskId, TRUE);
-
-    // reset all Watch related variables, because they are no longer valid
-    pthread_mutex_lock(&(c->watchMutex));
-    resetWatchUris(c);
-    pthread_mutex_unlock(&(c->watchMutex));
-
-    return OBIX_SUCCESS;
+    // everything was OK
+    ixmlDocument_free(response);
+    resetWatchPollErrorCount(c);
 }
 
 /** Adds provided listener to local database.
@@ -1367,9 +1470,6 @@ static int addListener(Http_Connection* c,
 {
     // save listener to the listeners table
     pthread_mutex_lock(&(c->watchMutex));
-    // TODO if the same client would publish two similar devices and
-    // subscribe to the same paramUri in both these devices, we would have
-    // two equal keys in the table == epic fail :(
     table_put(c->watchTable, paramUri, listener);
 
     // check that we already have a watch object for this server
@@ -1383,19 +1483,13 @@ static int addListener(Http_Connection* c,
             return error;
         }
 
-        // schedule polling task
         // schedule new periodic task for watch polling
-        long pollInterval = (c->pollWaitMax == 0) ? c->pollInterval : 0;
-        int ptaskId = ptask_schedule(_watchThread, &watchPollTask, c,
-                                     pollInterval, EXECUTE_INDEFINITE);
-        if (ptaskId < 0)
+        error = scheduleWatchPollTask(c);
+        if (error != OBIX_SUCCESS)
         {
-            log_error("Unable to schedule Watch Poll Task: Not enough memory.");
             pthread_mutex_unlock(&(c->watchMutex));
-            return OBIX_ERR_NO_MEMORY;
+            return error;
         }
-        c->watchPollTaskId = ptaskId;
-
     }
     pthread_mutex_unlock(&(c->watchMutex));
 
@@ -1517,7 +1611,6 @@ static int parseElementValue(IXML_Element* element, char** output)
         log_warning("Received object doesn't have \"%s\" attribute:\n%s",
                     OBIX_ATTR_VAL, temp);
         free(temp);
-        ixmlElement_freeOwnerDocument(element);
         return OBIX_ERR_INVALID_ARGUMENT;
     }
 
@@ -1525,12 +1618,10 @@ static int parseElementValue(IXML_Element* element, char** output)
     if (copy == NULL)
     {
         log_error("Unable to allocate enough memory.");
-        ixmlElement_freeOwnerDocument(element);
         return OBIX_ERR_NO_MEMORY;
     }
     strcpy(copy, attr);
     *output = copy;
-    ixmlElement_freeOwnerDocument(element);
     return OBIX_SUCCESS;
 }
 
@@ -2091,14 +2182,11 @@ int http_registerListener(Connection* connection,
         return error;
     }
 
-    if ((*listener)->opHandler != NULL)
+    error = checkResponseDoc(response, NULL);
+
+    if ((error == OBIX_SUCCESS) && ((*listener)->opHandler == NULL))
     {
-        // we don't need to parse the whole returned WatchOut object. Just
-        // check that there are no errors
-        error = checkResponseDoc(response, NULL);
-    }
-    else
-    {
+        // for simple value listener we need also to parse current value
         error = parseWatchOut(response, c, _curl_handle);
     }
 
@@ -2247,7 +2335,9 @@ int http_readValue(Connection* connection,
         return error;
     }
 
-    return parseElementValue(element, output);
+    error = parseElementValue(element, output);
+    ixmlElement_freeOwnerDocument(element);
+    return error;
 }
 
 int http_writeValue(Connection* connection,

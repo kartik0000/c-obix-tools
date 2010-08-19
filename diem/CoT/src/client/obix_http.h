@@ -63,6 +63,7 @@ typedef struct _Http_Connection
     Table* watchTable;
     pthread_mutex_t watchMutex;
     int watchPollTaskId;
+    int watchPollErrorCount;
 }
 Http_Connection;
 

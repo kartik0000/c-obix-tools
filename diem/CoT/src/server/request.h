@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -48,6 +48,10 @@ typedef struct _Request
     /** Tells whether this request instance can be used for delayed request
      * processing, or should be released immediately. */
     BOOL canWait;
+    /** Server address used by client in the request. */
+    char* serverAddress;
+    /** Length of the server address string. */
+    int serverAddressLength;
 
     /** Next request instance in the list. For internal usage only. */
     struct _Request* next;
@@ -68,6 +72,12 @@ void obixRequest_release(Request* request);
  * released.
  */
 Request* obixRequest_get();
+
+/**
+ * Parses requested URI and server address.
+ * @return Requested URI
+ */
+const char* obixRequest_parseAttributes(Request* request);
 
 /**
  * Releases memory allocated for all request objects.

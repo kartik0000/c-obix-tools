@@ -588,12 +588,7 @@ int obixWatch_create(IXML_Element** watchDOM)
     }
 
     //save created Watch object in the storage
-    char* watchData = ixmlPrintNode(ixmlElement_getNode(watchElement));
-    error = xmldb_put(watchData);
-    if (watchData != NULL)
-    {
-        free(watchData);
-    }
+    error = xmldb_putDOM(watchElement);
     if (error != 0)
     {
         cleanup();

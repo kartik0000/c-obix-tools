@@ -66,9 +66,6 @@
 #define BATCH_OUT_POSTFIX "\r\n</list>\r\n"
 /** @} */
 
-/** Link to the list of references for each connected device. */
-#define DEVICE_LIST_URI "/obix/devices/"
-
 // handler definitions. See their description near implementation.
 void handlerError(Response* response,
                   const char* uri,
@@ -238,8 +235,6 @@ void handlerWatchServiceMake(Response* response,
     obix_server_generateResponse(response,
                                  watchDOM,
                                  watchUri,
-                                 TRUE,
-                                 FALSE,
                                  0,
                                  TRUE);
     // free Watch DOM structure
@@ -458,8 +453,7 @@ static void watchAddHelper(Response* response,
             obix_server_generateResponse(rItem,
                                          watchItem->watchedDoc,
                                          uriSet[i],
-                                         FALSE,
-                                         FALSE, 0,
+                                         0,
                                          FALSE);
             break;
         case -1:
@@ -749,8 +743,7 @@ static Response* generateWatchOutBody(const char* operationName,
             obix_server_generateResponse(respPart,
                                          watchItem->watchedDoc,
                                          watchItem->uri,
-                                         FALSE,
-                                         FALSE, 0,
+                                         0,
                                          FALSE);
 
             if (watchItem->isOperation && (watchItem->input != NULL))
@@ -999,78 +992,6 @@ void handlerWatchDelete(Response* response,
 }
 
 /**
- * Creates a reference to the new device. This reference is stored at the
- * server in special list of devices accessible from Lobby object.
- *
- * @param newDevice Data of the new device.
- */
-static int putDeviceReference(IXML_Element* newDevice)
-{
-    IXML_Element* devices = xmldb_getDOM(DEVICE_LIST_URI, NULL);
-    if (devices == NULL)
-    {
-        // database failure
-        log_error("Unable to find device list in the storage.");
-        return -1;
-    }
-
-    //TODO check that there are no links with such address yet
-
-    // create new <ref/> object and copy 'href', 'name', 'display' and
-    // 'displayName' attributes to it
-
-    IXML_Element* ref =
-        ixmlElement_createChildElementWithLog(devices, OBIX_OBJ_REF);
-    if (ref == NULL)
-    {
-        log_error("Unable to add new reference to the device list.");
-        return -1;
-    }
-
-    // copy attribute uri
-    int error = ixmlElement_copyAttributeWithLog(newDevice, ref,
-                OBIX_ATTR_HREF,
-                TRUE);
-    if (error != IXML_SUCCESS)
-    {
-        ixmlElement_free(ref);
-        return -1;
-    }
-
-    // copy attribute name
-    error = ixmlElement_copyAttributeWithLog(newDevice, ref,
-            OBIX_ATTR_NAME,
-            FALSE);
-    if ((error != IXML_SUCCESS) && (error != IXML_NOT_FOUND_ERR))
-    {
-        ixmlElement_free(ref);
-        return -1;
-    }
-
-    // copy optional attribute display
-    error = ixmlElement_copyAttributeWithLog(newDevice, ref,
-            OBIX_ATTR_DISPLAY,
-            FALSE);
-    if ((error != IXML_SUCCESS) && (error != IXML_NOT_FOUND_ERR))
-    {
-        ixmlElement_free(ref);
-        return -1;
-    }
-
-    // copy optional attribute displayName
-    error = ixmlElement_copyAttributeWithLog(newDevice, ref,
-            OBIX_ATTR_DISPLAY_NAME,
-            FALSE);
-    if ((error != IXML_SUCCESS) && (error != IXML_NOT_FOUND_ERR))
-    {
-        ixmlElement_free(ref);
-        return -1;
-    }
-
-    return 0;
-}
-
-/**
  * Handles signUp operation. Adds new device data to the server.
  *
  * @see obix_server_postHandler
@@ -1085,9 +1006,6 @@ void handlerSignUp(Response* response, const char* uri, IXML_Element* input)
 
     int error = xmldb_putDOM(input);
     const char* href = ixmlElement_getAttribute(input, OBIX_ATTR_HREF);
-    // in stored object href attribute contains server address, but we don't
-    // need it
-    href += xmldb_getServerAddressLength();
     if (error != 0)
     {
         // TODO return different description of different errors
@@ -1113,7 +1031,7 @@ void handlerSignUp(Response* response, const char* uri, IXML_Element* input)
     }
 
     // add reference to the new device
-    error = putDeviceReference(input);
+    error = xmldb_putDeviceReference(input);
     if (error != 0)
     {
         xmldb_delete(href);
@@ -1128,9 +1046,8 @@ void handlerSignUp(Response* response, const char* uri, IXML_Element* input)
     // return saved object
     obix_server_generateResponse(response,
                                  input,
-                                 NULL,
-                                 TRUE,
-                                 TRUE, 0,
+                                 href,
+                                 0,
                                  TRUE);
     // TODO what about removing this isError at all?
     if (obixResponse_isError(response))

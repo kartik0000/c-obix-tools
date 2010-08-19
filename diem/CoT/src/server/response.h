@@ -35,7 +35,7 @@
 
 /** Response structure.
  * Contains server's response message.
- * The message can consist of several chained response instances
+ * A message can consist of several chained response instances
  * (see #obixResponse_getNewPart). */
 typedef struct Response
 {

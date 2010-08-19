@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -35,10 +35,9 @@
 
 /**
  * Initializes request processing engine.
- * @param settings Server's settings loaded from #server_config.xml.
  * @return @a 0 on success; @a -1 on failure.
  */
-int obix_server_init(IXML_Element* settings);
+int obix_server_init();
 
 /**
  * Stops request processing engine and releases all allocated memory.
@@ -116,10 +115,6 @@ void obix_server_invoke(Response* response,
  * object.
  * @param doc Response message XML.
  * @param requestUri URI, which was requested by client.
- * @param changeUri Tells whether the provided @a requestUri should be
- * 					normalized or used as is.
- * @param useObjectUri Tells whether URI of object inside @a doc should be used
- * 					during @a requestUri normalization.
  * @param slashFlag Flag, which tells whether trailing slash should be added or
  * 					removed from @a requestUri. This flag is returned by
  * 					#xmldb_get, or xmldb_getDOM.
@@ -128,8 +123,6 @@ void obix_server_invoke(Response* response,
 void obix_server_generateResponse(Response* response,
                                   IXML_Element* doc,
                                   const char* requestUri,
-                                  BOOL changeUri,
-                                  BOOL useObjectUri,
                                   int slashFlag,
                                   BOOL saveChanges);
 

@@ -163,7 +163,7 @@ static int testCurlExt()
     error += testCurlExtRequest("GET wrong page",
                                 REQUEST_HTTP_GET,
                                 curl,
-                                "http://server12345.com",
+                                "http://server12345.gdh.sad.t1t",
                                 FALSE);
     // try to put some data to the server
     curl->outputBuffer = "<bool "

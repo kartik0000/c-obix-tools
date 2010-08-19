@@ -37,25 +37,10 @@
 #include "watch.h"
 #include "server.h"
 
-/** Name of configuration parameter, which defines server address.*/
-static const char* CT_SERVER_ADDRESS = "server-address";
-
-int obix_server_init(IXML_Element* settings)
+int obix_server_init()
 {
-    // get the server address from settings
-    const char* servAddr =
-        config_getTagAttributeValue(
-            config_getChildTag(settings, CT_SERVER_ADDRESS, TRUE),
-            CTA_VALUE,
-            TRUE);
-    if (servAddr == NULL)
-    {
-        // no server address available - shut down
-        return -1;
-    }
-
     //initialize server storage
-    int error = xmldb_init(servAddr);
+    int error = xmldb_init();
     if (error != 0)
     {
         log_error("Unable to start the server. xmldb_init returned: %d", error);
@@ -119,8 +104,6 @@ void obix_server_generateObixErrorMessage(
     obix_server_generateResponse(response,
                                  errorDOM,
                                  uri,
-                                 TRUE,
-                                 FALSE,
                                  0,
                                  TRUE);
     obixResponse_setErrorFlag(response, TRUE);
@@ -155,8 +138,6 @@ void obix_server_read(Response* response, const char* uri)
     obix_server_generateResponse(response,
                                  oBIXdoc,
                                  uri,
-                                 TRUE,
-                                 TRUE,
                                  slashFlag,
                                  FALSE);
 }
@@ -241,8 +222,6 @@ void obix_server_write(Response* response,
             obix_server_generateResponse(response,
                                          element,
                                          uri,
-                                         TRUE,
-                                         TRUE,
                                          slashFlag,
                                          FALSE);
         }
@@ -380,46 +359,52 @@ void obix_server_shutdown()
  * Adds server address to the requested URI and also adds/removes
  * trailing slash ('/') if needed.
  *
- * @param requestUri Requested URI. It should be absolute (show address from
- *                   the server root)
- * @param doc Requested oBIX document. Object should contain @a href
- *            attribute. If NULL is provided than full URI is created only
- *            based on request URI.
+ * @param partUri   Requested URI. It should be absolute (show address from
+ *                  the server root)
  * @param slashFlag Flag indicating difference in trailing slash between
  *        requested URI and object's URI.
+ * 			@li @a 0 nothing to be done;
+ * 			@li @a 1 need to add trailing slash;
+ *			@li @a -1 need to remove trailing slash.
  * @return Full URI. If the original oBIX document already contains full URI
  *          then @a NULL will be returned. @note Don't forget to free memory
  *          after usage.
  */
-static char* normalizeUri(const char* requestUri,
-                          IXML_Element* doc,
+static char* normalizeUri(Response* response,
+                          const char* partUri,
                           int slashFlag)
 {
-    if (doc == NULL)
-    {
-        // no need to consider trailing '/' of original the URI
-        // so simply add server address to the request URI
-        return xmldb_getFullUri(requestUri, 0);
-    }
+    char* fullUri;
 
-    const char* origUri = ixmlElement_getAttribute(doc, OBIX_ATTR_HREF);
-    if (origUri == NULL)
+    // calculate the size of returning URI.
+    int size = response->request->serverAddressLength + strlen(partUri);
+
+    // allocate memory, considering trailing slash and NULL character '\0'
+    fullUri = (char*) malloc(size + slashFlag + 1);
+    if (fullUri == NULL)
     {
-        // it should never happen because oBIX document is found
-        // in storage based on it's href attribute.
-        log_error("Requested oBIX document doesn't have href attribute.");
+        log_error("Unable to generate full URI: not enough memory.");
         return NULL;
     }
 
-    if (xmldb_compareServerAddr(origUri) == 0)
+    // copy strings
+    memcpy(fullUri,
+           response->request->serverAddress,
+           response->request->serverAddressLength);
+    memcpy(fullUri + response->request->serverAddressLength,
+           partUri,
+           size - response->request->serverAddressLength);
+
+    if (slashFlag == 1)
     {
-        // original URI is already full URI. nothing to be done
-        return NULL;
+        // add trailing slash
+        fullUri[size] = '/';
     }
 
-    // original URI is local one: we should use request URI
-    // considering differences in trailing slash
-    return xmldb_getFullUri(requestUri, slashFlag);
+    // finalize string
+    fullUri[size + slashFlag] = '\0';
+
+    return fullUri;
 }
 
 /**
@@ -430,18 +415,18 @@ static char* normalizeUri(const char* requestUri,
  *    - xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
  *    - xsi:schemaLocation="http://obix.org/ns/schema/1.0"
  *    - xmlns="http://obix.org/ns/schema/1.0"
- * - Removes @a handler attribute from @a <op/> nodes.
+ * - Removes meta data from all objects.
  *
  * @param oBIXdoc Pointer to the root node of the oBIX document.
- * @param fullUri URI containing address starting from the root of the server.
- * @param addXmlns If true than xmlns attributes are added to the parent tag.
+ * @param fullUri URI containing address starting from the server root.
+ * @param addXmlns Defines whether XML namespace attributes would be added.
  * @param saveChanges If TRUE saves changes in the original DOM structure,
  *                    otherwise modifies a copy.
  * @return string representation of the document. <b>Don't forget</b> to free
  *         memory after usage.
  */
 static char* normalizeObixDocument(IXML_Element* oBIXdoc,
-                                   char* fullUri,
+                                   const char* fullUri,
                                    BOOL addXmlns,
                                    BOOL saveChanges)
 {
@@ -455,16 +440,13 @@ static char* normalizeObixDocument(IXML_Element* oBIXdoc,
         }
     }
 
-    int error = 0;
-    if (fullUri != NULL)
-    {
-        // update URI if provided
-        error =
-            ixmlElement_setAttributeWithLog(oBIXdoc, OBIX_ATTR_HREF, fullUri);
-    }
+    // set correct URI to the object
+    int error =
+        ixmlElement_setAttributeWithLog(oBIXdoc, OBIX_ATTR_HREF, fullUri);
 
     if (addXmlns)
-    {   // TODO move it to constants?
+    {
+        // TODO move it to constants?
         error += ixmlElement_setAttributeWithLog(
                      oBIXdoc,
                      "xmlns:xsi",
@@ -478,6 +460,7 @@ static char* normalizeObixDocument(IXML_Element* oBIXdoc,
                      "xmlns",
                      "http://obix.org/ns/schema/1.0");
     }
+
     if (error != 0)
     {
         log_error("Unable to normalize oBIX object.");
@@ -501,8 +484,6 @@ static char* normalizeObixDocument(IXML_Element* oBIXdoc,
 void obix_server_generateResponse(Response* response,
                                   IXML_Element* doc,
                                   const char* requestUri,
-                                  BOOL changeUri,
-                                  BOOL useObjectUri,
                                   int slashFlag,
                                   BOOL saveChanges)
 {
@@ -515,50 +496,40 @@ void obix_server_generateResponse(Response* response,
         return;
     }
 
-
-    // get the full URI
-    char* fullUri;
-    if (!changeUri)
-    {	// use provided URI with no changes
-        fullUri = ixmlCloneDOMString(requestUri);
+    char* fullUri = NULL;
+    BOOL responseIsHead = obixResponse_isHead(response);
+    if (responseIsHead)
+    {	// head response object should always contain server address
+        fullUri = normalizeUri(response, requestUri, slashFlag);
     }
     else
-    {	// normalize URI
-        if (useObjectUri)
-        {
-            fullUri = normalizeUri(requestUri, doc, slashFlag);
-        }
-        else
-        {
-            fullUri = normalizeUri(requestUri, NULL, 0);
-        }
+    {
+        // response object is not head, but we still need to overwrite object
+        // URI with one from request. The reason is that some object in storage
+        // could have relative URI, but it was requested as absolute.
+        // This can happen in Batch requests and everything about Watch
+        fullUri = ixmlCloneDOMString(requestUri);
     }
 
-    BOOL responseIsHead = obixResponse_isHead(response);
     char* text =
-    	normalizeObixDocument(doc, fullUri, responseIsHead, saveChanges);
+        normalizeObixDocument(doc, fullUri, responseIsHead, saveChanges);
     if (text == NULL)
     {
         log_error("Unable to normalize the output oBIX document.");
         obixResponse_setError(response,
                               "Unable to normalize the output oBIX document.");
+        free(fullUri);
         return;
     }
 
     obixResponse_setText(response, text, FALSE);
 
-    if (slashFlag != 0)
+    if (responseIsHead && (slashFlag != 0))
     {
-        // if no URI is generated than we should take it from the object
-        if (fullUri == NULL)
-        {
-            response->uri = ixmlCloneDOMString(
-                                ixmlElement_getAttribute(doc, OBIX_ATTR_HREF));
-        }
-        else // use generated URI
-        {
-            response->uri = ixmlCloneDOMString(fullUri);
-        }
+        response->uri = fullUri;
     }
-    free(fullUri);
+    else
+    {
+    	free(fullUri);
+    }
 }

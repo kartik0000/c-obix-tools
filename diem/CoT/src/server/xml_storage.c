@@ -36,11 +36,14 @@
 #include <log_utils.h>
 #include "xml_storage.h"
 
+/** Link to the list of references for each connected device. */
+#define DEVICE_LIST_URI "/obix/devices/"
+
 /** Prefix for all paths inside oBIX server. Only system objects have another
  * URI and they are not accessible for a client. */
-static const char* DEVICE_URI_PREFIX = "/obix";
-/** Length of #DEVICE_URI_PREFIX */
-static const int DEVICE_URI_PREFIX_LENGTH = 5;
+static const char* DEFAULT_URI_PREFIX = "/obix";
+/** Length of #DEFAULT_URI_PREFIX */
+static const int DEFAULT_URI_PREFIX_LENGTH = 5;
 
 const char* OBIX_SYS_WATCH_STUB = "/sys/watch-stub/";
 const char* OBIX_SYS_ERROR_STUB = "/sys/error-stub/";
@@ -66,11 +69,6 @@ static const int OBIX_STORAGE_FILES_COUNT = 7;
 
 /** The place where all data is stored. */
 static IXML_Document* _storage = NULL;
-
-/** Address of the current server. */
-static char* _serverAddress = NULL;
-/** Length of #_serverAddress */
-static int _serverAddressLength;
 
 /** Prints contents of XML node to debug log. */
 static void printXMLContents(IXML_Node* node, const char* title)
@@ -119,23 +117,11 @@ static int compare_uri(const char* currentUri,
                        int checked,
                        int* slashFlag)
 {
-    //log_debug("comparing: \"%s\" and \"%s\"", currentUri, requiredUri + checked);
-    if (xmldb_compareServerAddr(currentUri) == 0)
+    if (*currentUri == '/')
     {
-        // currentUri is absolute, compare from the beginning
+        // currentUri contains path from server root
         // ignore checked
-        currentUri += _serverAddressLength;
         checked = 0;
-    }
-    else
-    {
-        // currentUri is relative.
-        if (*currentUri == '/')
-        {
-            // currentUri contains path from server root
-            // ignore checked
-            checked = 0;
-        }
     }
 
     //clear last comparison flag
@@ -299,14 +285,6 @@ static IXML_Node* getNodeByHref(IXML_Document* doc,
                                 const char* href,
                                 int* slashFlag)
 {
-    // TODO think whether leave it here and remove checks in other places
-    // or remove it from here and make a special method which will be
-    // used by obix_fcgi_handleRequest and by Watch.add (remove)
-    if (xmldb_compareServerAddr(href) == 0)
-    {
-        href += _serverAddressLength;
-    }
-
     // in case if no slash flag is required, provide a temp variable to the
     // further methods.
     int temp;
@@ -322,14 +300,9 @@ static IXML_Node* getNodeByHref(IXML_Document* doc,
 
 /**
  * Checks for all href attributes in the provided piece of XML and inserts
- * server address (and @A /obix prefix if necessary) to all URI's which are
- * absolute.
- *
- * @param checkPrefix if @a TRUE, than all absolute URIs will have (server
- * 			address + /obix) in the beginning. Otherwise only server address
- * 			will be added when needed.
+ * @a /obix prefix if necessary to all URI's which are absolute.
  */
-static void insertServerAddress(IXML_Node* node, BOOL checkPrefix)
+static void insertDefaultUriPrefix(IXML_Node* node)
 {
     if (node == NULL)
         return;	// exit point for the recursion
@@ -342,38 +315,31 @@ static void insertServerAddress(IXML_Node* node, BOOL checkPrefix)
         if ((href != NULL) && (*href == '/'))
         {
             // href attribute points to the server root
-            // check that it starts with /obix/
-            int additionalSpace = 0;
-            if (checkPrefix && (strncmp(href,
-                                        DEVICE_URI_PREFIX,
-                                        DEVICE_URI_PREFIX_LENGTH) != 0))
+            // check whether it starts with /obix/
+            if (strncmp(href,
+                        DEFAULT_URI_PREFIX,
+                        DEFAULT_URI_PREFIX_LENGTH) != 0)
             {
-                additionalSpace = DEVICE_URI_PREFIX_LENGTH;
-            }
-            // add server address to it
-            char newHref[strlen(href) + _serverAddressLength
-                         + additionalSpace + 1];
-            strcpy(newHref, _serverAddress);
-            if (additionalSpace > 0)
-            {
-                strcpy(newHref + _serverAddressLength, DEVICE_URI_PREFIX);
-            }
-            strcpy(newHref + _serverAddressLength + additionalSpace, href);
-            int error = ixmlElement_setAttribute(element,
-                                                 OBIX_ATTR_HREF,
-                                                 newHref);
-            if (error != IXML_SUCCESS)
-            {
-                log_warning("Unable to update \"%s\" attribute of the object "
-                            "before storing it: ixmlElement_setAttribute "
-                            "returned %d.", OBIX_ATTR_HREF, error);
+                // let's add /obix prefix
+                char newHref[strlen(href) + DEFAULT_URI_PREFIX_LENGTH + 1];
+                strcpy(newHref, DEFAULT_URI_PREFIX);
+                strcpy(newHref + DEFAULT_URI_PREFIX_LENGTH, href);
+                int error = ixmlElement_setAttribute(element,
+                                                     OBIX_ATTR_HREF,
+                                                     newHref);
+                if (error != IXML_SUCCESS)
+                {
+                    log_warning("Unable to update \"%s\" attribute of the object "
+                                "before storing it: ixmlElement_setAttribute "
+                                "returned %d.", OBIX_ATTR_HREF, error);
+                }
             }
         }
     }
 
     // search also in child and neighbor tags
-    insertServerAddress(ixmlNode_getFirstChild(node), checkPrefix);
-    insertServerAddress(ixmlNode_getNextSibling(node), checkPrefix);
+    insertDefaultUriPrefix(ixmlNode_getFirstChild(node));
+    insertDefaultUriPrefix(ixmlNode_getNextSibling(node));
 }
 
 /**
@@ -413,7 +379,10 @@ static const char* checkNode(IXML_Node* node, BOOL checkPrefix)
         return NULL;
     }
 
-    insertServerAddress(node, checkPrefix);
+    if (checkPrefix)
+    {
+        insertDefaultUriPrefix(node);
+    }
 
     // the href could be changed so we need to get it once more
     return ixmlElement_getAttribute(element, OBIX_ATTR_HREF);
@@ -524,7 +493,75 @@ int xmldb_putDOM(IXML_Element* data)
     return xmldb_putDOMHelper(data, TRUE);
 }
 
-int xmldb_init(const char* serverAddr)
+int xmldb_putDeviceReference(IXML_Element* deviceData)
+{
+    IXML_Element* devices =
+        ixmlNode_convertToElement(
+            getNodeByHref(_storage, DEVICE_LIST_URI, NULL));
+    if (devices == NULL)
+    {
+        // database failure
+        log_error("Unable to find device list in the storage.");
+        return -1;
+    }
+
+    //TODO check that there are no links with such address yet
+
+    // create new <ref/> object and copy 'href', 'name', 'display' and
+    // 'displayName' attributes to it
+
+    IXML_Element* ref =
+        ixmlElement_createChildElementWithLog(devices, OBIX_OBJ_REF);
+    if (ref == NULL)
+    {
+        log_error("Unable to add new reference to the device list.");
+        return -1;
+    }
+
+    // copy attribute uri
+    int error = ixmlElement_copyAttributeWithLog(deviceData, ref,
+                OBIX_ATTR_HREF,
+                TRUE);
+    if (error != IXML_SUCCESS)
+    {
+        ixmlElement_free(ref);
+        return -1;
+    }
+
+    // copy attribute name
+    error = ixmlElement_copyAttributeWithLog(deviceData, ref,
+            OBIX_ATTR_NAME,
+            FALSE);
+    if ((error != IXML_SUCCESS) && (error != IXML_NOT_FOUND_ERR))
+    {
+        ixmlElement_free(ref);
+        return -1;
+    }
+
+    // copy optional attribute display
+    error = ixmlElement_copyAttributeWithLog(deviceData, ref,
+            OBIX_ATTR_DISPLAY,
+            FALSE);
+    if ((error != IXML_SUCCESS) && (error != IXML_NOT_FOUND_ERR))
+    {
+        ixmlElement_free(ref);
+        return -1;
+    }
+
+    // copy optional attribute displayName
+    error = ixmlElement_copyAttributeWithLog(deviceData, ref,
+            OBIX_ATTR_DISPLAY_NAME,
+            FALSE);
+    if ((error != IXML_SUCCESS) && (error != IXML_NOT_FOUND_ERR))
+    {
+        ixmlElement_free(ref);
+        return -1;
+    }
+
+    return 0;
+}
+
+int xmldb_init()
 {
     if (_storage != NULL)
     {
@@ -540,21 +577,8 @@ int xmldb_init(const char* serverAddr)
         return error;
     }
 
-    // load server address
-    if (serverAddr == NULL)
-    {
-        log_error("No server address provided. Storage initialization failed.");
-        return -1;
-    }
-    else
-    {
-        _serverAddressLength = strlen(serverAddr);
-        _serverAddress = (char*) malloc(_serverAddressLength + 1);
-        strcpy(_serverAddress, serverAddr);
-    }
-    log_debug("Storage is initialized with server address: %s", _serverAddress);
-
     // load storage contents from files:
+    log_debug("Loading server storage data from files..");
     int i;
     for (i = 0; i < OBIX_STORAGE_FILES_COUNT; i++)
     {
@@ -565,6 +589,7 @@ int xmldb_init(const char* serverAddr)
         }
     }
 
+    log_debug("Storage is initialized!");
     return 0;
 }
 
@@ -572,11 +597,6 @@ void xmldb_dispose()
 {
     ixmlDocument_free(_storage);
     _storage = NULL;
-    if (_serverAddress != NULL)
-    {
-        free(_serverAddress);
-    }
-    _serverAddress = NULL;
 }
 
 int xmldb_put(const char* data)
@@ -739,68 +759,6 @@ char* xmldb_getDump()
 IXML_Element* xmldb_getObixSysObject(const char* objType)
 {
     return ixmlElement_cloneWithLog(xmldb_getDOM(objType, NULL), TRUE);
-}
-
-/**
- * 1 - add slash
- * -1 - remove slash
- * 0 - do nothing
- * @param absUri
- * @param slashFlag
- * @return
- */
-char* xmldb_getFullUri(const char* absUri, int slashFlag)
-{
-    char* fullUri;
-
-    if ((slashFlag > 1) || (slashFlag < -1))
-    {
-        log_warning("Wrong usage of xmldb_getFullUri(): "
-                    "slashFlag can't be %d, changed to 0.", slashFlag);
-        slashFlag = 0;
-    }
-
-    // calculate the size of returning URI.
-    int size = _serverAddressLength + strlen(absUri);
-
-    // allocate memory, considering trailing slash and NULL character '\0'
-    fullUri = (char*) malloc(size + slashFlag + 1);
-    if (fullUri == NULL)
-    {
-        log_error("Unable to generate full URI: not enough memory.");
-        return NULL;
-    }
-
-    // copy strings
-    memcpy(fullUri, _serverAddress, _serverAddressLength);
-    memcpy(fullUri + _serverAddressLength, absUri, size - _serverAddressLength);
-
-    if (slashFlag == 1)
-    {
-        // add trailing slash
-        fullUri[size] = '/';
-    }
-
-    // finalize string
-    fullUri[size + slashFlag] = '\0';
-
-    return fullUri;
-}
-
-int xmldb_compareServerAddr(const char* uri)
-{
-    return strncmp(uri, _serverAddress, _serverAddressLength);
-}
-
-
-const char* xmldb_getServerAddress()
-{
-    return _serverAddress;
-}
-
-int xmldb_getServerAddressLength()
-{
-    return _serverAddressLength;
 }
 
 IXML_Node* xmldb_putMetaVariable(IXML_Element* element,

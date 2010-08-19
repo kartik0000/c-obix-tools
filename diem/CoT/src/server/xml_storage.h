@@ -55,14 +55,9 @@ extern const char* OBIX_META_VAR_HANDLER_ID;
 /**
  * Initializes storage. Should be executed only once on startup.
  *
- * @param serverAddr Address of the server. Storage should know it in cases
- *        when requested URI contains full address. If @a NULL is
- *        provided than address will be retrieved from the Lobby
- *        object.
- *
  * @return error code or @a 0 on success.
  */
-int xmldb_init(const char* serverAddr);
+int xmldb_init();
 
 /**
  * Stops work of the storage and releases all resources.
@@ -119,6 +114,14 @@ int xmldb_put(const char* data);
 int xmldb_putDOM(IXML_Element* data);
 
 /**
+ * Creates a reference to the new device. This reference is stored at the
+ * server in special list of devices accessible from Lobby object.
+ *
+ * @param deviceData Data of the new device.
+ */
+int xmldb_putDeviceReference(IXML_Element* deviceData);
+
+/**
  * Updates XML node to the storage. Only @a val attribute is
  * updated and only for nodes which have @a writable attribute
  * equal to @a true.
@@ -173,36 +176,6 @@ void xmldb_printDump();
  * @note Don't forget to free memory allocated for the dump after usage.
  */
 char* xmldb_getDump();
-
-/**
- * Checks that provided URI starts with server's URI
- * @return @a 0 if provided URI starts with server's URI.
- */
-int xmldb_compareServerAddr(const char* uri);
-
-/**
- * Creates full URI consisting of server's URI + @a absUri +/- trailing slash.
- *
- * @param slashFlag Defines whether trailing slash should be added or removed
- * 			from @a absUri
- * 			@li @a 0 nothing to be done;
- * 			@li @a 1 add trailing slash;
- *			@li @a -1 remove trailing slash.
- * @note Don't forget to clear memory after usage of the string.
- */
-char* xmldb_getFullUri(const char* absUri, int slashFlag);
-
-/**
- * Returns server's URI.
- * @see xmldb_getServerAddressLength
- */
-const char* xmldb_getServerAddress();
-
-/**
- * Returns length of server's URI.
- * @see xmldb_getServerAddress
- */
-int xmldb_getServerAddressLength();
 
 /**
  * Adds new meta variable to the provided element in the storage.

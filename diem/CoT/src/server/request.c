@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -28,6 +28,8 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <pthread.h>
 #include <log_utils.h>
 #include "request.h"
@@ -112,6 +114,8 @@ static int obixRequest_create()
         return -1;
     }
 
+    request->serverAddress = NULL;
+
     // store request at head
     request->next = _requestList;
     request->id = _requestIds++;
@@ -138,6 +142,11 @@ static void obixRequest_freeRecursive(Request* request)
 // put request to the head of the list
 void obixRequest_release(Request* request)
 {
+    if (request->serverAddress != NULL)
+    {
+        free(request->serverAddress);
+        request->serverAddress = NULL;
+    }
     pthread_mutex_lock(&_requestListMutex);
     request->next = _requestList;
     _requestList = request;
@@ -186,6 +195,87 @@ Request* obixRequest_get()
     return request;
 }
 
+/**
+ * Parses server address as it appears in request.
+ * This address is than used to return objects with the server address which
+ * was used by client to request it (in case if server has several interfaces,
+ * e.g. localhost, external ip address, etc.)
+ */
+static int obixRequest_parseServerAddress(Request* request)
+{
+    const char* serverHost = FCGX_GetParam("HTTP_HOST", request->r.envp);
+    const char* serverPortStr = FCGX_GetParam("SERVER_PORT", request->r.envp);
+    if ((serverHost == NULL) || (serverPortStr == NULL))
+    {
+        log_error("Unable to retrieve server address from the request:\n"
+                  "HTTP_HOST = \"%s\"\n"
+                  "SERVER_PORT = \"%s\".", serverHost, serverPortStr);
+        return -1;
+    }
+
+    long serverPort = atol(serverPortStr);
+    if (serverPort <=0)
+    {
+        log_error("Unable to parse server port number: \"%s\".", serverPort);
+        return -1;
+    }
+
+    //allocate space for server address (enough to hold http prefix and port)
+    request->serverAddress = (char*) malloc(strlen(serverHost) + 16);
+    if (request->serverAddress == NULL)
+    {
+        log_error("Unable to allocate memory for server address. "
+                  "Request parameters:\n"
+                  "HTTP_HOST = \"%s\"\n"
+                  "SERVER_PORT = \"%s\".", serverHost, serverPort);
+        return -1;
+    }
+
+    switch (serverPort)
+    {
+    case 80:
+    case 8080:
+        sprintf(request->serverAddress, "http://%s", serverHost);
+        break;
+    case 443:
+        sprintf(request->serverAddress, "https://%s", serverHost);
+        break;
+    default:
+        sprintf(request->serverAddress, "http://%s:%s", serverHost,
+                serverPortStr);
+        break;
+    }
+
+    request->serverAddressLength = strlen(request->serverAddress);
+
+    return 0;
+}
+
+const char* obixRequest_parseAttributes(Request* request)
+{
+    // get request URI
+    const char* uri = FCGX_GetParam("REQUEST_URI", request->r.envp);
+    if (uri == NULL)
+    {
+        log_error("Unable to retrieve URI from the request.");
+        return NULL;
+    }
+    // check that uri is absolute
+    if (*uri != '/')
+    {
+        log_error("Request URI \"%s\" has wrong format: "
+                  "Should start with \'/\'.", uri);
+        return NULL;
+    }
+
+    if (obixRequest_parseServerAddress(request) != 0)
+    {
+    	return NULL;
+    }
+
+    return uri;
+}
+
 void obixRequest_freeAll()
 {
     pthread_mutex_lock(&_requestListMutex);
@@ -195,5 +285,5 @@ void obixRequest_freeAll()
 
 void obixRequest_setMaxCount(int maxCount)
 {
-	_requestMaxCount = maxCount;
+    _requestMaxCount = maxCount;
 }
