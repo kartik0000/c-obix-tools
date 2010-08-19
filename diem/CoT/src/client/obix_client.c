@@ -356,7 +356,14 @@ static int connection_create(IXML_Element* connItem)
         type = OBIX_HTTP;
         comm = &OBIX_HTTP_COMM_STACK;
         // initialize HTTP function stack
-        error = http_init();
+        // TODO This is a hack: we provide global setting file to initialization
+        // function, while we know only <connection> tag. The problem is that
+        // SSL settings are defined globally (because we have only one curl
+        // instance to handle all connections. Solutions - use separate curl
+        // instance for each connection.
+        error = http_init(ixmlNode_convertToElement(
+                              ixmlNode_getParentNode(
+                                  ixmlElement_getNode(connItem))));
         if (error != OBIX_SUCCESS)
         {
             log_error("Unable to initialize HTTP communication module (needed "

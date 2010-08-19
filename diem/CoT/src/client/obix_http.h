@@ -84,9 +84,11 @@ extern const Comm_Stack OBIX_HTTP_COMM_STACK;
  * Initializes HTTP communication layer.
  * Subsequent calls have no effect.
  *
+ * @param settings Reference to the configuration XML.
+ *
  * @return #OBIX_SUCCESS, or one of error codes defined by #OBIX_ERRORCODE.
  */
-int http_init();
+int http_init(IXML_Element* settings);
 
 /**
  * Frees memory used by HTTP communication layer.

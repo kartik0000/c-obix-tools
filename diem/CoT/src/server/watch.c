@@ -1268,8 +1268,11 @@ int obixWatchItem_saveRemoteOperationResponse(
     pthread_mutex_lock(&_watchedOpInvocationsMutex);
     int error = table_put(_watchedOpInvocations, uri, response);
     pthread_mutex_unlock(&_watchedOpInvocationsMutex);
-    log_error("Unable to save invocation object into a table (error #%d).",
-              error);
+    if (error != 0)
+    {
+        log_error("Unable to save invocation object into a table (error #%d).",
+                  error);
+    }
     return error;
 }
 

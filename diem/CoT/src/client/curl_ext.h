@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -92,6 +92,27 @@ void curl_ext_dispose();
  * 			@li @a -1 - Other error.
  */
 int curl_ext_create(CURL_EXT** handle);
+
+/**
+ * Sets SSL settings to the provide handle.
+ *
+ * @param verifyPeer @a 0 will switch all SSL certificates off (all remaining
+ *                   arguments will make no effect). @a 1 will switch
+ * 					 on checking remote peer, i.e. checking that he has trusted
+ * 					 certificate.
+ * @param verifyHost @li @a 1 Will switch on verifying remote host name. It
+ * 					 should correspond to the Common Name field of provided
+ * 					 certificate.
+ * 					 @li @a 0 Will switch off checking remote host name.
+ * 					 @li @a <0 Will leave default curl settings.
+ * @param caFile     Name of the file with trusted certificates. if @a NULL,
+ * 					 default curl setting will be used.
+ * @return @a 0 on success, @a -1 on error.
+ */
+int curl_ext_setSSL(CURL_EXT* handle,
+                    int verifyPeer,
+                    int verifyHost,
+                    const char* caFile);
 
 /**
  * Cleans memory allocated for HTTP client handle.

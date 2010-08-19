@@ -115,6 +115,12 @@ static const char* OBIX_WATCH_OUT_VALUES = "values";
  * contract, supports long polling feature. */
 static const char* OBIX_CONTRACT_LONG_POLL_WATCH = "LongPollWatch";
 
+/**Names of SSL configuration tags (from settings file).*/
+static const char* CT_SSL = "ssl";
+static const char* CT_SSL_VERIFY_PEER = "verify-peer";
+static const char* CT_SSL_VERIFY_HOST = "verify-host";
+static const char* CT_SSL_CA_FILE = "ca-file";
+
 /**
  * Defines HTTP communication stack.
  * @see Comm_Stack
@@ -1625,7 +1631,58 @@ static int parseElementValue(IXML_Element* element, char** output)
     return OBIX_SUCCESS;
 }
 
-int http_init()
+static int configureSSL(IXML_Element* settings)
+{
+    IXML_Element* sslTag = config_getChildTag(settings, CT_SSL, FALSE);
+    if (sslTag == NULL)
+    {
+        log_debug("No SSL settings found (<%s> tag). "
+                  "Leaving curl default settings.", CT_SSL);
+        return OBIX_SUCCESS;
+    }
+
+    IXML_Element* tag = config_getChildTag(sslTag, CT_SSL_VERIFY_PEER, TRUE);
+    if (tag == NULL)
+    {
+        log_error("Either remove <%s> tag completely or add "
+                  "child boolean tag <%s>.", CT_SSL, CT_SSL_VERIFY_PEER);
+        return OBIX_ERR_INVALID_ARGUMENT;
+    }
+
+    int verifyHost = -1;
+    const char* caFile = NULL;
+    int verifyPeer = config_getTagAttrBoolValue(tag, OBIX_ATTR_VAL, TRUE);
+    if (verifyPeer < 0)
+    {
+        return OBIX_ERR_INVALID_ARGUMENT;
+    }
+
+    if (verifyPeer == TRUE)
+    {
+        tag = config_getChildTag(sslTag, CT_SSL_VERIFY_HOST, TRUE);
+        if (tag != NULL)
+        {
+            verifyHost = config_getTagAttrBoolValue(tag, OBIX_ATTR_VAL, TRUE);
+        }
+
+        caFile = config_getChildTagValue(sslTag, CT_SSL_CA_FILE, TRUE);
+
+        // now set parsed settings
+        int error =
+            curl_ext_setSSL(_curl_handle, verifyPeer, verifyHost, caFile);
+        error +=
+            curl_ext_setSSL(_curl_watch_handle, verifyPeer, verifyHost, caFile);
+
+        if (error != 0)
+        {
+        	return OBIX_ERR_UNKNOWN_BUG;
+        }
+    }
+
+    return OBIX_SUCCESS;
+}
+
+int http_init(IXML_Element* settings)
 {
     if (_initialized)
     {
@@ -1658,6 +1715,12 @@ int http_init()
             return OBIX_ERR_NO_MEMORY;
         }
         return OBIX_ERR_HTTP_LIB;
+    }
+
+    error = configureSSL(settings);
+    if (error != OBIX_SUCCESS)
+    {
+        return error;
     }
 
     // uncomment this to get lot's of debug log from CURL

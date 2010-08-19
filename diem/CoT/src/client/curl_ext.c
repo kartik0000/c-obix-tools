@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009 Andrey Litvinov
+ * Copyright (c) 2009, 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -287,6 +287,69 @@ int curl_ext_create(CURL_EXT** handle)
 
     h->curl = curl;
     *handle = h;
+
+    return 0;
+}
+
+int curl_ext_setSSL(CURL_EXT* curl,
+                    int verifyPeer,
+                    int verifyHost,
+                    const char* caFile)
+{
+    if (verifyPeer < 0)
+    {
+        log_error("SSL settings were not set");
+        return -1;
+    }
+
+    CURLcode code =
+        curl_easy_setopt(curl->curl, CURLOPT_SSL_VERIFYPEER, verifyPeer);
+    if (code != CURLE_OK)
+    {
+        log_error("Unable to set SSL settings to curl handle (%d).", code);
+        return -1;
+    }
+
+    if (verifyPeer == 0)
+    {
+        log_debug("Checking SSL certificates is disabled.");
+        // no need to check other parameters as they will not affect anything
+        return 0;
+    }
+
+    if (verifyHost < 0)
+    {
+        log_debug("SSL Host Verifying is not set. "
+                  "Using default curl settings.");
+    }
+    else
+    {
+    	if (verifyHost == 1)
+    	{	// we set either 0 or 2.
+    		verifyHost = 2;
+    	}
+        code = curl_easy_setopt(curl->curl, CURLOPT_SSL_VERIFYHOST, verifyHost);
+        if (code != CURLE_OK)
+        {
+            log_error("Unable to set SSL settings to curl handle (%d).", code);
+            return -1;
+        }
+    }
+
+    if (caFile == NULL)
+    {
+        log_debug("No custom file with trusted certificates is provided. "
+                  "Using default curl settings.");
+    }
+    else
+    {
+        code = curl_easy_setopt(curl->curl, CURLOPT_CAINFO, caFile);
+        if (code != CURLE_OK)
+        {
+            log_error("Unable to set SSL settings to curl handle (%d).", code);
+            return -1;
+        }
+    }
 
     return 0;
 }

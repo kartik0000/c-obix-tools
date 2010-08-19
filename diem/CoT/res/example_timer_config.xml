@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-   Copyright (c) 2009 Andrey Litvinov
+   Copyright (c) 2009, 2010 Andrey Litvinov
   
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -43,7 +43,7 @@
 		<server-address val="http://localhost" lobby="/obix/" />		
 		<!--
 			Optional tag, specifying period of polling changes from server in
-			milliseconds. When using HTTP connection library creates Watch 
+			milliseconds. When using HTTP connection, library creates Watch 
 			object on the oBIX server and polls changes from it in order to 
 			monitor	subscribed values. Default value is 500 ms.
 		-->
@@ -58,7 +58,7 @@
 			Note: Long poll request feature is not in oBIX specification and 
 			currently available only at C oBIX Server.
 			Read more about long polling at the project documentation 
-			(doc/long_polling.pdf).			
+			available online.			
 		-->
 		<long-poll>
 			<!-- 
@@ -99,7 +99,31 @@
 			Can be used for better memory utilization. Default value is 10.
 		-->
 		<max-listeners val="1" />
-	</connection>
+	</connection>	
+	
+	<!--
+		Optional tag contains SSL setting. Can be used to setup connection to oBIX
+		server over HTTPS. 
+	 -->
+	<ssl>
+		<!-- 
+			If true, certificate of remote server will be checked to be 
+			trusted. If false, no check is done and connection is established in 
+			any case. In that case, two other parameters will make no effect. 
+		-->
+		<verify-peer val="true"/>
+		<!-- 
+			If true, remote host name will be checked. It should correspond to
+			Common Name field of provided certificate. If false, no such check 
+			is performed 
+		-->
+		<verify-host val="true"/>
+		<!--
+			Following tag can be used to provide custom file with trusted 
+			certificates. 
+		-->
+		<!-- <ca-file val="/mnt/share/lighttpd.pem"/> -->			
+	</ssl>
 
 	<!--
 		Configuration of the logging system. The only obligatory tag is
