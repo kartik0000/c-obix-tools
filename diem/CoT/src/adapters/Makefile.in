@@ -34,6 +34,7 @@ build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS = example_timer$(EXEEXT) sensor_floor_driver$(EXEEXT) \
 	memtest_adapter$(EXEEXT) poll_generator$(EXEEXT)
+check_PROGRAMS = test_pico_feed_reader$(EXEEXT)
 subdir = src/adapters
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -80,6 +81,16 @@ sensor_floor_driver_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(sensor_floor_driver_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
+am_test_pico_feed_reader_OBJECTS =  \
+	test_pico_feed_reader-pico_http_feed_reader.$(OBJEXT)
+test_pico_feed_reader_OBJECTS = $(am_test_pico_feed_reader_OBJECTS)
+am__DEPENDENCIES_1 =
+test_pico_feed_reader_DEPENDENCIES = $(am__DEPENDENCIES_1) \
+	$(top_builddir)/src/client/libcot-client.la
+test_pico_feed_reader_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CCLD) \
+	$(test_pico_feed_reader_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+	$(LDFLAGS) -o $@
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -93,9 +104,11 @@ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
 SOURCES = $(example_timer_SOURCES) $(memtest_adapter_SOURCES) \
-	$(poll_generator_SOURCES) $(sensor_floor_driver_SOURCES)
+	$(poll_generator_SOURCES) $(sensor_floor_driver_SOURCES) \
+	$(test_pico_feed_reader_SOURCES)
 DIST_SOURCES = $(example_timer_SOURCES) $(memtest_adapter_SOURCES) \
-	$(poll_generator_SOURCES) $(sensor_floor_driver_SOURCES)
+	$(poll_generator_SOURCES) $(sensor_floor_driver_SOURCES) \
+	$(test_pico_feed_reader_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -139,6 +152,8 @@ LIBCOT_VERSION_DOT = @LIBCOT_VERSION_DOT@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
+LIBXML_CFLAGS = @LIBXML_CFLAGS@
+LIBXML_LIBS = @LIBXML_LIBS@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
@@ -243,7 +258,15 @@ poll_generator_SOURCES = poll_generator.c
 poll_generator_CFLAGS = -I$(top_srcdir)/src/client \
 								  -I$(top_srcdir)/src/common 
 
-poll_generator_LDADD = $(top_builddir)/src/client/libcot-client.la 
+poll_generator_LDADD = $(top_builddir)/src/client/libcot-client.la
+test_pico_feed_reader_SOURCES = pico_http_feed_reader.c pico_http_feed_reader.h
+test_pico_feed_reader_CFLAGS = $(WARN_FLAGS) $(LIBXML_CFLAGS) \
+								  -I$(top_srcdir)/src/client \
+								  -I$(top_srcdir)/src/common 
+
+test_pico_feed_reader_LDADD = $(LIBXML_LIBS) \
+								  $(top_builddir)/src/client/libcot-client.la 
+
 all: all-am
 
 .SUFFIXES:
@@ -305,6 +328,13 @@ clean-binPROGRAMS:
 	  echo " rm -f $$p $$f"; \
 	  rm -f $$p $$f ; \
 	done
+
+clean-checkPROGRAMS:
+	@list='$(check_PROGRAMS)'; for p in $$list; do \
+	  f=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
+	  echo " rm -f $$p $$f"; \
+	  rm -f $$p $$f ; \
+	done
 example_timer$(EXEEXT): $(example_timer_OBJECTS) $(example_timer_DEPENDENCIES) 
 	@rm -f example_timer$(EXEEXT)
 	$(example_timer_LINK) $(example_timer_OBJECTS) $(example_timer_LDADD) $(LIBS)
@@ -317,6 +347,9 @@ poll_generator$(EXEEXT): $(poll_generator_OBJECTS) $(poll_generator_DEPENDENCIES
 sensor_floor_driver$(EXEEXT): $(sensor_floor_driver_OBJECTS) $(sensor_floor_driver_DEPENDENCIES) 
 	@rm -f sensor_floor_driver$(EXEEXT)
 	$(sensor_floor_driver_LINK) $(sensor_floor_driver_OBJECTS) $(sensor_floor_driver_LDADD) $(LIBS)
+test_pico_feed_reader$(EXEEXT): $(test_pico_feed_reader_OBJECTS) $(test_pico_feed_reader_DEPENDENCIES) 
+	@rm -f test_pico_feed_reader$(EXEEXT)
+	$(test_pico_feed_reader_LINK) $(test_pico_feed_reader_OBJECTS) $(test_pico_feed_reader_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -328,6 +361,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/memtest_adapter-memtest_adapter.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/poll_generator-poll_generator.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sensor_floor_driver-sensor_floor_driver.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/test_pico_feed_reader-pico_http_feed_reader.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -405,6 +439,20 @@ sensor_floor_driver-sensor_floor_driver.obj: sensor_floor_driver.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='sensor_floor_driver.c' object='sensor_floor_driver-sensor_floor_driver.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sensor_floor_driver_CFLAGS) $(CFLAGS) -c -o sensor_floor_driver-sensor_floor_driver.obj `if test -f 'sensor_floor_driver.c'; then $(CYGPATH_W) 'sensor_floor_driver.c'; else $(CYGPATH_W) '$(srcdir)/sensor_floor_driver.c'; fi`
+
+test_pico_feed_reader-pico_http_feed_reader.o: pico_http_feed_reader.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_pico_feed_reader_CFLAGS) $(CFLAGS) -MT test_pico_feed_reader-pico_http_feed_reader.o -MD -MP -MF $(DEPDIR)/test_pico_feed_reader-pico_http_feed_reader.Tpo -c -o test_pico_feed_reader-pico_http_feed_reader.o `test -f 'pico_http_feed_reader.c' || echo '$(srcdir)/'`pico_http_feed_reader.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/test_pico_feed_reader-pico_http_feed_reader.Tpo $(DEPDIR)/test_pico_feed_reader-pico_http_feed_reader.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='pico_http_feed_reader.c' object='test_pico_feed_reader-pico_http_feed_reader.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_pico_feed_reader_CFLAGS) $(CFLAGS) -c -o test_pico_feed_reader-pico_http_feed_reader.o `test -f 'pico_http_feed_reader.c' || echo '$(srcdir)/'`pico_http_feed_reader.c
+
+test_pico_feed_reader-pico_http_feed_reader.obj: pico_http_feed_reader.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_pico_feed_reader_CFLAGS) $(CFLAGS) -MT test_pico_feed_reader-pico_http_feed_reader.obj -MD -MP -MF $(DEPDIR)/test_pico_feed_reader-pico_http_feed_reader.Tpo -c -o test_pico_feed_reader-pico_http_feed_reader.obj `if test -f 'pico_http_feed_reader.c'; then $(CYGPATH_W) 'pico_http_feed_reader.c'; else $(CYGPATH_W) '$(srcdir)/pico_http_feed_reader.c'; fi`
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/test_pico_feed_reader-pico_http_feed_reader.Tpo $(DEPDIR)/test_pico_feed_reader-pico_http_feed_reader.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='pico_http_feed_reader.c' object='test_pico_feed_reader-pico_http_feed_reader.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(test_pico_feed_reader_CFLAGS) $(CFLAGS) -c -o test_pico_feed_reader-pico_http_feed_reader.obj `if test -f 'pico_http_feed_reader.c'; then $(CYGPATH_W) 'pico_http_feed_reader.c'; else $(CYGPATH_W) '$(srcdir)/pico_http_feed_reader.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -486,6 +534,7 @@ distdir: $(DISTFILES)
 	  fi; \
 	done
 check-am: all-am
+	$(MAKE) $(AM_MAKEFLAGS) $(check_PROGRAMS)
 check: check-am
 all-am: Makefile $(PROGRAMS)
 installdirs:
@@ -518,7 +567,8 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-binPROGRAMS clean-generic clean-libtool mostlyclean-am
+clean-am: clean-binPROGRAMS clean-checkPROGRAMS clean-generic \
+	clean-libtool mostlyclean-am
 
 distclean: distclean-am
 	-rm -rf ./$(DEPDIR)
@@ -577,18 +627,18 @@ uninstall-am: uninstall-binPROGRAMS
 .MAKE: install-am install-strip
 
 .PHONY: CTAGS GTAGS all all-am check check-am clean clean-binPROGRAMS \
-	clean-generic clean-libtool ctags distclean distclean-compile \
-	distclean-generic distclean-libtool distclean-tags distdir dvi \
-	dvi-am html html-am info info-am install install-am \
-	install-binPROGRAMS install-data install-data-am install-dvi \
-	install-dvi-am install-exec install-exec-am install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
-	pdf pdf-am ps ps-am tags uninstall uninstall-am \
-	uninstall-binPROGRAMS
+	clean-checkPROGRAMS clean-generic clean-libtool ctags \
+	distclean distclean-compile distclean-generic \
+	distclean-libtool distclean-tags distdir dvi dvi-am html \
+	html-am info info-am install install-am install-binPROGRAMS \
+	install-data install-data-am install-dvi install-dvi-am \
+	install-exec install-exec-am install-html install-html-am \
+	install-info install-info-am install-man install-pdf \
+	install-pdf-am install-ps install-ps-am install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags uninstall uninstall-am uninstall-binPROGRAMS
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

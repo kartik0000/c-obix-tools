@@ -2,6 +2,9 @@
 
 bin_PROGRAMS 					= example_timer sensor_floor_driver \
 								  memtest_adapter poll_generator
+
+check_PROGRAMS					= test_pico_feed_reader								  
+								  
 ## TODO distribute these scripts to the bin folder								  
 EXTRA_DIST						= max_mem_test.sh max_mem_test_stop.sh \
 								  poll_generator.sh
@@ -34,4 +37,13 @@ poll_generator_SOURCES			= poll_generator.c
 poll_generator_CFLAGS			= -I$(top_srcdir)/src/client \
 								  -I$(top_srcdir)/src/common 
 
-poll_generator_LDADD			= $(top_builddir)/src/client/libcot-client.la 
+poll_generator_LDADD			= $(top_builddir)/src/client/libcot-client.la
+
+test_pico_feed_reader_SOURCES	= pico_http_feed_reader.c pico_http_feed_reader.h
+
+test_pico_feed_reader_CFLAGS	= $(WARN_FLAGS) $(LIBXML_CFLAGS) \
+								  -I$(top_srcdir)/src/client \
+								  -I$(top_srcdir)/src/common 
+
+test_pico_feed_reader_LDADD		= $(LIBXML_LIBS) \
+								  $(top_builddir)/src/client/libcot-client.la 

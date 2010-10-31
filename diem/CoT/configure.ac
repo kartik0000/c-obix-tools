@@ -43,6 +43,7 @@ AC_LANG_C
 # Checks for libraries.
 PKG_CHECK_MODULES(UPNP, libupnp >= 1.4.3)
 PKG_CHECK_MODULES(CURL, libcurl)
+PKG_CHECK_MODULES(LIBXML, libxml-2.0)
 
 # AC_SEARCH_LIBS stores found linking flags to the LIBS variable which is added 
 # by default to all Makefiles. But we want to store that flags in separate

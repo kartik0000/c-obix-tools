@@ -160,7 +160,9 @@
 </scannerInfoProvider>
 </profile>
 </storageModule>
+
 <storageModule moduleId="org.eclipse.cdt.core.pathentry">
+<pathentry include="/usr/include/libxml2" kind="inc" path="" system="true"/>
 <pathentry kind="src" path="src"/>
 <pathentry kind="out" path=""/>
 <pathentry kind="con" path="org.eclipse.cdt.make.core.DISCOVERED_SCANNER_INFO"/>
