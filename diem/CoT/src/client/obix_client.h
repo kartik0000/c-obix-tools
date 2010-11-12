@@ -81,6 +81,7 @@
 #define OBIX_CLIENT_H_
 
 #include "ixml_ext.h"
+#include "obix_utils.h"
 
 /**
  * Error codes which are returned by library functions
@@ -133,6 +134,11 @@ typedef enum
     /** URI data type (uri). Almost like a string, but contains valid URI. */
     OBIX_T_URI
 } OBIX_DATA_TYPE;
+
+/**
+ * Returns name of the oBIX XML tag corresponding to the provided data type.
+ */
+const char* obix_getDataTypeName(OBIX_DATA_TYPE type);
 
 /**
  * Callback function, which is invoked when subscribed value is changed at the

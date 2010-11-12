@@ -55,6 +55,33 @@ static const char* CT_MAX_LISTENERS = "max-listeners";
 static Connection** _connections;
 static int _connectionCount;
 
+/**
+ * List of names of all primitive value types in oBIX.
+ * This lists reflects the order of #OBIX_DATA_TYPE, so that:
+ * @code
+ * OBIX_DATA_TYPE_NAMES[OBIX_T_BOOL] == "bool";
+ * OBIX_DATA_TYPE_NAMES[OBIX_T_INT] == "int";
+ * @endcode
+ * and so on.
+ */
+static const char** OBIX_DATA_TYPE_NAMES[] =
+    {
+        &OBIX_OBJ_BOOL,
+        &OBIX_OBJ_INT,
+        &OBIX_OBJ_REAL,
+        &OBIX_OBJ_STR,
+        &OBIX_OBJ_ENUM,
+        &OBIX_OBJ_ABSTIME,
+        &OBIX_OBJ_RELTIME,
+        &OBIX_OBJ_URI
+    };
+
+
+const char* obix_getDataTypeName(OBIX_DATA_TYPE type)
+{
+	return *(OBIX_DATA_TYPE_NAMES[type]);
+}
+
 /** Frees memory allocated for Listener. */
 static void listener_free(Listener* listener)
 {

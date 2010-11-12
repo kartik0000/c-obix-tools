@@ -40,7 +40,7 @@
 #include <obix_utils.h>
 #include <obix_client.h>
 #include <ptask.h>
-//TODO think about changing printf calls of log_utils.h
+//TODO think about changing printf to log_utils.h
 
 /** ID of the connection which is described in configuration file. */
 #define CONNECTION_ID 0

@@ -87,27 +87,6 @@
 #define OBIX_BATCH_TEMPLATE_CMD_INVOKE_LENGTH 46
 /** @} */
 
-/**
- * List of names of all primitive value types in oBIX.
- * This lists reflects the order of #OBIX_DATA_TYPE, so that:
- * @code
- * OBIX_DATA_TYPE_NAMES[OBIX_T_BOOL] == "bool";
- * OBIX_DATA_TYPE_NAMES[OBIX_T_INT] == "int";
- * @endcode
- * and so on.
- */
-static const char** OBIX_DATA_TYPE_NAMES[] =
-    {
-        &OBIX_OBJ_BOOL,
-        &OBIX_OBJ_INT,
-        &OBIX_OBJ_REAL,
-        &OBIX_OBJ_STR,
-        &OBIX_OBJ_ENUM,
-        &OBIX_OBJ_ABSTIME,
-        &OBIX_OBJ_RELTIME,
-        &OBIX_OBJ_URI
-    };
-
 /** Name of child object of WatchOut, which contains list of updates. */
 static const char* OBIX_WATCH_OUT_VALUES = "values";
 
@@ -428,7 +407,7 @@ static int writeValue(const char* paramUri,
                       CURL_EXT* curlHandle)
 {
     // generate request body
-    const char* objName = *(OBIX_DATA_TYPE_NAMES[dataType]);
+    const char* objName = obix_getDataTypeName(dataType);
     char* requestBody = (char*)
                         malloc(OBIX_WRITE_REQUEST_TEMPLATE_LENGTH
                                + strlen(objName)
@@ -1649,7 +1628,7 @@ static int configureSSL(IXML_Element* settings)
         return OBIX_ERR_INVALID_ARGUMENT;
     }
 
-    int verifyHost = -1;
+    int verifyHost = 0;
     const char* caFile = NULL;
     int verifyPeer = config_getTagAttrBoolValue(tag, OBIX_ATTR_VAL, TRUE);
     if (verifyPeer < 0)
@@ -1665,18 +1644,17 @@ static int configureSSL(IXML_Element* settings)
             verifyHost = config_getTagAttrBoolValue(tag, OBIX_ATTR_VAL, TRUE);
         }
 
-        caFile = config_getChildTagValue(sslTag, CT_SSL_CA_FILE, TRUE);
+        caFile = config_getChildTagValue(sslTag, CT_SSL_CA_FILE, FALSE);
+    }
 
-        // now set parsed settings
-        int error =
-            curl_ext_setSSL(_curl_handle, verifyPeer, verifyHost, caFile);
-        error +=
-            curl_ext_setSSL(_curl_watch_handle, verifyPeer, verifyHost, caFile);
+    // now set parsed settings
+    int error = curl_ext_setSSL(_curl_handle, verifyPeer, verifyHost, caFile);
+    error +=
+        curl_ext_setSSL(_curl_watch_handle, verifyPeer, verifyHost, caFile);
 
-        if (error != 0)
-        {
-        	return OBIX_ERR_UNKNOWN_BUG;
-        }
+    if (error != 0)
+    {
+        return OBIX_ERR_UNKNOWN_BUG;
     }
 
     return OBIX_SUCCESS;
@@ -2506,7 +2484,7 @@ static char* getStrBatch(oBIX_Batch* batch)
         case OBIX_BATCH_WRITE_VALUE:
             batchMessageSize +=
                 OBIX_BATCH_TEMPLATE_CMD_WRITE_LENGTH +
-                strlen(*(OBIX_DATA_TYPE_NAMES[command->dataType])) +
+                strlen(obix_getDataTypeName(command->dataType)) +
                 strlen(command->input);
             break;
         case OBIX_BATCH_READ:
@@ -2545,7 +2523,7 @@ static char* getStrBatch(oBIX_Batch* batch)
             size += sprintf(batchMessage + size,
                             OBIX_BATCH_TEMPLATE_CMD_WRITE,
                             uri[command->id],
-                            *(OBIX_DATA_TYPE_NAMES[command->dataType]),
+                            obix_getDataTypeName(command->dataType),
                             command->input);
             break;
         case OBIX_BATCH_READ:

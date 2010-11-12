@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<room version="1.2" id="101" plan="/roomplans/101.png" updated="125822321314">
+ <mcu id="11">
+  <sensor id="1" x="0.23" y="0.38"/>
+  <sensor id="2" x="0.24" y="0.62"/>
+  <sensor id="3" x="0.25" y="0.88"/>
+  <sensor id="4" x="0.26" y="1.12"/>
+  <sensor id="9" x="0.56" y="1.13"/>
+  <sensor id="8" x="0.55" y="0.89"/>
+  <sensor id="7" x="0.54" y="0.63"/>
+  <sensor id="6" x="0.53" y="0.39"/>
+ </mcu>
+ <zone id="0" type="door" name="">
+  <rect x="-0.78" y="1.13" width="1.64" height="1.15"/>
+ </zone>
+ <zone id="1" type="inwc" name="">
+  <rect x="3.42" y="3.36" width="1.38" height="1.10"/>
+ </zone>
+</room>

@@ -461,16 +461,279 @@ BOOL obix_obj_implementsContract(IXML_Element* obj, const char* contract)
 
 BOOL obix_obj_isNull(IXML_Element* obj)
 {
-	const char* nullAttr = ixmlElement_getAttribute(obj, OBIX_ATTR_NULL);
-	if (nullAttr == NULL)
-	{
-		return FALSE;
-	}
+    const char* nullAttr = ixmlElement_getAttribute(obj, OBIX_ATTR_NULL);
+    if (nullAttr == NULL)
+    {
+        return FALSE;
+    }
 
-	if (strcmp(nullAttr, XML_TRUE) == 0)
-	{
-		return TRUE;
-	}
+    if (strcmp(nullAttr, XML_TRUE) == 0)
+    {
+        return TRUE;
+    }
 
-	return FALSE;
+    return FALSE;
+}
+
+int obix_obj_setChildUri(IXML_Element* parent,
+                         IXML_Element* child,
+                         const char* uriPart)
+{
+    // generate URI for the new element
+    const char* parentUri = ixmlElement_getAttribute(parent, OBIX_ATTR_HREF);
+    if (parentUri == NULL)
+    {
+        // nothing to do.
+        return 0;
+    }
+
+    int uriLength = strlen(parentUri) + strlen(uriPart) + 2;
+    char uri[uriLength];
+    strcpy(uri, parentUri);
+    strcat(uri, uriPart);
+    uri[uriLength - 2] = '/';
+    uri[uriLength - 1] = '\0';
+
+    return ixmlElement_setAttributeWithLog(child, OBIX_ATTR_HREF, uri);
+}
+
+int obix_obj_addChild(IXML_Element* parent,
+                      const char* type,
+                      const char* uriPart,
+                      const char* name,
+                      const char* displayName,
+                      IXML_Element** child)
+{
+    IXML_Element* obixElem =
+        ixmlElement_createChildElementWithLog(parent, type);
+    if (obixElem == NULL)
+    {
+        return -1;
+    }
+
+    // set required attributes
+    int error = 0;
+
+    if (name != NULL)
+    {
+        error += ixmlElement_setAttributeWithLog(obixElem,
+                 OBIX_ATTR_NAME,
+                 name);
+    }
+
+    if (displayName != NULL)
+    {
+        error += ixmlElement_setAttributeWithLog(obixElem,
+                 OBIX_ATTR_DISPLAY_NAME,
+                 displayName);
+    }
+
+    if (uriPart != NULL)
+    {
+        error += obix_obj_setChildUri(parent, obixElem, uriPart);
+    }
+
+    if (error != 0)
+    {	// some of attributes were not set
+        return -1;
+    }
+
+    if (child != NULL)
+    {
+        *child = obixElem;
+    }
+
+    return 0;
+}
+
+int obix_obj_addValChild(IXML_Element* parent,
+                         const char* type,
+                         const char* uriPart,
+                         const char* name,
+                         const char* displayName,
+                         const char* value,
+                         BOOL writable,
+                         IXML_Element** child)
+{
+    IXML_Element* obixElem;
+
+    int error = obix_obj_addChild(parent,
+                                  type,
+                                  uriPart,
+                                  name,
+                                  displayName,
+                                  &obixElem);
+    if (error != 0)
+    {
+        return error;
+    }
+
+    if (value == NULL)
+    {
+        error += ixmlElement_setAttributeWithLog(obixElem,
+                 OBIX_ATTR_NULL,
+                 XML_TRUE);
+    }
+    else
+    {
+        error += ixmlElement_setAttributeWithLog(obixElem,
+                 OBIX_ATTR_VAL,
+                 value);
+    }
+
+    if (writable)
+    {
+        error += ixmlElement_setAttributeWithLog(obixElem,
+                 OBIX_ATTR_WRITABLE,
+                 XML_TRUE);
+    }
+
+    if (error != 0)
+    {
+        return -1;
+    }
+
+    if (child != NULL)
+    {
+        *child = obixElem;
+    }
+
+    return 0;
+}
+
+int obix_obj_addStringChild(IXML_Element* parent,
+                            const char* uriPart,
+                            const char* name,
+                            const char* displayName,
+                            const char* value,
+                            BOOL writable,
+                            IXML_Element** child)
+{
+    return obix_obj_addValChild(parent,
+                                OBIX_OBJ_STR,
+                                uriPart,
+                                name,
+                                displayName,
+                                value,
+                                writable,
+                                child);
+}
+
+int obix_obj_addIntegerChild(IXML_Element* parent,
+                             const char* uriPart,
+                             const char* name,
+                             const char* displayName,
+                             int value,
+                             BOOL writable,
+                             IXML_Element** child)
+{
+    char stringValue[16];
+    sprintf(stringValue, "%d", value);
+
+    return obix_obj_addValChild(parent,
+                                OBIX_OBJ_INT,
+                                uriPart,
+                                name,
+                                displayName,
+                                stringValue,
+                                writable,
+                                child);
+}
+
+int obix_obj_addRealChild(IXML_Element* parent,
+                          const char* uriPart,
+                          const char* name,
+                          const char* displayName,
+                          double value,
+                          int precision,
+                          BOOL writable,
+                          IXML_Element** child)
+{
+    char stringValue[16];
+    sprintf(stringValue, "%.*f", precision, value);
+
+    return obix_obj_addValChild(parent,
+                                OBIX_OBJ_REAL,
+                                uriPart,
+                                name,
+                                displayName,
+                                stringValue,
+                                writable,
+                                child);
+}
+
+int obix_obj_addBooleanChild(IXML_Element* parent,
+                             const char* uriPart,
+                             const char* name,
+                             const char* displayName,
+                             BOOL value,
+                             BOOL writable,
+                             IXML_Element** child)
+{
+    const char* stringValue = value ? XML_TRUE : XML_FALSE;
+
+    return obix_obj_addValChild(parent,
+                                OBIX_OBJ_BOOL,
+                                uriPart,
+                                name,
+                                displayName,
+                                stringValue,
+                                writable,
+                                child);
+}
+
+int obix_obj_create(const char* type,
+                    const char* uri,
+                    const char* name,
+                    const char* displayName,
+                    IXML_Document** doc,
+                    IXML_Element** obj)
+{
+    if ((type == NULL) || (obj == NULL))
+    {
+        return -2;
+    }
+
+    char stub[strlen(type) + 5];
+    sprintf(stub, "<%s />", type);
+
+    *obj = ixmlElement_parseBuffer(stub);
+    if (*obj == NULL)
+    {
+        return -1;
+    }
+
+    int error = 0;
+    if (uri != NULL)
+    {
+        error += ixmlElement_setAttributeWithLog(*obj,
+                 OBIX_ATTR_HREF,
+                 uri);
+    }
+
+    if (name != NULL)
+    {
+        error += ixmlElement_setAttributeWithLog(*obj,
+                 OBIX_ATTR_NAME,
+                 name);
+    }
+
+    if (displayName != NULL)
+    {
+        error += ixmlElement_setAttributeWithLog(*obj,
+                 OBIX_ATTR_DISPLAY_NAME,
+                 displayName);
+    }
+
+    if (error != 0)
+    {
+        return -1;
+    }
+
+    if (doc != NULL)
+    {
+        *doc = ixmlNode_getOwnerDocument(ixmlElement_getNode(*obj));
+    }
+
+    return 0;
 }

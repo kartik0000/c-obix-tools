@@ -310,13 +310,6 @@ int curl_ext_setSSL(CURL_EXT* curl,
         return -1;
     }
 
-    if (verifyPeer == 0)
-    {
-        log_debug("Checking SSL certificates is disabled.");
-        // no need to check other parameters as they will not affect anything
-        return 0;
-    }
-
     if (verifyHost < 0)
     {
         log_debug("SSL Host Verifying is not set. "

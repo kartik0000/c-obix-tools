@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * Copyright (c) 2009, 2010 Andrey Litvinov
+ * Copyright (c) 2010 Andrey Litvinov
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,20 +20,21 @@
  * THE SOFTWARE.
  * ****************************************************************************/
 /** @file
- * This is an adapter for the Elsi Sensor Floor.
+ * This is an adapter for the MariMils (Elsi) Sensor Floor.
  * It uses Pico server HTTP interface to get the data from the floor.
  * Usually, Pico server has data feed at the URL
  * http://<server.name>/<room>/feed
- * The adapter reads data about people positions on the floor and publish it
+ * The adapter reads data about people positions on the floor and publishes it
  * to the static objects at the oBIX server.
  *
  * @author Andrey Litvinov
- * @version 1.1
+ * @version 1.0
  */
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <signal.h>
 #include <pthread.h>
 
 #include <log_utils.h>
@@ -43,91 +44,68 @@
 #include <obix_utils.h>
 #include <obix_client.h>
 
+#include "pico_http_feed_reader.h"
+
 /** Id of the connection to the target oBIX server. */
 #define SERVER_CONNECTION 0
-
-/** Timeout after which the target is considered unavailable. */
-#define TARGET_REMOVE_TIMEOUT 15000
 
 /** Target object which describes person's position on the sensor floor. */
 typedef struct _Target
 {
     /** Constant address of the target object at the oBIX server. */
     char* uri;
-    /** X coordinate of the person. */
-    char* x;
-    /** Y coordinate of the person. */
-    char* y;
+    // TODO comment me
+    int uriLength;
     /** Id of this target at the sensor floor */
     int id;
     /** Defines whether this target new or not. */
     BOOL new;
-    /** Defines whether this target has been changed recently. */
-    BOOL changed;
+    /** If true this target is used to track a person. */
+    BOOL active;
+
+    PicoCluster* lastCluster;
     /** Id of the task which is scheduled to remove this target when it is not
      * changed for #TARGET_REMOVE_TIMEOUT milliseconds.*/
     int removeTask;
 }
 Target;
 
-/** Contains device data which is published to the oBIX server. */
-IXML_Document* _deviceData;
 /** Head of the targets list. */
-Target* _targets;
+static Target* _targets;
 /** Number of targets in the targets list. */
-int _targetsCount;
+static int _targetsCount;
+/** Defines how many points are shown per target.
+ * Sensor floor groups neighbor points into one target.
+ * Each point corresponds to the activated sensor, e.g. under left and right
+ * feet of a person. */
+static int _pointsPerTarget = 0;
+/** Timeout after which the target is considered unavailable. */
+static long _targetRemoveTimeout = 15000;
 /** Id of the device which is registered at the oBIX server. */
-int _deviceIdShift;
+static int _deviceId;
 /** Thread for scheduling asynchronous tasks. */
-Task_Thread* _taskThread;
+static Task_Thread* _taskThread;
 /** Mutex for thread synchronization: Targets are changed from one thread and
  * removed from another. */
-pthread_mutex_t _targetMutex = PTHREAD_MUTEX_INITIALIZER;
-
-/** Contains data for testing. @see testCycle(). */
-IXML_Document* _testData;
+static pthread_mutex_t _targetMutex = PTHREAD_MUTEX_INITIALIZER;
+/** Address of sensor floor HTTP interface (pico server). */
+static char* _picoServerAddress = NULL;
+/** Name of the room to be monitored at pico server. */
+static char* _picoRoomName = NULL;
+/** Address at oBIX server where sensor floor data will be published to. */
+static char* _obixUrlPrefix = NULL;
+/** Flag indicating that driver should exit. */
+static BOOL _shutDown = FALSE;
+/** Stores amount of closed connections with no new data received. */
+static int _closedConnectionCount = 0;
 
 // declaration of the ..
 void targetRemoveTask(void* arg);
 
-/** @name Targets management
- * Utility methods for work with target object.
- * @{
- */
-/**
- * Sets X value of the target object.
- *
- * @param target Target object which should be changed.
- * @param newValue New X value.
- */
-void target_setX(Target* target, const char* newValue)
+/** Initializes internal task array. */
+static void target_initArray()
 {
-    if (target->x != NULL)
-    {
-        free(target->x);
-    }
-    target->x = (char*) malloc(strlen(newValue) + 1);
-    strcpy(target->x, newValue);
-
-    target->changed = TRUE;
-}
-
-/**
- * Sets Y value of the target object.
- *
- * @param target Target object which should be changed.
- * @param newValue New Y value.
- */
-void target_setY(Target* target, const char* newValue)
-{
-    if (target->y != NULL)
-    {
-        free(target->y);
-    }
-    target->y = (char*) malloc(strlen(newValue) + 1);
-    strcpy(target->y, newValue);
-
-    target->changed = TRUE;
+    _targets = (Target*) calloc(_targetsCount, sizeof(Target));
 }
 
 /**
@@ -138,7 +116,7 @@ void target_setY(Target* target, const char* newValue)
  *         target object and assigns provided Id to it. If there are no free
  *         targets, @a NULL is returned.
  */
-Target* target_get(int id)
+static Target* target_get(int id)
 {
     int i;
     for (i = 0; i < _targetsCount; i++)
@@ -155,14 +133,17 @@ Target* target_get(int id)
     {
         if (_targets[i].id == 0)
         {
+            pthread_mutex_lock(&_targetMutex);
             Target* target = &_targets[i];
             target->id = id;
             target->new = TRUE;
+            target->active = TRUE;
             target->removeTask = ptask_schedule(_taskThread,
                                                 &targetRemoveTask,
                                                 target,
-                                                TARGET_REMOVE_TIMEOUT,
+                                                _targetRemoveTimeout,
                                                 1);
+            pthread_mutex_unlock(&_targetMutex);
             return target;
         }
     }
@@ -171,183 +152,251 @@ Target* target_get(int id)
     return NULL;
 }
 
-/**
- * Sends update of the target's values to the oBIX server.
- *
- * @param target Target object which should be sent.
- * @return #OBIX_SUCCESS if data is successfully sent, error code otherwise.
- */
-int target_sendUpdate(Target* target)
+static void target_saveUri(Target* target, const char* uri)
 {
-    // send new X and Y values to the server
+    target->uriLength = strlen(uri);
+    target->uri = (char*) malloc(target->uriLength + 20);
+    strcpy(target->uri, uri);
+}
+
+/**
+ * Returns uri for the field with the provided name.
+ * Field URL is <targetURL><fieldName>
+ */
+static const char* target_getFieldUri(Target* target, const char* fieldName)
+{
+    strcpy(target->uri + target->uriLength, fieldName);
+    return target->uri;
+}
+
+/**
+ * Adds to the Batch request a command to update the specified field value at
+ * oBIX server.
+ * The command is added only in case when field's value has changed since last
+ * request.
+ */
+static int addTargetFieldToBatch(oBIX_Batch* batch,
+                                 Target* target,
+                                 const char* fieldName,
+                                 OBIX_DATA_TYPE fieldType,
+                                 const char* oldValue,
+                                 const char* newValue)
+{
+    if ((oldValue == NULL) || (strcmp(oldValue, newValue) != 0))
+    {
+        const char* fieldUri = target_getFieldUri(target, fieldName);
+        return obix_batch_writeValue(batch,
+                                     0,
+                                     fieldUri,
+                                     newValue,
+                                     fieldType);
+    }
+
+    // nothing to send - previous value is equal to current.
+    return 0;
+}
+
+/**
+ * Adds to the Batch request required commands for updating coordinates of the
+ * provided point inside a target.
+ * Only coordinates that are changed since last request are sent.
+ */
+static int addTargetPointToBatch(oBIX_Batch* batch,
+                                 Target* target,
+                                 int pointId,
+                                 const PicoClusterPoint* lastPoint,
+                                 const PicoClusterPoint* newPoint)
+{
+    int error = 0;
+
+    // make URI stub for all point fields
+    char fieldUri[20];
+    sprintf(fieldUri, "points/%d/", pointId + 1);
+    int fieldUriLenght = strlen(fieldUri);
+
+    if (picoClusterPoint_isZero(lastPoint))
+    {
+        if (picoClusterPoint_isZero(newPoint))
+        {	// both old and new clusters are empty - nothing to send
+            return 0;
+        }
+
+        // send update of active status
+        strcpy(fieldUri + fieldUriLenght, "active");
+        error += addTargetFieldToBatch(
+                     batch, target, fieldUri, OBIX_T_BOOL, NULL, XML_TRUE);
+    }
+    else if (picoClusterPoint_isZero(newPoint))
+    {	// last point was not empty but current one is
+        // send update of active status
+        strcpy(fieldUri + fieldUriLenght, "active");
+        error += addTargetFieldToBatch(
+                     batch, target, fieldUri, OBIX_T_BOOL, NULL, XML_FALSE);
+    }
+
+    // send point's sensor ID if needed
+    strcpy(fieldUri + fieldUriLenght, "id");
+    error += addTargetFieldToBatch(
+                 batch, target, fieldUri, OBIX_T_INT,
+                 lastPoint->id, newPoint->id);
+    // send point's X coordinate if needed
+    strcpy(fieldUri + fieldUriLenght, "x");
+    error += addTargetFieldToBatch(
+                 batch, target, fieldUri, OBIX_T_REAL,
+                 lastPoint->x, newPoint->x);
+    // send point's Y coordinate if needed
+    strcpy(fieldUri + fieldUriLenght, "y");
+    error += addTargetFieldToBatch(
+                 batch, target, fieldUri, OBIX_T_REAL,
+                 lastPoint->y, newPoint->y);
+    // send point's magnitude if needed
+    strcpy(fieldUri + fieldUriLenght, "magnitude");
+    error += addTargetFieldToBatch(
+                 batch, target, fieldUri, OBIX_T_REAL,
+                 lastPoint->magnitude, newPoint->magnitude);
+
+    return error;
+}
+
+/**
+ * Generates a request to oBIX server with updates of target parameters.
+ * The request contains only parameters that has been changed since last
+ * request.
+ *
+ * @param target     Target object, which should be updated at oBIX server.
+ * @param newCluster Cluster object containing new coordinates of the target and
+ *                   possibly, coordinates of the points inside the target.
+ */
+static oBIX_Batch* generateObixWriteRequest(Target* target,
+        PicoCluster* newCluster)
+{
     // we send several values to the server simultaneously, that's why we use
     // Batch object.
     oBIX_Batch* batch = obix_batch_create(SERVER_CONNECTION);
     if (batch == NULL)
     {	// that can hardly ever happen... e.g. when there is no enough memory
-        return OBIX_ERR_NO_MEMORY;
+        return NULL;
     }
 
-    // generate URI for x coordinate
     int error = 0;
-    int targetUriLength = strlen(target->uri);
-    char fullUri[targetUriLength + 10];
-    strcpy(fullUri, target->uri);
 
-
-    // send update of available attribute if needed
+    // send update of 'active' and 'id' attributes only once for new target, or
+    // when old target is removed
     if (target->new == TRUE)
     {
-        strcat(fullUri, "available");
+        error += addTargetFieldToBatch(
+                     batch, target, "active", OBIX_T_BOOL, NULL, XML_TRUE);
+        error += addTargetFieldToBatch(
+                     batch, target, "id", OBIX_T_INT, NULL, newCluster->id);
 
-        error = obix_batch_writeValue(batch,
-                                      _deviceIdShift,
-                                      fullUri,
-                                      XML_TRUE,
-                                      OBIX_T_BOOL);
         target->new = FALSE;
     }
-    else if (target->changed == FALSE)
+    else if (target->active == FALSE)
     {
         // target is being removed
-        strcat(fullUri, "available");
-
-        error = obix_batch_writeValue(batch,
-                                      _deviceIdShift,
-                                      fullUri,
-                                      XML_FALSE,
-                                      OBIX_T_BOOL);
+        error += addTargetFieldToBatch(
+                     batch, target, "active", OBIX_T_BOOL, NULL, XML_FALSE);
+        error += addTargetFieldToBatch(
+                     batch, target, "id", OBIX_T_INT, NULL, newCluster->id);
     }
 
-    if (error < 0)
-    {	// unable to generate a batch command
-        return error;
+    PicoCluster* lastCluster = target->lastCluster;
+
+    // send update of X coordinate if needed
+    error +=
+        addTargetFieldToBatch(
+            batch, target, "x", OBIX_T_REAL, lastCluster->x, newCluster->x);
+    // send update of Y coordinate if needed
+    error +=
+        addTargetFieldToBatch(
+            batch, target, "y", OBIX_T_REAL, lastCluster->y, newCluster->y);
+    // send update of VX speed if needed
+    error +=
+        addTargetFieldToBatch(
+            batch, target, "vx", OBIX_T_REAL, lastCluster->vx, newCluster->vx);
+    // send update of VY speed if needed
+    error +=
+        addTargetFieldToBatch(
+            batch, target, "vy", OBIX_T_REAL, lastCluster->vy, newCluster->vy);
+    // send update of magnitude value if needed
+    error +=
+        addTargetFieldToBatch(
+            batch, target, "magnitude", OBIX_T_REAL,
+            lastCluster->magnitude, newCluster->magnitude);
+
+    if (_pointsPerTarget > 0)
+    {
+        // send update of points inside cluster
+        int i;
+        for (i = 0; i < _pointsPerTarget; i++)
+        {
+            error += addTargetPointToBatch(
+                         batch, target, i,
+                         lastCluster->points[i], newCluster->points[i]);
+        }
     }
 
-    // send update of X coordinate
-    fullUri[targetUriLength] = 'x';
-    fullUri[targetUriLength + 1] = '\0';
-
-    error = obix_batch_writeValue(batch,
-                                  _deviceIdShift,
-                                  fullUri,
-                                  target->x,
-                                  OBIX_T_REAL);
     if (error < 0)
     {
-        return error;
+        log_error("Unable to generate oBIX Batch object.");
+        obix_batch_free(batch);
+        return NULL;
     }
 
-    // send Y update
-    fullUri[targetUriLength] = 'y';
-    fullUri[targetUriLength + 1] = '\0';
+    return batch;
+}
 
-    error = obix_batch_writeValue(batch,
-                                  _deviceIdShift,
-                                  fullUri,
-                                  target->y,
-                                  OBIX_T_REAL);
-    if (error < 0)
+
+/**
+ * Sends update of the target's values to the oBIX server.
+ *
+ * @param target Target object which should be sent.
+ * @param newCluster Object with new target coordinates
+ * @return #OBIX_SUCCESS if data is successfully sent, error code otherwise.
+ */
+static int target_sendUpdate(Target* target, PicoCluster* newCluster)
+{
+    // generate request to the server
+    oBIX_Batch* batch = generateObixWriteRequest(target, newCluster);
+    if (batch == NULL)
     {
-        return error;
+        return -1;
     }
-
-    // now send the batch object which contains all required write operations
-    error = obix_batch_send(batch);
+    // send the batch object which contains all required write operations
+    int error = obix_batch_send(batch);
     // and don't forget to free the batch object after use
     obix_batch_free(batch);
     if (error != OBIX_SUCCESS)
     {
-        return error;
-    }
-
-    target->changed = FALSE;
-    return OBIX_SUCCESS;
-}
-/** @} */
-
-/**
- * Parses target object received from the sensor floor.
- *
- * @param node XML representation of the received target object.
- * @return @a 0 on success, @a -1 on error.
- */
-int parseTarget(IXML_Node* node)
-{
-    if (!obix_obj_implementsContract(ixmlNode_convertToElement(node),
-                                     "target"))
-    {
-    	// it is not a target - nothing to parse
-    	return 0;
-    }
-
-    node = ixmlNode_getFirstChild(node);
-    // first node is id tag (at least we hope so :)
-    const char* attrValue = ixmlElement_getAttribute(
-                                ixmlNode_convertToElement(node), OBIX_ATTR_VAL);
-    int id = atoi(attrValue);
-    if (id <= 0)
-    {
-        char* buffer = ixmlPrintNode(node);
-        log_error("Unable to parse target: "
-                  "ID expected in the first child tag, but it is:\n%s",
-                  buffer);
-        free(buffer);
+        log_error("Unable to send coordinates update to the oBIX server (%d). "
+                  "Some data from sensor floor is ignored.",
+                  error);
+        picoCluster_free(newCluster);
         return -1;
     }
-    // get corresponding target
-    Target* target = target_get(id);
-    if (target == NULL)
-    {
-        // there is no free slot to monitor this target - ignore it
-        return 0;
-    }
 
-    // iterate through the whole list of target params
-    while (node != NULL)
-    {
-        IXML_Element* param = ixmlNode_convertToElement(node);
-        if (param == NULL)
-        {
-            log_error("Target contains something unexpected.");
-            return -1;
-        }
-
-        const char* paramName = ixmlElement_getAttribute(
-                                    param,
-                                    OBIX_ATTR_NAME);
-        if (paramName == NULL)
-        {
-            log_error("Target object doesn't have \"%s\" attribute.",
-                      OBIX_ATTR_NAME);
-            return -1;
-        }
-
-        if (strcmp(paramName, "x") == 0)
-        {
-            const char* newValue = ixmlElement_getAttribute(param,
-                                   OBIX_ATTR_VAL);
-            if (newValue == NULL)
-            {
-                return -1;
-            }
-            target_setX(target, newValue);
-        }
-        else if (strcmp(paramName, "y") == 0)
-        {
-            const char* newValue = ixmlElement_getAttribute(param,
-                                   OBIX_ATTR_VAL);
-            if (newValue == NULL)
-            {
-                return -1;
-            }
-            target_setY(target, newValue);
-        }
-
-        node = ixmlNode_getNextSibling(node);
-    }
+    // store data we sent
+    picoCluster_free(target->lastCluster);
+    target->lastCluster = newCluster;
 
     return 0;
+}
+
+/** Sends zeros to all parameters of all targets at oBIX server. */
+static int target_resetValuesAtServer()
+{
+    // set NULL coordinates to all targets and then send zero coordinates
+    // to server
+    int i;
+    int error = 0;
+    for (i = 0; i < _targetsCount; i++)
+    {
+        _targets[i].lastCluster = picoCluster_getEmpty();
+
+        error += target_sendUpdate(&(_targets[i]), picoCluster_getZero());
+    }
+
+    return error;
 }
 
 /**
@@ -363,307 +412,226 @@ void targetRemoveTask(void* arg)
 
     pthread_mutex_lock(&_targetMutex);
 
-    if (target->changed == TRUE)
-    {
-        // target is updated
-        // no need to remove it now
-        ptask_reset(_taskThread, target->removeTask);
-        pthread_mutex_unlock(&_targetMutex);
-        return;
-    }
-
     // clean target
     target->id = 0;
     target->new = FALSE;
     target->removeTask = 0;
-    target_setX(target, "0");
-    target_setY(target, "0");
-    target->changed = FALSE;
+    target->active = FALSE;
 
     // send update to the server
-    if (target_sendUpdate(target) != OBIX_SUCCESS)
+    if (target_sendUpdate(target, picoCluster_getZero()) != 0)
     {
-        log_error("Unable to update the target at oBIX server.");
+        log_error("Unable to send target update to the oBIX server.");
     }
 
     pthread_mutex_unlock(&_targetMutex);
 }
 
-/**
- * Checks whether targets are updated. If yes - sends updated values to the
- * server.
- *
- * @return 0 on success, -1 on error
- */
-int checkTargets()
+/** Generates oBIX data representing a point object and adds it to
+ * pointList object. */
+static int generatePointXML(IXML_Element* pointList, int pointId)
 {
+    IXML_Element* point;
+    char pointUrl[3];
+    char name[8];
+
+    sprintf(pointUrl, "%d", pointId + 1);
+    sprintf(name, "point%d", pointId + 1);
+
+    int error =
+        obix_obj_addChild(pointList, OBIX_OBJ, pointUrl, name, NULL, &point);
+    if (error != 0)
+    {
+        return -1;
+    }
+
+    error += obix_obj_addBooleanChild(
+                 point, "active", "active", NULL, FALSE, TRUE, NULL);
+    error += obix_obj_addIntegerChild(
+                 point, "id", "sensorId", NULL, 0, TRUE, NULL);
+    error += obix_obj_addRealChild(
+                 point, "x", "x", NULL, 0, 0, TRUE, NULL);
+    error += obix_obj_addRealChild(
+                 point, "y", "y", NULL, 0, 0, TRUE, NULL);
+    error += obix_obj_addRealChild(
+                 point, "magnitude", "magnitude", NULL, 0, 0, TRUE, NULL);
+
+    if (error != 0)
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
+/** Generates oBIX data representing a target object and adds it to
+ * targetList object. */
+static int generateTargetXML(IXML_Element* targetList,
+                             int targetId,
+                             int pointsPerTarget)
+{
+    IXML_Element* target;
+    char targetUrl[4];
+    char name[10];
+    char displayName[11];
+
+    sprintf(targetUrl, "%d", targetId + 1);
+    sprintf(name, "target%d", targetId + 1);
+    sprintf(displayName, "Target %d", targetId + 1);
+
+    int error = obix_obj_addChild(targetList,
+                                  OBIX_OBJ,
+                                  targetUrl,
+                                  name,
+                                  displayName,
+                                  &target);
+    if (error != 0)
+    {
+        return -1;
+    }
+
+    // save target URL
+    target_saveUri(&(_targets[targetId]),
+                   ixmlElement_getAttribute(target, OBIX_ATTR_HREF));
+
+    error +=
+        obix_obj_addBooleanChild(
+            target, "active", "active", "Target is active", FALSE, TRUE, NULL);
+    error += obix_obj_addIntegerChild(
+                 target, "id", "id", "ID", 0, TRUE, NULL);
+    error += obix_obj_addRealChild(
+                 target, "x", "x", "X coordinate", 0, 0, TRUE, NULL);
+    error += obix_obj_addRealChild(
+                 target, "y", "y", "Y coordinate", 0, 0, TRUE, NULL);
+    error += obix_obj_addRealChild(
+                 target, "vx", "vx", "X speed", 0, 0, TRUE, NULL);
+    error += obix_obj_addRealChild(
+                 target, "vy", "vy", "Y speed", 0, 0, TRUE, NULL);
+    error +=
+        obix_obj_addRealChild(
+            target, "magnitude", "magnitude", "Magnitude", 0, 0, TRUE, NULL);
+    if (error != 0)
+    {
+        return -1;
+    }
+
+    if (pointsPerTarget > 0)
+    {
+        IXML_Element* pointList;
+        error = obix_obj_addChild(target,
+                                  OBIX_OBJ_LIST,
+                                  "points",
+                                  "pointList",
+                                  "List of points",
+                                  &pointList);
+        if (error != 0)
+        {
+            return -1;
+        }
+        int i;
+        for (i = 0; i < pointsPerTarget; i++)
+        {
+            error += generatePointXML(pointList, i);
+        }
+    }
+
+    if (error != 0)
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
+/**
+ * Generates device data which will be published to oBIX server.
+ *
+ * return @a 0 on success, @a -1 on error.
+ */
+static int generateDeviceData(IXML_Document** deviceData)
+{
+    IXML_Element* deviceTag;
+
+    int error = obix_obj_create(OBIX_OBJ,
+                                _obixUrlPrefix,
+                                "SensorFloor",
+                                "Sensor Floor",
+                                deviceData,
+                                &deviceTag);
+    if (error != 0)
+    {
+        return -1;
+    }
+
+    error += obix_obj_addStringChild(deviceTag,
+                                     "room",
+                                     "room",
+                                     "Room Name",
+                                     _picoRoomName,
+                                     FALSE,
+                                     NULL);
+    // create list of targets
+    IXML_Element* targetList;
+    error += obix_obj_addChild(deviceTag,
+                               OBIX_OBJ_LIST,
+                               "targets",
+                               "TargetList",
+                               "List of Targets",
+                               &targetList);
+    if (error != 0)
+    {
+        return -1;
+    }
+
     int i;
     for (i = 0; i < _targetsCount; i++)
     {
-        Target* target = &(_targets[i]);
-        if (target->id == 0)
-        {
-            // this is empty target slot - ignore it
-            continue;
-        }
-
-        if (target->changed == TRUE)
-        {
-            // send update to the server
-            if (target_sendUpdate(target) != OBIX_SUCCESS)
-            {
-                return -1;
-            }
-
-            // reset timer of the remove task
-            ptask_reset(_taskThread, target->removeTask);
-        }
+        error += generateTargetXML(targetList, i, _pointsPerTarget);
     }
 
-    return 0;
-}
-
-/**
- * Listens to target updates at the sensor floor.
- * Implements #obix_update_listener prototype.
- * @ref obix_update_listener
- */
-int targetsListener(int connectionId,
-                    int deviceId,
-                    int listenerId,
-                    const char* newValue)
-{
-    //    log_warning("Targets update received:\n%s\n", newValue);
-    // parse update
-    IXML_Document* doc;
-    int error = ixmlParseBufferEx(newValue, &doc);
-    if (error != IXML_SUCCESS)
+    if (error != 0)
     {
-        log_error("Unable to parse received targets update:\n%s", newValue);
         return -1;
     }
-
-    pthread_mutex_lock(&_targetMutex);
-    IXML_NodeList* targets = ixmlDocument_getElementsByTagName(doc, OBIX_OBJ);
-    if (targets == NULL)
-    {
-        // no targets - ignore.
-        ixmlDocument_free(doc);
-        error = checkTargets();
-        pthread_mutex_unlock(&_targetMutex);
-        return error;
-    }
-
-    int i;
-    int targetsCount = ixmlNodeList_length(targets);
-    if (targetsCount > _targetsCount)
-    {
-        log_warning("Sensor Floor returned %d targets, "
-                    "but we monitor only %d.", targetsCount, _targetsCount);
-        targetsCount = _targetsCount;
-    }
-
-    for (i = 0; i < targetsCount; i++)
-    {
-        if (parseTarget(ixmlNodeList_item(targets, i)) != 0)
-        {
-            // error occurred, stop parsing
-            log_error("Unable to parse received targets update:\n%s",
-                      newValue);
-            break;
-        }
-    }
-
-    ixmlNodeList_free(targets);
-    ixmlDocument_free(doc);
-
-    //check targets and send updates if necessary
-    checkTargets();
-    pthread_mutex_unlock(&_targetMutex);
-
     return 0;
 }
 
 /**
- * Sets the @a fall variable at the oBIX server to @a true if the fallen event
- * is received from the sensor floor.
- * @param events XML document which contains received events from the sensor
- *               floor.
- * @return @li @a 1 If fallen even is detected and the @a fall variable is
- *         changed on the oBIX server.
- *         @li @a 0 If fallen event is not detected.
- *         @li @a -1 If error occurred when update was sent to the server.
- */
-int sendFallEventUpdate(IXML_Document* events)
-{
-    // this variable is introduced to filter several calls of the method
-    // caused by one fallen event
-    // TODO check how good it is
-    static BOOL receivedFallEvent = FALSE;
-
-    // we look not only for FALLEN event
-    // PULSE probably means that the floor detected pulse of the fallen person
-    // NOVITALS by this logic means that the floor can't detect any movements
-    // of the fallen person
-    if (ixmlDocument_getElementByAttrValue(events,
-                                           OBIX_ATTR_VAL,
-                                           "FALLEN") != NULL
-            || ixmlDocument_getElementByAttrValue(events,
-                                                  OBIX_ATTR_VAL,
-                                                  "PULSE") != NULL
-            || ixmlDocument_getElementByAttrValue(events,
-                                                  OBIX_ATTR_VAL,
-                                                  "NOVITALS") != NULL)
-    {
-        // fall event occurred! notify oBIX server if it is not done yet
-        if (receivedFallEvent == FALSE)
-        {
-            receivedFallEvent = TRUE;
-            // lock the mutex because we use connection to the server which can
-            // be used from another thread simultaneously
-            pthread_mutex_lock(&_targetMutex);
-            log_warning("Somebody fell down..\n");
-            int error = obix_writeValue(SERVER_CONNECTION,
-                                        _deviceIdShift,
-                                        "fall",
-                                        XML_TRUE,
-                                        OBIX_T_BOOL);
-            pthread_mutex_unlock(&_targetMutex);
-
-            if (error != OBIX_SUCCESS)
-            {
-                log_error("Unable to notify oBIX server about fall event.");
-                return -1;
-            }
-        }
-        return 1;
-    }
-
-    if (ixmlDocument_getElementById(events, OBIX_OBJ) != NULL)
-    {	// we received some another event
-        receivedFallEvent = FALSE;
-    }
-
-    return 0;
-}
-
-/**
- * Listens to the event feed of the sensor floor.
- * Implements #obix_update_listener.
- * @ref obix_update_listener
- */
-int eventFeedListener(int connectionId,
-                      int deviceId,
-                      int listenerId,
-                      const char* newValue)
-{
-    // parse update
-    IXML_Document* doc;
-    int error = ixmlParseBufferEx(newValue, &doc);
-    if (error != IXML_SUCCESS)
-    {
-        log_error("Unable to parse received event feed update:\n%s", newValue);
-        return -1;
-    }
-
-    //    if (ixmlDocument_getElementById(doc, OBIX_OBJ) != NULL)
-    //    {
-    //    if (strncmp(newValue, "<feed", 5) != 0)
-    //    {
-    //        log_debug("Received new event:\n%s", newValue);
-    //    }
-    //    }
-
-    // check whether we have fallen event
-    error = sendFallEventUpdate(doc);
-    if (error == 1)
-    {
-        error = 0;
-        log_debug("Fallen even is caught by feed listener");
-    }
-
-    ixmlDocument_free(doc);
-    return error;
-}
-
-/**
- * Generates device data which will be published on the oBIX server.
- * Uses settings from configuration file.
+ * Loads target settings from configuration file and generates oBIX device data.
  *
- * @param deviceConf XML configuration loaded from the file.
+ * @param picoSettings XML tag with driver settings.
  * return @a 0 on success, @a -1 on error.
  */
-int loadDeviceData(IXML_Element* deviceConf)
+static int loadTargetSettings(IXML_Element* picoSettings)
 {
-    if (deviceConf == NULL)
+    // address at oBIX server where data will be posted to
+    _obixUrlPrefix =
+        strdup(config_getChildTagValue(picoSettings, "obix-url", TRUE));
+    if (_obixUrlPrefix == NULL)
     {
         return -1;
     }
 
-    // get device object stub
-    IXML_Element* deviceData = config_getChildTag(deviceConf, OBIX_OBJ, TRUE);
-    if (deviceData == NULL)
+    IXML_Element* targetSettings =
+        config_getChildTag(picoSettings, "target", TRUE);
+    if (targetSettings == NULL)
     {
         return -1;
     }
 
-    // create a copy of device data
-    deviceData = ixmlElement_cloneWithLog(deviceData, TRUE);
-    IXML_Document* doc = ixmlNode_getOwnerDocument(
-                             ixmlElement_getNode(deviceData));
-
-    // get target settings
-    IXML_Element* target = config_getChildTag(deviceConf, "target", TRUE);
-    if (target == NULL)
+    _targetsCount =
+        config_getTagAttrIntValue(targetSettings, "count", TRUE, 1);
+    if (_targetsCount < 0)
     {
-        ixmlDocument_free(doc);
         return -1;
     }
+    _pointsPerTarget =
+        config_getTagAttrIntValue(
+            targetSettings, "point-count", FALSE, _pointsPerTarget);
+    _targetRemoveTimeout =
+        config_getTagAttrLongValue(
+            targetSettings, "kill-timeout", FALSE, _targetRemoveTimeout);
 
-    int targetsCount = config_getTagAttrIntValue(target, "count", TRUE, 1);
-    if (targetsCount <= 0)
-    {
-        ixmlDocument_free(doc);
-        return -1;
-    }
-
-    _targets = (Target*) calloc(targetsCount, sizeof(Target));
-    _targetsCount = targetsCount;
-
-    // get target stub
-    target = config_getChildTag(target, OBIX_OBJ, TRUE);
-    if (target == NULL)
-    {
-        ixmlDocument_free(doc);
-        return -1;
-    }
-
-    // generate required amount of targets
-    int i;
-    IXML_Node* node;
-    for (i = 0; i < targetsCount; i++)
-    {
-        ixmlDocument_importNode(doc, ixmlElement_getNode(target), TRUE, &node);
-        ixmlNode_appendChild(ixmlElement_getNode(deviceData), node);
-
-        // generate name and href of the new target
-        char name[9];
-        char displayName[10];
-        char* href = (char*) malloc(10);
-
-        sprintf(name, "target%d", i + 1);
-        sprintf(displayName, "Target %d", i + 1);
-        sprintf(href, "target%d/", i + 1);
-
-        IXML_Element* t = ixmlNode_convertToElement(node);
-        ixmlElement_setAttribute(t, OBIX_ATTR_NAME, name);
-        ixmlElement_setAttribute(t, OBIX_ATTR_DISPLAY_NAME, displayName);
-        ixmlElement_setAttribute(t, OBIX_ATTR_HREF, href);
-        // save target
-        _targets[i].uri = href;
-    }
-
-    _deviceData = doc;
     return 0;
 }
 
@@ -673,7 +641,7 @@ int loadDeviceData(IXML_Element* deviceConf)
  * @param fileName Name of the configuration file.
  * @return @a 0 on success, @a -1 on error.
  */
-int loadSettings(const char* fileName)
+static int loadSettings(const char* fileName)
 {
     IXML_Element* settings = config_loadFile(fileName);
     if (settings == NULL)
@@ -695,56 +663,142 @@ int loadSettings(const char* fileName)
         return error;
     }
 
-    // load data which will be posted to oBIX server from settings file
-    IXML_Element* element = config_getChildTag(settings, "device-info", TRUE);
-    if (loadDeviceData(element) != 0)
+    // load driver specific settings
+    IXML_Element* picoSettings =
+        config_getChildTag(settings, "pico-settings", TRUE);
+    if (picoSettings == NULL)
     {
+        config_finishInit(settings, FALSE);
         return -1;
     }
 
-    // TODO for testing purposes only
-//    // load test data
-//    element = config_getChildTag(settings, "test-data", TRUE);
-//    element = ixmlElement_cloneWithLog(element, TRUE);
-//    _testData = ixmlNode_getOwnerDocument(ixmlElement_getNode(element));
+    // pico server URI and room name
+    const char* picoServer =
+        config_getChildTagValue(picoSettings, "pico-server", TRUE);
+    const char* picoRoomName =
+        config_getChildTagValue(picoSettings, "room-name", TRUE);
+    if ((picoServer == NULL) || (picoRoomName == NULL))
+    {
+        config_finishInit(settings, FALSE);
+        return -1;
+    }
+    _picoServerAddress = strdup(picoServer);
+    _picoRoomName = strdup(picoRoomName);
+
+    // targets configuration
+    if (loadTargetSettings(picoSettings) != 0)
+    {
+        config_finishInit(settings, FALSE);
+        return -1;
+    }
 
     // finish initialization
     config_finishInit(settings, TRUE);
     return 0;
 }
 
-/**
- * Emulates target data from the sensor floor.
- * Test data is read from the configuration file and sent step by step
- * to the targets listener. For testing purposes only.
- */
-void testCycle()
+/** Generates oBIX data representing one sensor object and adds this data to
+ * sensorList object. */
+static int generateSensorXML(IXML_Element* sensorList,
+                             const PicoSensor* sensorData)
 {
-    IXML_NodeList* testList = ixmlDocument_getElementsByTagName(_testData,
-                              OBIX_OBJ_LIST);
-    int testCount = ixmlNodeList_length(testList);
+    IXML_Element* sensorTag;
 
-    int i;
-    for (i = 0; i < testCount; i++)
+    int error =
+        obix_obj_addChild(
+            sensorList, OBIX_OBJ, NULL, "sensor", NULL, &sensorTag);
+    if (error != 0)
     {
-        log_warning("Test step #%d from %d. Press Enter to continue.\n",
-                    i, testCount);
-        getchar();
-
-        char* testData = ixmlPrintNode(ixmlNodeList_item(testList, i));
-        targetsListener(SENSOR_FLOOR_CONNECTION, 0, 0, testData);
-        free(testData);
+        return -1;
     }
 
-    ixmlNodeList_free(testList);
-    ixmlDocument_free(_testData);
+    error += obix_obj_addValChild(
+                 sensorTag, OBIX_OBJ_INT, NULL, "id",
+                 NULL, sensorData->id, FALSE, NULL);
+    error += obix_obj_addValChild(
+                 sensorTag, OBIX_OBJ_REAL, NULL, "x",
+                 NULL, sensorData->x, FALSE, NULL);
+    error += obix_obj_addValChild(
+                 sensorTag, OBIX_OBJ_REAL, NULL, "y",
+                 NULL, sensorData->y, FALSE, NULL);
+
+    if (error != 0)
+    {
+        return -1;
+    }
+
+    return 0;
 }
 
 /**
- * Sets all targets at server to 'not available' and
- * removes all target values.
+ * Loads data about sensors in the floor and adds this data in oBIX format
+ * to the deviceData document.
+ *
+ * @param testRoomInfoFileName If not @a NULL, this parameter represents the
+ *                             name of the file with stored sensor floor data.
  */
-void resetTargets()
+static int loadRoomSensorInfo(IXML_Document* deviceData,
+                              const char* testRoomInfoFileName)
+{
+    int sensorCount;
+    const PicoSensor** sensors;
+    int error;
+
+    if (testRoomInfoFileName != NULL)
+    {
+        error = pico_readSensorInfoFromFile(testRoomInfoFileName,
+                                            &sensors, &sensorCount);
+    }
+    else
+    {
+        error = pico_readSensorsInfoFromUrl(_picoServerAddress, _picoRoomName,
+                                            &sensors, &sensorCount);
+    }
+
+    if (error != 0)
+    {
+        log_error("Unable to read sensor info from pico server. "
+                  "Address = \"%s\"; Room name = \"%s\".",
+                  _picoServerAddress, _picoRoomName);
+        return -1;
+    }
+
+    IXML_Element* deviceTag = ixmlDocument_getRootElement(deviceData);
+    IXML_Element* sensorList;
+
+    error = obix_obj_addChild(deviceTag,
+                              OBIX_OBJ_LIST,
+                              "sensors",
+                              "sensorList",
+                              "Room sensors layout",
+                              &sensorList);
+    if (error != 0)
+    {
+        return -1;
+    }
+
+    int i;
+    for (i = 0; i < sensorCount; i++)
+    {
+        if (sensors[i] != NULL)
+        {
+            error += generateSensorXML(sensorList, sensors[i]);
+        }
+    }
+
+    if (error != 0)
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
+/**
+ * Sets all targets at the server to 'not available' and
+ * frees all target values.
+ */
+static void disposeTargets()
 {
     int i;
     for (i = 0; i < _targetsCount; i++)
@@ -754,8 +808,7 @@ void resetTargets()
             targetRemoveTask(&(_targets[i]));
         }
 
-        free(_targets[i].x);
-        free(_targets[i].y);
+        picoCluster_free(_targets[i].lastCluster);
         free(_targets[i].uri);
     }
 
@@ -763,50 +816,191 @@ void resetTargets()
 }
 
 /**
- * Checks periodically the last sensor floor event and invokes event feed
- * listener.
- * @todo it is created because Sensor Floor's event feed doesn't show the Fallen
- * event
- * @param args Parameter is not used (created to match #periodic_task prototype)
+ * This listener received cluster structures, when people coordinates on the
+ * sensor floor change.
+ * @param cluster Structure containing coordinates of a person.
  */
-void checkEventsTask(void* args)
+void sensorFloorListener(PicoCluster* cluster)
 {
-    IXML_Element* lastEvent;
-    int error = obix_read(SENSOR_FLOOR_FEED_CONNECTION,
-                          0,
-                          "/obix/elsi/Stok/event/",
-                          &lastEvent);
-
-    if (error != OBIX_SUCCESS)
+    // find the corresponding target object
+    int id = atoi(cluster->id);
+    if (id <= 0)
     {
-        log_error("Unable to read last floor event.");
+        log_error("A cluster with a wrong id received (integer value "
+                  "expected): %s", cluster->id);
         return;
     }
 
-    error = sendFallEventUpdate(ixmlNode_getOwnerDocument(
-                                    ixmlElement_getNode(lastEvent)));
-    if (error == 1)
+    // we have received something valuable - reset error counter
+    _closedConnectionCount = 0;
+
+    Target* target = target_get(id);
+    if (target == NULL)
     {
-        log_debug("Fallen event is caught by checking last event.");
+        // there is no free slot to monitor this target - ignore it
+        log_debug("Sensor floor reports more clusters, than can be "
+                  "published at the oBIX server. Adjust target count attribute"
+                  "at driver's configuration file if you want to track more "
+                  "people.");
+        return;
     }
 
-    ixmlElement_freeOwnerDocument(lastEvent);
+    pthread_mutex_lock(&_targetMutex);
+    // send update to the server
+    if (target_sendUpdate(target, cluster) != 0)
+    {
+        pthread_mutex_unlock(&_targetMutex);
+        log_error("Unable to send coordinates update to the oBIX server.");
+        return;
+    }
+
+    // reset timer of the remove task
+    ptask_reset(_taskThread, target->removeTask);
+    pthread_mutex_unlock(&_targetMutex);
+}
+
+/**
+ * Frees all memory allocated by application.
+ */
+static void disposeEverything()
+{
+    // reset and free all targets
+    disposeTargets();
+
+    // release memory allocated for the feed reader
+    pico_disposeReader();
+
+    // release all resources allocated by oBIX client library.
+    // No need to close connection or unregister listener explicitly - it is
+    // done automatically.
+    obix_dispose();
+
+    ptask_dispose(_taskThread, TRUE);
+
+    if (_picoServerAddress != NULL)
+    {
+        free(_picoServerAddress);
+    }
+    if (_picoRoomName != NULL)
+    {
+        free(_picoRoomName);
+    }
+}
+
+/**
+ * Forces application to quit.
+ */
+void killTask(void* arg)
+{
+    log_warning("Graceful shutdown doesn't work. "
+                "Killing the driver..");
+    exit(0);
+}
+
+/**
+ * This method will listen to the interrupt signal
+ * (e.g. when user presses Ctrl+C).
+ */
+void interruptSignalHandler(int signal)
+{
+    if (_shutDown == FALSE)
+    {
+        _shutDown = TRUE;
+        log_warning("Received Interrupt signal, terminating..");
+        printf("\nInterrupt signal is caught, terminating..\n");
+
+        pico_stopFeedReader();
+        ptask_schedule(_taskThread, &killTask, NULL, 5000, 1);
+    }
+    else
+    {
+        log_warning("Received another interrupt signal.. "
+                    "I'm already trying to stop!");
+    }
+}
+
+/**
+ * Main working cycle of the driver. Listens to the pico server HTTP feed for
+ * new people coordinates.s
+ */
+static void feedReadingLoop()
+{
+    while(!_shutDown)
+    {
+        int error = pico_readFeed(_picoServerAddress, _picoRoomName);
+
+        if (error == 0)
+        {
+            log_warning("Connection with the sensor floor closed. "
+                        "Connecting again...");
+        }
+        else
+        {
+            log_error("Error occurred during reading the feed of the "
+                      "sensor floor. Connecting again...");
+        }
+
+        _closedConnectionCount++;
+        if (_closedConnectionCount == 5)
+        {
+            log_error("Attempt to connect to the sensor floor failed for "
+                      "5 times in a row. Shutting down.");
+            _shutDown = TRUE;
+        }
+
+    }
+}
+
+/** Registers handler of the Interrupt signal. Instead of immediate
+ * termination, the driver tries to close all connection and free all
+ * resources.*/
+static void registerInterruptionHandler()
+{
+    // read current interrupt signal action
+    struct sigaction interruptSignalAction;
+    if (sigaction(SIGINT, NULL, &interruptSignalAction))
+    {
+        log_warning("Unable to register interruption handler. If user "
+                    "presses Ctrl+C a default system handler will be used - it "
+                    "will kill the application without closing all "
+                    "connections");
+        return;
+    }
+    // remove restart flag - it will force all low-level operations like
+    // read(), write(), etc. to exit with error, when the interruption signal
+    // received.
+    interruptSignalAction.sa_flags &= !SA_RESTART;
+    //set our own handler method for interruption signal
+    interruptSignalAction.sa_handler = &interruptSignalHandler;
+    sigaction(SIGINT, &interruptSignalAction, NULL);
 }
 
 /**
  * Entry point of the driver.
- *
- * @param argc It takes exactly 1 input argument.
- * @param argv The only argument is the name of configuration file.
- * @return @a 0 on success, negative error code otherwise.
  */
 int main(int argc, char** argv)
 {
-    if (argc != 2)
+    BOOL testMode = FALSE;
+
+    if ((argc != 2) && ((argc != 5) || (strcmp(argv[2], "-test") != 0)))
     {
-        printf("Usage: sensor_floor_pico <config_file>\n"
-               " where <config_file> - Name of the configuration file.\n");
+        printf("Usage: sensor_floor_pico <config_file> "
+               "[-test <sensor_info> <feed>]\n"
+               " where <config_file> - Name of the configuration file.\n"
+               "       -test         - Optional parameter force to run the\n"
+               "                       adapter in test mode.\n"
+               "       <sensor_info> - Name of the file with floor sensor\n"
+               "                       data as it is provided by Pico server\n"
+               "                       at the URL /<room>/info\n"
+               "       <feed>        - Name of the file with sensor floor\n"
+               "                       feed data that provided by Pico server\n"
+               "                       at the URL /<room>/feed\n");
         return -1;
+    }
+
+    if (argc == 5)
+    {
+        testMode = TRUE;
     }
 
     // load settings from file
@@ -816,32 +1010,42 @@ int main(int argc, char** argv)
         return -1;
     }
 
+    // initialize Sensor Floor connection module
+    if (pico_initFeedReader(&sensorFloorListener, _pointsPerTarget) != 0)
+    {
+        log_error("Unable to initialize communication with the sensor floor");
+        return -1;
+    }
+
+    // initialize internal targets array
+    target_initArray();
+
+    // generate oBIX device data based on parsed settings
+    IXML_Document* deviceXML;
+    if (generateDeviceData(&deviceXML) != 0)
+    {
+        log_error("Unable to generate oBIX device data");
+        return -1;
+    }
+
     // initialize the task thread
     _taskThread = ptask_init();
     if (_taskThread == NULL)
     {
         log_error("Unable to initialize separate thread.");
+        return -1;
     }
 
-    // open connection to the Sensor Floor
-    int error = obix_openConnection(SENSOR_FLOOR_CONNECTION);
-    if (error != OBIX_SUCCESS)
+    // read sensor info from the sensor floor and add it to our oBIX device data
+    const char* roomInfoFile = testMode ? argv[3] : NULL;
+    if (loadRoomSensorInfo(deviceXML, roomInfoFile) != 0)
     {
-        log_error("Unable to establish connection with the Sensor Floor.\n");
-        return error;
-    }
-
-    // open second connection to the Sensor Floor (for events)
-    error = obix_openConnection(SENSOR_FLOOR_FEED_CONNECTION);
-    if (error != OBIX_SUCCESS)
-    {
-        log_error("Unable to establish second connection with the Sensor "
-                  "Floor.\n");
-        return error;
+        log_error("Unable to load info about room sensors.");
+        return -1;
     }
 
     // open connection to the target oBIX server
-    error = obix_openConnection(SERVER_CONNECTION);
+    int error = obix_openConnection(SERVER_CONNECTION);
     if (error != OBIX_SUCCESS)
     {
         log_error("Unable to establish connection with oBIX server.\n");
@@ -849,68 +1053,40 @@ int main(int argc, char** argv)
     }
 
     // register Sensor Floor at the target oBIX server
-    char* deviceData = ixmlPrintDocument(_deviceData);
-    _deviceIdShift = obix_registerDevice(SERVER_CONNECTION, deviceData);
+    char* deviceData = ixmlPrintDocument(deviceXML);
+    _deviceId = obix_registerDevice(SERVER_CONNECTION, deviceData);
     free(deviceData);
-    if (_deviceIdShift < 0)
+    ixmlDocument_free(deviceXML);
+    if (_deviceId < 0)
     {
         log_error("Unable to register Sensor Floor at oBIX server.\n");
         return -1;
     }
 
-    // register listener for targets list of the Sensor Floor
-    int targetListenerId = obix_registerListener(SENSOR_FLOOR_CONNECTION,
-                           0,
-                           "/obix/elsi/Stok/targets/",
-                           &targetsListener);
-    if (targetListenerId < 0)
+    // reset targets at the server in case if some data remains from previous
+    // driver execution.
+    if (target_resetValuesAtServer() != 0)
     {
-        log_error("Unable to register update listener for targets.\n");
-        return targetListenerId;
+        log_error("Unable reset targets at oBIX server.");
+        return -1;
     }
 
-    // register listener of event feed
-    int feedListenerId = obix_registerListener(SENSOR_FLOOR_FEED_CONNECTION,
-                         0,
-                         "/obix/elsi/Stok/eventFeed/",
-                         &eventFeedListener);
-    if (feedListenerId < 0)
+
+    registerInterruptionHandler();
+    log_debug("Sensor floor driver is started.");
+    printf("Sensor floor driver is started\n\n"
+           "Press Ctrl+C to stop driver...\n");
+
+    if (testMode)
     {
-        log_error("Unable to register update listener for event feed.\n");
-        return feedListenerId;
+        pico_readFeedFromFile(argv[4]);
+    }
+    else
+    {
+        feedReadingLoop();
     }
 
-    // TODO workaround for catching FALLEN event
-    int taskId = ptask_schedule(_taskThread,
-                                &checkEventsTask,
-                                NULL,
-                                LAST_EVENT_POLL_PERIOD,
-                                EXECUTE_INDEFINITE);
-
-
-    //    testCycle();
-
-    printf("Sensor Floor is successfully registered at the oBIX server\n\n"
-           "Press Enter to stop driver...\n");
-    // wait for user input
-    getchar();
-
-    // remove targets listener (it is automatically done by calling
-    // obix_dispose(), but we want to reset target values at the server before
-    // exiting, and we need to stop updating values before this
-    obix_unregisterListener(SENSOR_FLOOR_CONNECTION, 0, targetListenerId);
-
-    // reset and free all targets
-    resetTargets();
-
-    // release all resources allocated by oBIX client library.
-    // No need to close connection or unregister listener explicitly - it is
-    // done automatically.
-    obix_dispose();
-    ixmlDocument_free(_deviceData);
-
-    ptask_cancel(_taskThread, taskId, FALSE);
-    ptask_dispose(_taskThread, TRUE);
+    disposeEverything();
 
     return 0;
 }

@@ -117,12 +117,12 @@
 			Common Name field of provided certificate. If false, no such check 
 			is performed 
 		-->
-		<verify-host val="true"/>
+		<verify-host val="false"/>
 		<!--
 			Following tag can be used to provide custom file with trusted 
 			certificates. 
 		-->
-		<!-- <ca-file val="/mnt/share/lighttpd.pem"/> -->			
+		<!--<ca-file val="/etc/lighttpd/ssl/server.pem"/>-->			
 	</ssl>
 
 	<!--

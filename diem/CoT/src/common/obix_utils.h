@@ -22,6 +22,8 @@
 /** @file
  * Contains oBIX keywords (object names, contracts, facets, etc) and some
  * utility functions.
+ * For instance, #obix_obj_create and a set of obix_obj_add*Child functions can
+ * be used to generate XML oBIX data.
  *
  * The list of keywords is not complete and should be expanded every time when
  * something new is needed. In most cases a common oBIX client application
@@ -221,5 +223,210 @@ BOOL obix_obj_implementsContract(IXML_Element* obj, const char* contract);
  * return #TRUE if the object is NULL, #FALSE otherwise.
  */
 BOOL obix_obj_isNull(IXML_Element* obj);
+
+/**
+ * Creates a new XML DOM structure containing oBIX object.
+ * Only @a type and @a obj are obligatory parameters. Others can be @a NULL.
+ *
+ * @param type Type of the object to be created (e.g. OBIX_OBJ_INT).
+ * @param uri URI of the object (Value for "href" attribute).
+ * @param name Value for the "name" attribute of the object.
+ * @param displayName Value for the "displayName" attribute of the object.
+ * @param doc If not @a NULL, a reference to the created XML document will be
+ *            returned here. (Otherwise, this reference can be extracted from
+ *            the returned object using ixml utility methods).
+ * @param obj Reference to the XML element representing created oBIX object will
+ * 			  be returned here.
+ * @return @li @a 0 on success;
+ * 		   @li @a -2 - Wrong input arguments.
+ * 		   @li @a -1 - Other error.
+ */
+int obix_obj_create(const char* type,
+                    const char* uri,
+                    const char* name,
+                    const char* displayName,
+                    IXML_Document** doc,
+                    IXML_Element** obj);
+
+/**
+ * Sets "href" attribute for the provided oBIX object.
+ * The value is created as "<parent.href><uriPart>/".
+ *
+ * @param parent Parent oBIX object.
+ * @param child Child object, whose "href" attribute must be changed.
+ * @param uriPart URI piece which would be appended to the parent's URI in
+ * 				  order to form "href" attribute for child object.
+ * @return @a 0 on success, @a -1 on error.
+ */
+int obix_obj_setChildUri(IXML_Element* parent,
+                         IXML_Element* child,
+                         const char* uriPart);
+
+/**
+ * Creates an oBIX object with provided parameters and adds it as a child to
+ * provided parent object.
+ * Only @a parent and @a type are obligatory parameters. Others can be @a NULL.
+ *
+ * @param parent Parent oBIX object.
+ * @param type Type of the object to be created (e.g. OBIX_OBJ_INT).
+ * @param uriPart URI part for the created object. It will be appended to
+ *                parent's URI in order to create "href" attribute for creating
+ *                object.
+ * @param name Value for the "name" attribute of the object.
+ * @param displayName Value for the "displayName" attribute of the object.
+ * @param child If not @a NULL, a reference to the XML element representing
+ * 			    created oBIX object will be returned here.
+ * @return @a 0 on success, @a -1 on error.
+ */
+int obix_obj_addChild(IXML_Element* parent,
+                      const char* type,
+                      const char* uriPart,
+                      const char* name,
+                      const char* displayName,
+                      IXML_Element** child);
+
+/**
+ * Creates oBIX @a val (the one with value attribute) object with provided
+ * parameters and adds it as a child to provided parent object.
+ * Only @a parent and @a type are obligatory parameters. Others can be @a NULL.
+ *
+ * @param parent Parent oBIX object.
+ * @param type Type of the object to be created (e.g. OBIX_OBJ_INT).
+ * @param uriPart URI part for the created object. It will be appended to
+ *                parent's URI in order to create "href" attribute for creating
+ *                object.
+ * @param name Value for the "name" attribute of the object.
+ * @param displayName Value for the "displayName" attribute of the object.
+ * @param value Value for the created object (value of "val" attribute). If this
+ *  			parameter is @a NULL, object will have "null" attribute set to
+ *  			true.
+ * @param writable If #TRUE, created object will have "writable" attribute set
+ * 				to true. I.e. it will be possible to modify the value of this
+ * 				object.
+ * @param child If not @a NULL, a reference to the XML element representing
+ * 			    created oBIX object will be returned here.
+ * @return @a 0 on success, @a -1 on error.
+ */
+int obix_obj_addValChild(IXML_Element* parent,
+                         const char* type,
+                         const char* uriPart,
+                         const char* name,
+                         const char* displayName,
+                         const char* value,
+                         BOOL writable,
+                         IXML_Element** child);
+
+/**
+ * Creates oBIX @a string object with provided parameters and adds it as a
+ * child to provided parent object.
+ * Similar to call #obix_obj_addValChild with @a type set to #OBIX_OBJ_STR.
+ * Only @a parent is obligatory parameter. Others can be @a NULL.
+ *
+ * @param parent Parent oBIX object.
+ * @param uriPart URI part for the created object. It will be appended to
+ *                parent's URI in order to create "href" attribute for creating
+ *                object.
+ * @param name Value for the "name" attribute of the object.
+ * @param displayName Value for the "displayName" attribute of the object.
+ * @param value Value for the created object (value of "val" attribute). If this
+ *  			parameter is @a NULL, object will have "null" attribute set to
+ *  			true.
+ * @param writable If #TRUE, created object will have "writable" attribute set
+ * 				to true. I.e. it will be possible to modify the value of this
+ * 				object.
+ * @param child If not @a NULL, a reference to the XML element representing
+ * 			    created oBIX object will be returned here.
+ * @return @a 0 on success, @a -1 on error.
+ */
+int obix_obj_addStringChild(IXML_Element* parent,
+                            const char* uriPart,
+                            const char* name,
+                            const char* displayName,
+                            const char* value,
+                            BOOL writable,
+                            IXML_Element** child);
+
+/**
+ * Creates oBIX @a integer object with provided parameters and adds it as a
+ * child to provided parent object.
+ * Only @a parent is obligatory parameter. Others can be @a NULL.
+ *
+ * @param parent Parent oBIX object.
+ * @param uriPart URI part for the created object. It will be appended to
+ *                parent's URI in order to create "href" attribute for creating
+ *                object.
+ * @param name Value for the "name" attribute of the object.
+ * @param displayName Value for the "displayName" attribute of the object.
+ * @param value Value for the created object (value of "val" attribute).
+ * @param writable If #TRUE, created object will have "writable" attribute set
+ * 				to true. I.e. it will be possible to modify the value of this
+ * 				object.
+ * @param child If not @a NULL, a reference to the XML element representing
+ * 			    created oBIX object will be returned here.
+ * @return @a 0 on success, @a -1 on error.
+ */
+int obix_obj_addIntegerChild(IXML_Element* parent,
+                             const char* uriPart,
+                             const char* name,
+                             const char* displayName,
+                             int value,
+                             BOOL writable,
+                             IXML_Element** child);
+
+/**
+ * Creates oBIX @a integer object with provided parameters and adds it as a
+ * child to provided parent object.
+ * Only @a parent is obligatory parameter. Others can be @a NULL.
+ *
+ * @param parent Parent oBIX object.
+ * @param uriPart URI part for the created object. It will be appended to
+ *                parent's URI in order to create "href" attribute for creating
+ *                object.
+ * @param name Value for the "name" attribute of the object.
+ * @param displayName Value for the "displayName" attribute of the object.
+ * @param value Value for the created object (value of "val" attribute).
+ * @param precision Number of digits after floating point.
+ * @param writable If #TRUE, created object will have "writable" attribute set
+ * 				to true. I.e. it will be possible to modify the value of this
+ * 				object.
+ * @param child If not @a NULL, a reference to the XML element representing
+ * 			    created oBIX object will be returned here.
+ * @return @a 0 on success, @a -1 on error.
+ */
+int obix_obj_addRealChild(IXML_Element* parent,
+                          const char* uriPart,
+                          const char* name,
+                          const char* displayName,
+                          double value,
+                          int precision,
+                          BOOL writable,
+                          IXML_Element** child);
+
+/**
+ * Creates oBIX @a boolean object with provided parameters and adds it as a
+ * child to provided parent object.
+ * Only @a parent is obligatory parameter. Others can be @a NULL.
+ *
+ * @param parent Parent oBIX object.
+ * @param uriPart URI part for the created object. It will be appended to
+ *                parent's URI in order to create "href" attribute for creating
+ *                object.
+ * @param name Value for the "name" attribute of the object.
+ * @param displayName Value for the "displayName" attribute of the object.
+ * @param value Value for the created object (value of "val" attribute).
+ * @param writable If #TRUE, created object will have "writable" attribute set
+ * 				to true. I.e. it will be possible to modify the value of this
+ * 				object.
+ * @param child If not @a NULL, a reference to the XML element representing
+ * 			    created oBIX object will be returned here.
+ * @return @a 0 on success, @a -1 on error.
+ */
+int obix_obj_addBooleanChild(IXML_Element* parent,
+                             const char* uriPart,
+                             const char* name,
+                             const char* displayName,
+                             BOOL value,
+                             BOOL writable,
+                             IXML_Element** child);
 
 #endif /* OBIX_UTILS_H_ */

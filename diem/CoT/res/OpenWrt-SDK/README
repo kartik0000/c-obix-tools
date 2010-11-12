@@ -1,9 +1,11 @@
 This folder contains scripts which can be used to compile CoT project using 
 OpenWrt SDK (http://openwrt.org).
 
-Tested with the following OpenWrt releases:
- - kamikaze 7.09
+Tested with the following OpenWrt SDK releases:
  - kamikaze 8.09
+ - kamikaze 8.09.2
+ If you need to compile for a previous kamikaze releases, try compiling with
+ SDK 8.09 - it should work well (tested with OpenWrt kamikaze 7.09). 
 
 NOTE:
 
@@ -16,9 +18,9 @@ USAGE:
 
 1. Obtain a working version of OpenWrt SDK
 
-   You can use ready builds from Downloads section of OpenWrt website 
-   (e.g. http://downloads.openwrt.org/kamikaze/7.09/brcm47xx-2.6/OpenWrt-SDK-br
-   cm47xx-2.6-for-Linux-i686.tar.bz2) or compile it from sources:
+   You can use ready SDK builds from Downloads section of OpenWrt website 
+   (e.g. http://downloads.openwrt.org/kamikaze/8.09.2/brcm47xx/OpenWrt-SDK-brcm
+   47xx-for-Linux-i686.tar.bz2) or compile it from sources:
    
    - Get sources of required OpenWRT release either from svn or from Downloads
      section of http://openwrt.org.
@@ -26,7 +28,7 @@ USAGE:
    - If everything is OK configuration menu will appear:
       - Choose required target platform in 'Target System' submenu;
       - In 'Target Images' submenu uncheck all options;
-      - Check the 'Build the OpenWrt Image Builder' option;
+      - Check the 'Build the OpenWrt SDK' option;
       - Save and exit menu.
    - Execute 'make V=99' and have some coffee (or lunch) while OpenWrt SDK is
      being built for you.
@@ -40,9 +42,11 @@ USAGE:
      <OpenWrt SDK>/package/cot/
    - The Makefile you've just copied says to Open Wrt SDK that it should 
      download distribution of the project from the Internet. If you don't want
-     SDK to do it (or URL form Makefile is not available, which is quite 
-     possible) than just put the tarball (.tar.bz2 archive of the project) to 
+     SDK to do it, for instance, when you are compiling the latest sources from
+     SVN, then just put the tarball (.tar.bz2 archive of the project) to 
      the Open Wrt SDK download folder (usually it is <OpenWrt SDK>/dl/).
+     In order to create a tarball from CoT source code, run 'make dist' from
+     CoT project root.
       
 3. Get makefiles for dependency libraries
 
@@ -51,6 +55,7 @@ USAGE:
    - libfcgi
    - libupnp
    - libcurl
+   - libxml2
    These also require following additional libraries to be compiled:
    - openssl
    - uclibc++
@@ -62,8 +67,8 @@ USAGE:
    yourself instead). Makefiles for these libraries (as well as some patch 
    files) can be downloaded from the OpenWrt SVN repository:
    
-   - If you use old Open Wrt SDK release (<= 8.09) than checkout fcgi, libupnp, 
-     curl and uclibc++ folders from 
+   - If you use Open Wrt SDK version 8.09 than checkout fcgi, libupnp, 
+     curl, libxml2 and uclibc++ folders from 
      svn://svn.openwrt.org/openwrt/branches/packages_8.09/libs/
      Otherwise use svn://svn.openwrt.org/openwrt/packages/libs/ for latest 
      version of makefiles.
@@ -71,10 +76,11 @@ USAGE:
      build root in ./package/ folder: 
       svn://svn.openwrt.org/openwrt/tags/<release tag>/package - for old 
                                                                  releases
-      svn://svn.openwrt.org/openwrt/package                    - for latest
+      svn://svn.openwrt.org/openwrt/trunk/package              - for latest
                                                                  version
    - Save downloaded folders to <OpenWrt SDK>/package/ folder.
- 
+   
+   
 4. Time to build
 
    Now everything should be ready for compilation. Go to <OpenWrt SDK> root 

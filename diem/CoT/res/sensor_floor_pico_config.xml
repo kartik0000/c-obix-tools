@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+	<!--
+		Copyright (c) 2010 Andrey Litvinov Permission is hereby granted, free
+		of charge, to any person obtaining a copy of this software and
+		associated documentation files (the "Software"), to deal in the
+		Software without restriction, including without limitation the rights
+		to use, copy, modify, merge, publish, distribute, sublicense, and/or
+		sell copies of the Software, and to permit persons to whom the
+		Software is furnished to do so, subject to the following conditions:
+
+		The above copyright notice and this permission notice shall be
+		included in all copies or substantial portions of the Software. THE
+		SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+		IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+		MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+		IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+		CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+		TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+		SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+	-->
+
+	<!--
+		This is a configuration file for MariMils (Else) Sensor Floor driver,
+		which uses Pico server HTTP feed to read the data.
+	-->
+<config>
+
+	<!-- Connection with oBIX Server -->
+	<connection id="0" type="http">
+		<server-address val="http://localhost" lobby="/obix/" />
+		<poll-interval val="1000" />
+		<long-poll>
+			<min-interval val="200" />
+			<max-interval val="60000" />
+		</long-poll>
+		<max-devices val="1" />
+		<max-listeners val="1" />
+	</connection>
+
+	<!--
+		Optional tag contains SSL setting. Can be used to setup connection to
+		oBIX server over HTTPS.
+	-->
+	<ssl>
+		<!--
+			If true, certificate of remote server will be checked to be trusted.
+			If false, no check is done and connection is established in any case.
+			In that case, two other parameters will make no effect.
+		-->
+		<verify-peer val="true" />
+		<!--
+			If true, remote host name will be checked. It should correspond to
+			Common Name field of provided certificate. If false, no such check is
+			performed
+		-->
+		<verify-host val="false" />
+		<!--
+			Following tag can be used to provide custom file with trusted
+			certificates.
+		-->
+		<!-- <ca-file val="/etc/lighttpd/ca.crt"/> -->
+	</ssl>
+	
+	<!-- Log settings -->
+	<log>
+		<level val="warning" />
+		<!-- <use-syslog facility="user" /> -->
+	</log>
+
+	<!-- Driver specific settings -->	
+	<pico-settings>
+		<!-- Address where device data will be published at oBIX server -->
+		<obix-url val="/obix/SensorFloor/" />
+		<!-- Address of the Pico server -->
+		<pico-server val="http://10.10.10.254:8081" />
+		<!-- Name of the room at Pico server to monitor -->
+		<room-name val="danceroom" />
+		<!-- 
+			Target monitoring settings:
+			count	- Amount of static targets to be published at oBIX server
+					  (i.e. max amount of people to be tracked simultaneously)
+			point-count - Amount of dots to be published inside each target.
+					  In most cases these dots are not needed, but may be used 
+					  to show separately left and right foot of the person.
+			kill-timeout - Timeout after which the target is supposed as not 
+					  active if no new data has been received. 
+		 -->
+		<target count="4" point-count="2" kill-timeout="15000"/>
+	</pico-settings>
+
+</config>

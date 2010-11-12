@@ -99,7 +99,7 @@ long _writeIntervalPerDevice = 0;
 long _pollFieldsPerDevice = 0;
 POLL_TYPE _pollType = POLL_T_NONE;
 long _longPollMinInterval = 0;
-long _deviceIdShift = 0;
+long _deviceId = 0;
 
 int* _connectionIds;
 IXML_Element* _deviceXML;
@@ -363,7 +363,7 @@ int parseInputArguments(int argumentsCount, char** arguments)
             break;
         case 'i': // Device ID shift (id of the first device which is registered
             // at the server by this poll generator (default is 0).
-            if (!parseLong(&_deviceIdShift, arg, 2))
+            if (!parseLong(&_deviceId, arg, 2))
             {	// parsing failed
                 return -1;
             }
@@ -594,7 +594,7 @@ char* getDeviceData(int deviceId)
 {
     // generate and set device URI
     char* deviceUri =
-        getStringFromLong("/obix/TestDevice%d/", deviceId + _deviceIdShift);
+        getStringFromLong("/obix/TestDevice%d/", deviceId + _deviceId);
     if (deviceUri == NULL)
     {
         return NULL;

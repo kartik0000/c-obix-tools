@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<stream version="1.2">
+ <room id="I210" time="117128848694">
+  <cluster id="4" name="" x="1.72" y="0.64" vx="0.14" vy="-0.17" size="0.25" magnitude="211.00" zones="">
+   <m mcu="1" sid="35" id="1" value="91.00"/>
+   <m mcu="1" sid="34" id="2" value="120.00"/>
+  </cluster>
+  <cluster id="5" name="" x="1.79" y="2.21" vx="0.20" vy="0.01" size="0.25" magnitude="83.00" zones="">
+   <m mcu="1" sid="41" id="6" value="73.00"/>
+   <m mcu="1" sid="40" id="7" value="10.00"/>
+  </cluster>
+  <cluster id="4" name="" x="1.73" y="0.65" vx="0.15" vy="-0.18" size="0.25" magnitude="212.00" zones="">
+   <m mcu="1" sid="35" id="1" value="92.00"/>   
+  </cluster>
+  <cluster id="4" name="" x="1.74" y="0.64" vx="0.14" vy="-0.17" size="0.25" magnitude="211.00" zones="">
+   <m mcu="1" sid="35" id="1" value="91.00"/>
+   <m mcu="1" sid="34" id="2" value="120.00"/>
+   <m mcu="1" sid="34" id="3" value="120.00"/>
+  </cluster>
+  <cluster id="4" name="" x="1.75" y="0.64" vx="0.14" vy="-0.17" size="0.25" magnitude="211.00" zones="">
+   <m mcu="1" sid="35" id="1" value="95.00"/>
+  </cluster>
+ </room>
+ <event type="ENTERROOM" room="I210" time="117128849214"/>
+</stream>
