@@ -47,7 +47,7 @@
 		</obj>
 	</obj>
 	<!--
-		Watch object, which can be used to subscribe for operations. When 
+		Watch object that can be used to subscribe for operations. When 
 		subscribed operation is executed, it's input argument is forwarded with
 		next pollChanges response. Then subscriber should send results of 
 		operation execution invoking "operationResponse".

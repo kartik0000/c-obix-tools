@@ -1,11 +1,11 @@
 
-  CoT - C oBIX Tools v.0.2
+  CoT - C oBIX Tools v.0.2 [not released yet]
   
  Set of tools for oBIX-based solutions development.
  
 ==============>>
 
- Copyright (c) 2009 Andrey Litvinov [litvinov.andrey@gmail.com]    
+ Copyright (c) 2009, 2011 Andrey Litvinov [litvinov.andrey@gmail.com]    
  
  CoT is a free software. It is licensed under MIT (X11) License. Text of the
  license can be found at the file COPYING.
@@ -48,7 +48,7 @@
  The main difference of this oBIX server from other available implementations 
  (like oFMS http://www.stok.fi/eng/ofms/index.html or 
  oX http://obix-server.sourceforge.net) is that it is written in C and thus can 
- be run on cheap low-resource platforms. 
+ run on cheap low-resource platforms. 
 
  The whole project was developed with the main idea to minimize resource 
  consumption and make the implementation as easy as possible. Thus, the server 
@@ -82,6 +82,16 @@
     amount of poll requests and in the same time receive immediate updates from 
     the server. Additional information about this feature can be found at 
     http://c-obix-tools.googlecode.com/files/long_polling.pdf .
+  - Operation forwarding. This is an advanced feature that allows clients to 
+    publish operations at the oBIX server with signUp service and handle this 
+    operations remotely. Registering for receiving operation calls is done using
+    Watch.addOperation (see OperationWatch contract definition at 
+    res/server_def.xml). Then every invocation is sent to the client with Watch 
+    poll responses. Client is then responsible to handle the operation and send
+    the response back to server using Watch.operationResponse function. 
+    C oBIX Client library provides a convenient API for using this feature that 
+    hides all communication with the server.
+    TODO: improve this description.
 
  An example of running server can be found at http://testbed.tml.hut.fi/obix/ 
  
@@ -303,10 +313,13 @@
  						
  	- "bin-environment"	This variable can be totally omitted, or used, for 
  						instance, for specifying the path to shared libraries.
+ 	
  	In order to check whether the launch command in "bin-path" is correct you 
  	can try to execute it from the command line. If everything is fine, than 
  	oBIX server should start up, write few log messages and then immediately 
- 	shutdown gracefully because of no fcgi connection.
+ 	shutdown gracefully because of no fcgi connection. If you have configured
+ 	oBIX server to use syslog for logging messages, make sure, that log doesn't
+ 	contain any error messages except errors about fcgi.
  									 		 
  6. Locate your lighttpd configuration file. Usually it is at /etc/lighttpd/
  
