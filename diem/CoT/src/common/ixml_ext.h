@@ -268,4 +268,44 @@ int ixmlElement_freeChildElement(IXML_Element* parent, IXML_Element* child);
  */
 IXML_Element* ixmlAttr_getOwnerElement(IXML_Attr* attr);
 
+/**
+ * Returns the attribute value. If the attribute is not found, logs an error
+ * message.
+ *
+ * @param element Element whose attribute should be returned;
+ * @param attrName The name of the attribute.
+ * @return Value of the specified attribute or @a NULL if the attribute is not
+ *         found.
+ */
+const char* ixmlElement_getObligarotyAttr(
+    IXML_Element* element,
+    const char* attrName);
+
+/**
+ * Returns first child tag of the specified element.
+ *
+ * @param element Element whose child should be returned.
+ * @return First child tag of the specified element, or @a NULL if the element
+ *         does not have nested tags.
+ */
+IXML_Element* ixmlElement_getFirstChild(IXML_Element* element);
+
+/**
+ * Chooses elements from the input list that have specified value of the
+ * specified attribute. Input list remains unchanged.
+ *
+ * @param filteredList List that contains only elements with specified
+ *        attribute value;
+ * @param list List of XML elements;
+ * @param attrName Name of the attribute to check;
+ * @param attrValue Desired attribute value;
+ * @return @a IXML_SUCCESS if everything went well, or one of @a ixml error
+ * 		   codes.
+ */
+int ixmlNodeList_filterListByAttrValue(
+    IXML_NodeList** filteredList,
+    IXML_NodeList* list,
+    const char* attrName,
+    const char* attrValue);
+
 #endif /* IXML_EXT_H_ */

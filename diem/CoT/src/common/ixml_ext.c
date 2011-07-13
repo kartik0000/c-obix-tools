@@ -389,3 +389,97 @@ int ixmlElement_freeChildElement(IXML_Element* parent, IXML_Element* child)
 
     return IXML_SUCCESS;
 }
+
+const char* ixmlElement_getObligarotyAttr(
+    IXML_Element* element,
+    const char* attrName)
+{
+    const char* attr = ixmlElement_getAttribute(element, attrName);
+    if (attr == NULL)
+    {
+        log_error("Tag <%s/> does not have obligatory attribute \"%s\".",
+                  ixmlElement_getTagName(element), attrName);
+    }
+
+    return attr;
+}
+
+IXML_Element* ixmlElement_getFirstChild(IXML_Element* element)
+{
+	IXML_Node* childNode = ixmlNode_getFirstChild(ixmlElement_getNode(element));
+	IXML_Element* childElement = NULL;
+
+	while (childNode != NULL)
+	{
+		IXML_Element* childElement = ixmlNode_convertToElement(childNode);
+		if (childElement != NULL)
+			break;
+
+		childNode = ixmlNode_getNextSibling(childNode);
+	}
+
+	return childElement;
+}
+
+static IXML_NodeList* ixmlNodeList_alloc(IXML_Node* node)
+{
+	IXML_NodeList* output = (IXML_NodeList*) malloc(sizeof(IXML_NodeList));
+	if (output == NULL)
+	{
+		return NULL;
+	}
+
+	output->next = NULL;
+	output->nodeItem = node;
+	return output;
+}
+
+int ixmlNodeList_filterListByAttrValue(
+    IXML_NodeList** filteredList,
+    IXML_NodeList* list,
+    const char* attrName,
+    const char* attrValue)
+{
+    IXML_NodeList* iterator = list;
+    IXML_NodeList* outputList = NULL;
+    IXML_NodeList* outputTail = NULL;
+
+    while (iterator != NULL)
+    {
+        IXML_Element* element = ixmlNode_convertToElement(iterator->nodeItem);
+        if (element == NULL)
+        {
+            if (outputList != NULL)
+                ixmlNodeList_free(outputList);
+            return IXML_INVALID_PARAMETER;
+        }
+
+        const char* attr = ixmlElement_getAttribute(element, attrName);
+        if ((attr != NULL) && (strcmp(attrValue, attr) == 0))
+        {
+            IXML_NodeList* listElement = ixmlNodeList_alloc(iterator->nodeItem);
+            if (listElement == NULL)
+            {
+                if (outputList != NULL)
+                    ixmlNodeList_free(outputList);
+                return IXML_INSUFFICIENT_MEMORY;
+            }
+
+            if (outputTail == NULL)
+            {
+            	outputList = listElement;
+            }
+            else
+            {
+            	outputTail->next = listElement;
+            }
+
+            outputTail = listElement;
+        }
+
+        iterator = iterator->next;
+    }
+
+    *filteredList = outputList;
+    return IXML_SUCCESS;
+}

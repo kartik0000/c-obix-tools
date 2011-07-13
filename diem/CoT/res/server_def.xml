@@ -80,5 +80,9 @@
 	<op href="OperationResponse">
 		<obj name="out"/>
 	</op>
+	
+	<obj href="ThereGate/Service">
+		<str name="name" />
+	</obj>
 
 </obj>

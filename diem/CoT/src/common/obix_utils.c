@@ -100,6 +100,7 @@ const char* OBIX_ATTR_MIN = "min";
 const char* OBIX_ATTR_MAX = "max";
 const char* OBIX_ATTR_IN = "in";
 const char* OBIX_ATTR_OUT = "out";
+const char* OBIX_ATTR_OF = "of";
 /** @} */
 
 const char* XML_TRUE = "true";
@@ -583,6 +584,11 @@ int obix_obj_addValChild(IXML_Element* parent,
 
     if (writable)
     {
+    	if (uriPart == NULL) {
+    		// writable element cannot be without URI
+    		return -2;
+    	}
+
         error += ixmlElement_setAttributeWithLog(obixElem,
                  OBIX_ATTR_WRITABLE,
                  XML_TRUE);

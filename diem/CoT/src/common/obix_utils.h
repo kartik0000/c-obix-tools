@@ -152,6 +152,8 @@ extern const char* OBIX_ATTR_MAX;
 extern const char* OBIX_ATTR_IN;
 /** oBIX attribute @a "out". Specifies output argument type of the operation.*/
 extern const char* OBIX_ATTR_OUT;
+/** oBIX attribute @a "of". */
+extern const char* OBIX_ATTR_OF;
 /** @} */
 
 /** String representation of boolean @a true value. */

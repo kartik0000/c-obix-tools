@@ -220,8 +220,9 @@ static int obixRequest_parseServerAddress(Request* request)
         return -1;
     }
 
-    //allocate space for server address (enough to hold http prefix and port)
-    request->serverAddress = (char*) malloc(strlen(serverHost) + 16);
+    int addressLength = strlen(serverHost);
+    //allocate space for server address (enough to hold http prefix)
+    request->serverAddress = (char*) malloc(addressLength + 9);
     if (request->serverAddress == NULL)
     {
         log_error("Unable to allocate memory for server address. "
@@ -231,22 +232,18 @@ static int obixRequest_parseServerAddress(Request* request)
         return -1;
     }
 
-    switch (serverPort)
+    if (serverPort == 443)
     {
-    case 80:
-    case 8080:
-        sprintf(request->serverAddress, "http://%s", serverHost);
-        break;
-    case 443:
-        sprintf(request->serverAddress, "https://%s", serverHost);
-        break;
-    default:
-        sprintf(request->serverAddress, "http://%s:%s", serverHost,
-                serverPortStr);
-        break;
+    	sprintf(request->serverAddress, "https://%s", serverHost);
+    	addressLength += 8;
+    }
+    else
+    {
+    	sprintf(request->serverAddress, "http://%s", serverHost);
+    	addressLength += 7;
     }
 
-    request->serverAddressLength = strlen(request->serverAddress);
+    request->serverAddressLength = addressLength;
 
     return 0;
 }
