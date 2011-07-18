@@ -63,6 +63,8 @@ endef
 
 define Package/cot-adapters/install
 	$(INSTALL_DIR) $(1)/usr/bin $(1)/etc/cot
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/example_timer $(1)/usr/bin/
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/res/example_timer_config.xml $(1)/etc/cot/
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/sensor_floor_obix $(1)/usr/bin/
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/res/sensor_floor_obix_config.xml $(1)/etc/cot/
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/sensor_floor_pico $(1)/usr/bin/
